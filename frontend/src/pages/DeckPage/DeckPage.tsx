@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, HomeLinkButton, PageShell } from "@/components";
-import rawCardData from "../../../../game-core/data/cards.json";
+import rawCardData from "@/data/cards.json";
 import styles from "./DeckPage.module.css";
 
 type CardType = "spell" | "summon" | "art" | "modifier";

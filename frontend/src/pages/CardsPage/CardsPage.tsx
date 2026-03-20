@@ -2,7 +2,7 @@
 import { Link } from "react-router-dom";
 import { Card, HomeLinkButton, PageShell } from "@/components";
 import { ROUTES } from "@/constants";
-import rawCardData from "../../../../game-core/data/cards.json";
+import rawCardData from "@/data/cards.json";
 import styles from "./CardsPage.module.css";
 
 type CardType = "spell" | "summon" | "art" | "modifier";
