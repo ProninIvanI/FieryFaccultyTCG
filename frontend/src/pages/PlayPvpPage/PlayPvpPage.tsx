@@ -102,6 +102,7 @@ const handleServiceEvent = (
 export const PlayPvpPage = () => {
   const session = authService.getSession();
   const playerId = session?.userId ?? '';
+  const authToken = session?.token ?? '';
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [sessionId, setSessionId] = useState(() => buildSessionId());
   const [seed, setSeed] = useState('1');
@@ -157,6 +158,10 @@ export const PlayPvpPage = () => {
       setError('Для PvP нужен вход в аккаунт.');
       return;
     }
+    if (!authToken) {
+      setError('Не удалось получить auth token для PvP.');
+      return;
+    }
 
     const normalizedSessionId = sessionId.trim();
     if (!normalizedSessionId) {
@@ -170,13 +175,13 @@ export const PlayPvpPage = () => {
         ? {
             type: 'join' as const,
             sessionId: normalizedSessionId,
-            playerId,
+            token: authToken,
             seed: Number.isFinite(parsedSeed) ? parsedSeed : 1,
           }
         : {
             type: 'join' as const,
             sessionId: normalizedSessionId,
-            playerId,
+            token: authToken,
           };
 
     setIsSubmitting(true);

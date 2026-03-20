@@ -1,14 +1,16 @@
-import { AuthSession, UserAccount } from '@/types';
+import axiosInstance from '@/services/api/axiosInstance';
+import { AuthSession } from '@/types';
 
-const USERS_KEY = 'fftcg_users';
 const SESSION_KEY = 'fftcg_session';
 
-const isUserAccount = (value: unknown): value is UserAccount => {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const user = value as UserAccount;
-  return Boolean(user.id && user.email && user.username && user.passwordHash && user.createdAt);
+type AuthResponse = {
+  user: {
+    id: string;
+    email: string;
+    username: string;
+    createdAt: string;
+  };
+  session: AuthSession;
 };
 
 const isAuthSession = (value: unknown): value is AuthSession => {
@@ -19,39 +21,8 @@ const isAuthSession = (value: unknown): value is AuthSession => {
   return Boolean(session.userId && session.token && session.createdAt);
 };
 
-const loadUsers = (): UserAccount[] => {
-  const raw = localStorage.getItem(USERS_KEY);
-  if (!raw) {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter(isUserAccount);
-  } catch {
-    return [];
-  }
-};
-
-const saveUsers = (users: UserAccount[]): void => {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-};
-
 const saveSession = (session: AuthSession): void => {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-};
-
-const hashPassword = async (value: string): Promise<string> => {
-  if (crypto?.subtle) {
-    const data = new TextEncoder().encode(value);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
-  return btoa(value);
 };
 
 export const authService = {
@@ -60,46 +31,41 @@ export const authService = {
     username: string;
     password: string;
   }): Promise<{ ok: boolean; error?: string }> {
-    const users = loadUsers();
-    if (users.some((u) => u.email.toLowerCase() === params.email.toLowerCase())) {
-      return { ok: false, error: 'Email уже зарегистрирован' };
+    try {
+      await axiosInstance.post<{ success: boolean; data?: AuthResponse }>(
+        '/api/auth/register',
+        params,
+      );
+      return { ok: true };
+    } catch (error) {
+      const message = typeof error === 'object' && error && 'error' in error
+        ? String((error as { error?: unknown }).error)
+        : 'Ошибка регистрации';
+      return { ok: false, error: message };
     }
-    if (users.some((u) => u.username.toLowerCase() === params.username.toLowerCase())) {
-      return { ok: false, error: 'Имя пользователя занято' };
-    }
-    const passwordHash = await hashPassword(params.password);
-    const user: UserAccount = {
-      id: `user_${Date.now()}`,
-      email: params.email,
-      username: params.username,
-      passwordHash,
-      createdAt: new Date().toISOString(),
-    };
-    users.push(user);
-    saveUsers(users);
-    return { ok: true };
   },
 
   async login(params: {
     email: string;
     password: string;
   }): Promise<{ ok: boolean; error?: string; session?: AuthSession }> {
-    const users = loadUsers();
-    const user = users.find((u) => u.email.toLowerCase() === params.email.toLowerCase());
-    if (!user) {
-      return { ok: false, error: 'Неверный email или пароль' };
+    try {
+      const response = await axiosInstance.post<{ success: boolean; data?: AuthResponse }>(
+        '/api/auth/login',
+        params,
+      );
+      const session = response.data.data?.session;
+      if (!session) {
+        return { ok: false, error: 'Сервер не вернул сессию' };
+      }
+      saveSession(session);
+      return { ok: true, session };
+    } catch (error) {
+      const message = typeof error === 'object' && error && 'error' in error
+        ? String((error as { error?: unknown }).error)
+        : 'Ошибка входа';
+      return { ok: false, error: message };
     }
-    const passwordHash = await hashPassword(params.password);
-    if (passwordHash !== user.passwordHash) {
-      return { ok: false, error: 'Неверный email или пароль' };
-    }
-    const session: AuthSession = {
-      userId: user.id,
-      token: `token_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
-    saveSession(session);
-    return { ok: true, session };
   },
 
   getSession(): AuthSession | null {

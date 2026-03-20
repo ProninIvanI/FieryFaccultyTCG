@@ -5,7 +5,7 @@ export type GameStateSnapshot = Record<string, unknown>;
 export interface JoinMatchMessage {
   type: 'join';
   sessionId: string;
-  playerId: string;
+  token: string;
   seed?: number;
 }
 

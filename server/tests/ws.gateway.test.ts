@@ -35,14 +35,22 @@ describe('ws gateway integration', () => {
     const port = 45000 + Math.floor(Math.random() * 1000);
     const registry = new SessionRegistry((seed) => createEngine(seed));
     const service = new GameService(registry);
-    const gateway = new WsGateway(service);
+    const gateway = new WsGateway(service, async (token) => {
+      if (token === 'token_1') {
+        return { userId: 'player_1' };
+      }
+      if (token === 'token_2') {
+        return { userId: 'player_2' };
+      }
+      return null;
+    });
     gateway.start(port);
     gateways.push(gateway);
 
     const playerOne = new WebSocket(`ws://127.0.0.1:${port}`);
     await waitForOpen(playerOne);
 
-    playerOne.send(JSON.stringify({ type: 'join', sessionId: 'match-sync', playerId: 'player_1', seed: 123 }));
+    playerOne.send(JSON.stringify({ type: 'join', sessionId: 'match-sync', token: 'token_1', seed: 123 }));
     const firstJoinState = await waitForMessage<{ type: 'state' }>(playerOne);
     expect(firstJoinState.type).toBe('state');
 
@@ -52,7 +60,7 @@ describe('ws gateway integration', () => {
     const broadcastToPlayerOne = waitForMessage<{ type: 'state' }>(playerOne);
     const secondJoinState = waitForMessage<{ type: 'state' }>(playerTwo);
 
-    playerTwo.send(JSON.stringify({ type: 'join', sessionId: 'match-sync', playerId: 'player_2' }));
+    playerTwo.send(JSON.stringify({ type: 'join', sessionId: 'match-sync', token: 'token_2' }));
 
     const [playerOneUpdated, playerTwoUpdated] = await Promise.all([broadcastToPlayerOne, secondJoinState]);
 

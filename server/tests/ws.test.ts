@@ -34,7 +34,7 @@ describe('ws dto parsing', () => {
   });
 
   it('accepts join message', () => {
-    const result = parseClientMessage(JSON.stringify({ type: 'join', sessionId: 's1', playerId: 'p1', seed: 42 }));
+    const result = parseClientMessage(JSON.stringify({ type: 'join', sessionId: 's1', token: 'token_1', seed: 42 }));
     expect(result.ok).toBe(true);
   });
 });

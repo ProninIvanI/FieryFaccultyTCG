@@ -13,6 +13,28 @@ export interface HealthCheckResponse {
   database?: string;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  username: string;
+  createdAt: string;
+}
+
+export interface AuthSessionResponse {
+  userId: string;
+  token: string;
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+  session: AuthSessionResponse;
+}
+
+export interface AuthenticatedUserResponse {
+  user: AuthUser;
+}
+
 
 
 

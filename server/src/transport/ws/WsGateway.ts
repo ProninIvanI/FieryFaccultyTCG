@@ -1,13 +1,19 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { GameService } from '../../application/GameService';
 import { ClientMessageDto, parseClientMessage, ServerMessageDto } from './dto';
+import { AuthIdentity, resolveAuthIdentity } from '../../infrastructure/auth/AuthIdentityClient';
+
+type IdentityResolver = (token: string) => Promise<AuthIdentity | null>;
 
 export class WsGateway {
   private wss?: WebSocketServer;
   private readonly sessionSockets = new Map<string, Set<WebSocket>>();
   private readonly socketBindings = new Map<WebSocket, { sessionId: string; playerId: string }>();
 
-  constructor(private readonly gameService: GameService) {}
+  constructor(
+    private readonly gameService: GameService,
+    private readonly identityResolver: IdentityResolver = resolveAuthIdentity,
+  ) {}
 
   start(port: number): void {
     this.wss = new WebSocketServer({ port });
@@ -21,23 +27,33 @@ export class WsGateway {
   private handleConnection(socket: WebSocket): void {
     socket.on('message', (data) => {
       const raw = data.toString();
-      const parsed = parseClientMessage(raw);
-      if (!parsed.ok) {
-        this.send(socket, { type: 'error', error: parsed.error });
-        return;
-      }
-      this.routeMessage(socket, parsed.value);
+      void this.handleIncomingMessage(socket, raw);
     });
   }
 
-  private routeMessage(socket: WebSocket, message: ClientMessageDto): void {
+  private async handleIncomingMessage(socket: WebSocket, raw: string): Promise<void> {
+    const parsed = parseClientMessage(raw);
+    if (!parsed.ok) {
+      this.send(socket, { type: 'error', error: parsed.error });
+      return;
+    }
+    await this.routeMessage(socket, parsed.value);
+  }
+
+  private async routeMessage(socket: WebSocket, message: ClientMessageDto): Promise<void> {
     if (message.type === 'join') {
-      const result = this.gameService.join(message.sessionId, message.playerId, message.seed);
+      const identity = await this.identityResolver(message.token);
+      if (!identity) {
+        this.send(socket, { type: 'error', error: 'Unauthorized' });
+        return;
+      }
+
+      const result = this.gameService.join(message.sessionId, identity.userId, message.seed);
       if (!result.ok) {
         this.send(socket, { type: 'error', error: result.error });
         return;
       }
-      this.attachSocket(message.sessionId, message.playerId, socket);
+      this.attachSocket(message.sessionId, identity.userId, socket);
       this.broadcast(message.sessionId, { type: 'state', state: result.session.getState() });
       return;
     }

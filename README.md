@@ -274,6 +274,21 @@ GET /api/health
 
 Проверяет статус сервера и подключение к базе данных.
 
+### Auth
+
+```
+POST /api/auth/register
+POST /api/auth/login
+GET /api/auth/me
+```
+
+Текущий минимальный серверный auth-контур:
+- пользователи хранятся в `backend + postgres`;
+- `frontend` больше не хранит список пользователей как источник истины;
+- в `localStorage` остаётся только текущая клиентская сессия (`fftcg_session`);
+- `GET /api/auth/me` использует `Authorization: Bearer <token>`.
+- WebSocket-сервер использует этот же token для привязки PvP-подключения к серверной identity пользователя.
+
 ### API Routes
 
 ```
@@ -287,7 +302,8 @@ GET /api
 На текущем этапе для первого живого PvP используется временный bootstrap без отдельной HTTP-ручки матчмейкинга.
 
 - `sessionId` задаётся или генерируется прямо во frontend UI.
-- `playerId` берётся из `authService` после логина пользователя.
+- `playerId` вычисляется на стороне `server` из auth-сессии пользователя.
+- Frontend для `join` передаёт `token`, а не доверенный клиентом `playerId`.
 - Игрок 1 создаёт/вводит `sessionId` и подключается к WS первым.
 - Игрок 2 вводит тот же `sessionId` и подключается ко второй стороне матча.
 - Для подключения используется WS-сообщение формата:
@@ -296,7 +312,7 @@ GET /api
 {
   "type": "join",
   "sessionId": "match-123",
-  "playerId": "user_123",
+  "token": "<bearer-token>",
   "seed": 123
 }
 ```
