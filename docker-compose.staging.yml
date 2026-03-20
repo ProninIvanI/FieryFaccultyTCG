@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: projectbot_postgres_staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-projectbot}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-projectbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: projectbot_backend_staging
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-projectbot}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      API_PREFIX: ${API_PREFIX:-/api}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    command: sh -c "npm run build && npm run start"
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: projectbot_game_server_staging
+    restart: unless-stopped
+    environment:
+      WS_PORT: 4000
+    ports:
+      - "${WS_PORT:-4000}:4000"
+    networks:
+      - app-network
+    command: sh -c "npm run build && npm run start"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: projectbot_frontend_staging
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3001}
+      VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:4000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+      - server
+    networks:
+      - app-network
+    command: sh -c "npm run build && npm run preview -- --host 0.0.0.0 --port 3000"
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

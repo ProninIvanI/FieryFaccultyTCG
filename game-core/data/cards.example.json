@@ -1,0 +1,35 @@
+[
+  {
+    "id": "fireball",
+    "name": "Fireball",
+    "type": "spell",
+    "manaCost": 3,
+    "speed": 2,
+    "targetType": "enemyCharacter",
+    "effects": [
+      { "type": "DamageEffect", "value": 5, "attackType": "spell" }
+    ]
+  },
+  {
+    "id": "shield",
+    "name": "Guardian Shield",
+    "type": "spell",
+    "manaCost": 2,
+    "speed": 1,
+    "targetType": "self",
+    "effects": [
+      { "type": "ShieldEffect", "value": 4 }
+    ]
+  },
+  {
+    "id": "sprite",
+    "name": "Aether Sprite",
+    "type": "creature",
+    "manaCost": 2,
+    "speed": 3,
+    "targetType": "self",
+    "effects": [
+      { "type": "SummonEffect", "value": 0 }
+    ]
+  }
+]

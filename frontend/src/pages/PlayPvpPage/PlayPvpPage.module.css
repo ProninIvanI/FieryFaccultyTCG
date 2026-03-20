@@ -1,0 +1,216 @@
+﻿.pageGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.mainColumn,
+.sideColumn {
+  display: grid;
+  gap: 20px;
+}
+
+.formGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.segmentedRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.segmentButton,
+.segmentActive,
+.primaryButton,
+.secondaryButton {
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.segmentButton,
+.segmentActive {
+  border: 1px solid #d1d5db;
+  padding: 10px 14px;
+}
+
+.segmentButton {
+  background: #ffffff;
+  color: #1f2937;
+}
+
+.segmentActive {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
+}
+
+.formRow {
+  display: grid;
+  gap: 8px;
+}
+
+.label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.input:disabled {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.inlineField,
+.inlineActions,
+.formActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.primaryButton,
+.secondaryButton {
+  padding: 10px 16px;
+}
+
+.primaryButton {
+  border: none;
+  background: #111827;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.secondaryButton {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #111827;
+  text-decoration: none;
+}
+
+.primaryButton:hover,
+.secondaryButton:hover,
+.segmentButton:hover,
+.segmentActive:hover {
+  transform: translateY(-1px);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.hintBlock {
+  display: grid;
+  gap: 6px;
+}
+
+.hint {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.errorBox {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.summaryTile {
+  border: 1px solid #dbe4ef;
+  border-radius: 14px;
+  padding: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  display: grid;
+  gap: 6px;
+}
+
+.summaryLabel {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.detailsList {
+  display: grid;
+  gap: 10px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: #334155;
+}
+
+.paragraph {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.noticeBlock {
+  display: grid;
+  gap: 16px;
+}
+
+.emptyState {
+  padding: 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.rawState {
+  margin: 0;
+  max-height: 420px;
+  overflow: auto;
+  padding: 14px;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #dbeafe;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1024px) {
+  .pageGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .inlineField {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

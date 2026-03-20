@@ -1,0 +1,42 @@
+.page {
+  min-height: 100vh;
+  background: #f8fafc;
+  padding: 28px 40px 40px;
+  color: #0f172a;
+  font-family: "Space Grotesk", "Manrope", "Segoe UI", sans-serif;
+  --card-bg: #ffffff;
+  --border-color: #e2e8f0;
+  --primary-color: #1d4ed8;
+  --header-gradient: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
+  --header-subtitle-color: #475569;
+  display: flex;
+  flex-direction: column;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding-top: 6px;
+}
+
+.content {
+  margin-top: 24px;
+  display: grid;
+  gap: 20px;
+  flex: 1;
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 24px 20px 30px;
+  }
+}

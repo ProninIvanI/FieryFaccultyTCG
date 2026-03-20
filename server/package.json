@@ -1,0 +1,24 @@
+{
+  "name": "game-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server/src/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server/src/index.js",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --reporter=default --reporter=junit --outputFile=reports/junit.xml --coverage"
+  },
+  "dependencies": {
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "@vitest/coverage-v8": "^1.6.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.0"
+  }
+}
