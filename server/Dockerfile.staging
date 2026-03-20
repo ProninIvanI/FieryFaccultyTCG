@@ -1,0 +1,14 @@
+FROM node:20-alpine
+
+WORKDIR /app/server
+
+COPY server/package*.json ./
+
+RUN npm ci
+
+COPY server ./
+COPY game-core ../game-core
+
+EXPOSE 4000
+
+CMD ["npm", "run", "dev"]

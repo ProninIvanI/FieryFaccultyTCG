@@ -45,8 +45,8 @@ services:
 
   server:
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile.staging
     container_name: projectbot_game_server_staging
     restart: unless-stopped
     environment:
