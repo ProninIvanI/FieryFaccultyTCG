@@ -506,6 +506,11 @@ export const DeckPage = () => {
   };
 
   const handleDeckSelection = (nextDeckId: string) => {
+    if (!nextDeckId) {
+      handleCreateDraft();
+      return;
+    }
+
     const savedDeck = savedDecks.find((item) => item.id === nextDeckId);
     if (!savedDeck) {
       return;
