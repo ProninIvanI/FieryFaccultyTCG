@@ -739,37 +739,57 @@ export const DeckPage = () => {
 
         <section className={styles.rightColumn}>
           <div className={styles.stickyStack}>
-            <Card title="Мои колоды">
+            <Card title="Конструктор колоды">
               <div className={styles.deckManager}>
-                <label className={styles.filterLabel} htmlFor="deck-name">
-                  Название колоды
-                </label>
-                <input
-                  id="deck-name"
-                  className={styles.deckNameInput}
-                  type="text"
-                  value={deckName}
-                  maxLength={128}
-                  onChange={(event) => setDeckName(event.target.value)}
-                />
+                <div className={styles.deckManagerHeader}>
+                  <div>
+                    <div className={styles.deckManagerTitle}>
+                      {deckId ? "Редактирование сохранённой колоды" : "Новый черновик"}
+                    </div>
+                    <p className={styles.deckManagerSubtitle}>
+                      Выберите сохранённую колоду или соберите новую и сохраните её здесь же.
+                    </p>
+                  </div>
+                  <div className={styles.deckBadge}>
+                    {deckId ? "Сохранена" : "Черновик"}
+                  </div>
+                </div>
 
-                <label className={styles.filterLabel} htmlFor="saved-deck">
-                  Сохранённые колоды
-                </label>
-                <select
-                  id="saved-deck"
-                  className={styles.deckSelect}
-                  value={deckId ?? ""}
-                  disabled={isDecksLoading || savedDecks.length === 0}
-                  onChange={(event) => handleDeckSelection(event.target.value)}
-                >
-                  <option value="">Черновик</option>
-                  {savedDecks.map((savedDeck) => (
-                    <option key={savedDeck.id} value={savedDeck.id}>
-                      {savedDeck.name}
-                    </option>
-                  ))}
-                </select>
+                <div className={styles.deckManagerGrid}>
+                  <div>
+                    <label className={styles.filterLabel} htmlFor="saved-deck">
+                      Сохранённые колоды
+                    </label>
+                    <select
+                      id="saved-deck"
+                      className={styles.deckSelect}
+                      value={deckId ?? ""}
+                      disabled={isDecksLoading || savedDecks.length === 0}
+                      onChange={(event) => handleDeckSelection(event.target.value)}
+                    >
+                      <option value="">Черновик</option>
+                      {savedDecks.map((savedDeck) => (
+                        <option key={savedDeck.id} value={savedDeck.id}>
+                          {savedDeck.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className={styles.filterLabel} htmlFor="deck-name">
+                      Название колоды
+                    </label>
+                    <input
+                      id="deck-name"
+                      className={styles.deckNameInput}
+                      type="text"
+                      value={deckName}
+                      maxLength={128}
+                      onChange={(event) => setDeckName(event.target.value)}
+                    />
+                  </div>
+                </div>
 
                 <div className={styles.deckManagerActions}>
                   <button
@@ -778,7 +798,7 @@ export const DeckPage = () => {
                     onClick={handleSaveDeck}
                     disabled={isSaving || !session?.token}
                   >
-                    {isSaving ? "Сохраняем..." : "Сохранить"}
+                    {isSaving ? "Сохраняем..." : deckId ? "Сохранить изменения" : "Сохранить колоду"}
                   </button>
                   <button
                     className={styles.presetButton}
@@ -794,7 +814,7 @@ export const DeckPage = () => {
                     onClick={handleDeleteDeck}
                     disabled={isSaving}
                   >
-                    {deckId ? "Удалить" : "Сбросить"}
+                    {deckId ? "Удалить колоду" : "Сбросить"}
                   </button>
                 </div>
 
@@ -813,9 +833,7 @@ export const DeckPage = () => {
                   <p className={styles.deckStatusInfo}>{deckRequestInfo}</p>
                 ) : null}
               </div>
-            </Card>
 
-            <Card title="Текущая колода">
               <div className={styles.deckSummary}>
                 <div>
                   <div className={styles.summaryValue}>{totalCards}</div>
