@@ -1,4 +1,5 @@
 import axiosInstance from '@/services/api/axiosInstance';
+import { API_URL } from '@/constants';
 import { AuthSession } from '@/types';
 
 const SESSION_KEY = 'fftcg_session';
@@ -93,31 +94,23 @@ export const authService = {
     }
 
     try {
-      await axiosInstance.post<{ success: boolean; data?: { message: string } }>(
-        '/api/auth/logout',
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
+      const response = await fetch(`${API_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+          'Content-Type': 'application/json',
         },
-      );
-      clearSession();
-      return { ok: true };
-    } catch (error) {
-      const status = typeof error === 'object' && error && 'status' in error
-        ? Number((error as { status?: unknown }).status)
-        : null;
+        body: '{}',
+      });
 
-      if (status === 401) {
-        clearSession();
-        return { ok: true };
+      if (!response.ok && response.status !== 401) {
+        return { ok: false, error: 'Ошибка выхода' };
       }
 
-      const message = typeof error === 'object' && error && 'error' in error
-        ? String((error as { error?: unknown }).error)
-        : 'Ошибка выхода';
-      return { ok: false, error: message };
+      clearSession();
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'Ошибка выхода' };
     }
   },
 };
