@@ -20,8 +20,8 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile.staging
     container_name: projectbot_backend_staging
     restart: unless-stopped
     environment:
