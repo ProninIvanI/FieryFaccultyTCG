@@ -1,5 +1,4 @@
 import axiosInstance from '@/services/api/axiosInstance';
-import { API_URL } from '@/constants';
 import { AuthSession } from '@/types';
 
 const SESSION_KEY = 'fftcg_session';
@@ -13,6 +12,11 @@ type AuthResponse = {
   };
   session: AuthSession;
 };
+
+const REGISTRATION_ERROR = '\u041e\u0448\u0438\u0431\u043a\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438';
+const LOGIN_ERROR = '\u041e\u0448\u0438\u0431\u043a\u0430 \u0432\u0445\u043e\u0434\u0430';
+const LOGOUT_ERROR = '\u041e\u0448\u0438\u0431\u043a\u0430 \u0432\u044b\u0445\u043e\u0434\u0430';
+const SESSION_MISSING_ERROR = '\u0421\u0435\u0440\u0432\u0435\u0440 \u043d\u0435 \u0432\u0435\u0440\u043d\u0443\u043b \u0441\u0435\u0441\u0441\u0438\u044e';
 
 const isAuthSession = (value: unknown): value is AuthSession => {
   if (!value || typeof value !== 'object') {
@@ -45,7 +49,7 @@ export const authService = {
     } catch (error) {
       const message = typeof error === 'object' && error && 'error' in error
         ? String((error as { error?: unknown }).error)
-        : 'Ошибка регистрации';
+        : REGISTRATION_ERROR;
       return { ok: false, error: message };
     }
   },
@@ -61,14 +65,14 @@ export const authService = {
       );
       const session = response.data.data?.session;
       if (!session) {
-        return { ok: false, error: 'Сервер не вернул сессию' };
+        return { ok: false, error: SESSION_MISSING_ERROR };
       }
       saveSession(session);
       return { ok: true, session };
     } catch (error) {
       const message = typeof error === 'object' && error && 'error' in error
         ? String((error as { error?: unknown }).error)
-        : 'Ошибка входа';
+        : LOGIN_ERROR;
       return { ok: false, error: message };
     }
   },
@@ -94,23 +98,24 @@ export const authService = {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/logout`, {
-        method: 'POST',
+      await axiosInstance.post('/api/auth/logout', {}, {
         headers: {
           Authorization: `Bearer ${session.token}`,
-          'Content-Type': 'application/json',
         },
-        body: '{}',
       });
-
-      if (!response.ok && response.status !== 401) {
-        return { ok: false, error: 'Ошибка выхода' };
-      }
 
       clearSession();
       return { ok: true };
-    } catch {
-      return { ok: false, error: 'Ошибка выхода' };
+    } catch (error) {
+      const status = typeof error === 'object' && error && 'status' in error
+        ? (error as { status?: unknown }).status
+        : undefined;
+      if (status === 401) {
+        clearSession();
+        return { ok: true };
+      }
+
+      return { ok: false, error: LOGOUT_ERROR };
     }
   },
 };

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, FriendListItem, SiteHeader } from "@/components";
-import { API_URL, ROUTES } from "@/constants";
+import { ROUTES } from "@/constants";
 import { authService } from "@/services";
 import { AuthSession } from "@/types";
 import styles from "./HomePage.module.css";
@@ -22,34 +22,14 @@ export const HomePage = () => {
     <AuthHome
       logoutError={logoutError}
       onLogout={async () => {
-        if (!session?.token) {
-          await authService.logout();
-          setLogoutError(null);
-          setSession(null);
+        const result = await authService.logout(session);
+        if (!result.ok) {
+          setLogoutError(result.error ?? "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0441\u0435\u0441\u0441\u0438\u044e");
           return;
         }
 
-        try {
-          const response = await fetch(`${API_URL}/api/auth/logout`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${session.token}`,
-              "Content-Type": "application/json",
-            },
-            body: "{}",
-          });
-
-          if (!response.ok && response.status !== 401) {
-            setLogoutError("Не удалось завершить сессию");
-            return;
-          }
-
-          await authService.logout();
-          setLogoutError(null);
-          setSession(null);
-        } catch {
-          setLogoutError("Не удалось завершить сессию");
-        }
+        setLogoutError(null);
+        setSession(null);
       }}
     />
   );
@@ -314,3 +294,4 @@ const AuthHome = ({
     </div>
   );
 };
+

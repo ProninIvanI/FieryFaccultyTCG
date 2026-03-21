@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { API_URL } from '@/constants';
+import axiosInstance from '@/services/api/axiosInstance';
 import { HomePage } from './HomePage';
 
 describe('HomePage', () => {
@@ -44,9 +44,9 @@ describe('HomePage', () => {
       createdAt: '2026-03-17T10:00:00.000Z',
     };
     localStorage.setItem('fftcg_session', JSON.stringify(storedSession));
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
-    );
+    const postSpy = vi.spyOn(axiosInstance, 'post').mockResolvedValue({
+      data: { success: true },
+    } as Awaited<ReturnType<typeof axiosInstance.post>>);
 
     render(
       <BrowserRouter>
@@ -58,13 +58,10 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Выйти' }));
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(`${API_URL}/api/auth/logout`, {
-        method: 'POST',
+      expect(postSpy).toHaveBeenCalledWith('/api/auth/logout', {}, {
         headers: {
           Authorization: `Bearer ${storedSession.token}`,
-          'Content-Type': 'application/json',
         },
-        body: '{}',
       });
     });
   });
