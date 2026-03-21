@@ -22,7 +22,7 @@ export const HomePage = () => {
     <AuthHome
       logoutError={logoutError}
       onLogout={async () => {
-        const result = await authService.logout();
+        const result = await authService.logout(session);
         if (!result.ok) {
           setLogoutError(result.error ?? "Не удалось завершить сессию");
           return;

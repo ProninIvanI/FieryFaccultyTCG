@@ -85,8 +85,8 @@ export const authService = {
     }
   },
 
-  async logout(): Promise<{ ok: boolean; error?: string }> {
-    const session = authService.getSession();
+  async logout(sessionOverride?: AuthSession | null): Promise<{ ok: boolean; error?: string }> {
+    const session = sessionOverride ?? authService.getSession();
     if (!session?.token) {
       clearSession();
       return { ok: true };
@@ -96,6 +96,11 @@ export const authService = {
       await axiosInstance.post<{ success: boolean; data?: { message: string } }>(
         '/api/auth/logout',
         {},
+        {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+        },
       );
       clearSession();
       return { ok: true };
