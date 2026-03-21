@@ -1,7 +1,7 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, FriendListItem, SiteHeader } from "@/components";
-import { ROUTES } from "@/constants";
+import { API_URL, ROUTES } from "@/constants";
 import { authService } from "@/services";
 import { AuthSession } from "@/types";
 import styles from "./HomePage.module.css";
@@ -22,13 +22,34 @@ export const HomePage = () => {
     <AuthHome
       logoutError={logoutError}
       onLogout={async () => {
-        const result = await authService.logout(session);
-        if (!result.ok) {
-          setLogoutError(result.error ?? "Не удалось завершить сессию");
+        if (!session?.token) {
+          await authService.logout();
+          setLogoutError(null);
+          setSession(null);
           return;
         }
-        setLogoutError(null);
-        setSession(null);
+
+        try {
+          const response = await fetch(`${API_URL}/api/auth/logout`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.token}`,
+              "Content-Type": "application/json",
+            },
+            body: "{}",
+          });
+
+          if (!response.ok && response.status !== 401) {
+            setLogoutError("Не удалось завершить сессию");
+            return;
+          }
+
+          await authService.logout();
+          setLogoutError(null);
+          setSession(null);
+        } catch {
+          setLogoutError("Не удалось завершить сессию");
+        }
       }}
     />
   );
@@ -258,13 +279,16 @@ const AuthHome = ({
                   onChange={(event) => setFriendNickname(event.target.value)}
                 />
                 <div className={styles.addFriendActions}>
-                  <button className={styles.addFriendButton} type="button">
+                  <button className={styles.addFriendPrimary} type="button">
                     Отправить запрос
                   </button>
                   <button
-                    className={styles.addFriendGhost}
+                    className={styles.addFriendSecondary}
                     type="button"
-                    onClick={() => setIsAddFriendOpen(false)}
+                    onClick={() => {
+                      setIsAddFriendOpen(false);
+                      setFriendNickname("");
+                    }}
                   >
                     Отмена
                   </button>
@@ -274,23 +298,19 @@ const AuthHome = ({
 
             <div className={styles.friendsList}>
               {friends.length === 0 ? (
-                <div className={styles.friendsEmpty}>
-                  Друзья пока не добавлены.
-                </div>
+                <div className={styles.emptyFriends}>Друзья пока не добавлены.</div>
               ) : (
                 friends.map((friend) => (
-                  <FriendListItem key={friend.id} friend={friend} />
+                  <FriendListItem
+                    key={friend.id}
+                    friend={friend}
+                  />
                 ))
               )}
             </div>
           </div>
         </aside>
       </main>
-
-      <footer className={styles.footer}>
-        <div>Документация: /docs · Лицензия: ISC</div>
-        <div>Контакты: tg - @Akelaaaa00</div>
-      </footer>
     </div>
   );
 };
