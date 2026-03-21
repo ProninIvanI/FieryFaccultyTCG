@@ -44,12 +44,15 @@ const isRawCatalogCharacter = (value: unknown): value is RawCatalogCharacter =>
 const isRawCatalog = (value: unknown): value is RawCatalog =>
   isRecord(value);
 
+const stripUtf8Bom = (value: string): string => value.replace(/^\uFEFF/, '');
+
 const getDeckCatalog = (): { cardIds: Set<string>; characterIds: Set<string> } => {
   if (deckCatalogCache) {
     return deckCatalogCache;
   }
 
-  const raw = JSON.parse(readFileSync(cardCatalogPath, 'utf-8')) as unknown;
+  const rawCatalog = stripUtf8Bom(readFileSync(cardCatalogPath, 'utf-8'));
+  const raw = JSON.parse(rawCatalog) as unknown;
   if (!isRawCatalog(raw)) {
     throw new Error('Некорректный card catalog');
   }

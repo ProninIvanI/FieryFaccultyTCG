@@ -14,6 +14,7 @@
 - PvP UI продолжает опираться на server state как source of truth, а не на локальную сборку матчевого состояния во frontend.
 - `DeckPage` объединяет выбор сохранённой колоды, её редактирование и сохранение в одном блоке конструктора.
 - Staging backend теперь собирается с `game-core`, чтобы server-backed сохранение колод не падало на чтении `game-core/data/cards.json`.
+- Backend deck catalog теперь корректно читает `cards.json` с UTF-8 BOM, поэтому сохранение колод не падает на `JSON.parse`.
 
 ### Docs
 
