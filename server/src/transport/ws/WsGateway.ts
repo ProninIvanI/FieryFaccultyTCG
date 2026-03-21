@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { GameService } from '../../application/GameService';
 import { ClientMessageDto, parseClientMessage, ServerMessageDto } from './dto';
 import { AuthIdentity, resolveAuthIdentity } from '../../infrastructure/auth/AuthIdentityClient';
+import { resolvePlayerDeck } from '../../infrastructure/decks/DeckCatalogClient';
 
 type IdentityResolver = (token: string) => Promise<AuthIdentity | null>;
 
@@ -48,7 +49,17 @@ export class WsGateway {
         return;
       }
 
-      const result = this.gameService.join(message.sessionId, identity.userId, message.seed);
+      const deck = await resolvePlayerDeck(message.token, message.deckId);
+      if (!deck) {
+        this.send(socket, { type: 'error', error: 'Deck not found or unavailable' });
+        return;
+      }
+
+      const result = this.gameService.join(message.sessionId, {
+        playerId: identity.userId,
+        characterId: deck.characterId,
+        deck: deck.cards,
+      }, message.seed);
       if (!result.ok) {
         this.send(socket, { type: 'error', error: result.error });
         return;

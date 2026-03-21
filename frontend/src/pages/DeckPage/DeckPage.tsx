@@ -1,6 +1,8 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, HomeLinkButton, PageShell } from "@/components";
 import rawCardData from "@/data/cards.json";
+import { authService, deckService } from "@/services";
+import { DeckCardItem, UserDeck } from "@/types";
 import styles from "./DeckPage.module.css";
 
 type CardType = "spell" | "summon" | "art" | "modifier";
@@ -213,12 +215,20 @@ const TYPE_FILTERS: Array<{ id: "all" | CardType; label: string }> = [
 ];
 
 export const DeckPage = () => {
+  const session = authService.getSession();
   const [schoolFilter, setSchoolFilter] = useState<"all" | School>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | CardType>("all");
   const [selectedCharacterId, setSelectedCharacterId] = useState(
     CHARACTERS[0]?.id ?? "",
   );
+  const [deckId, setDeckId] = useState<string | null>(null);
+  const [deckName, setDeckName] = useState("Новая колода");
   const [deck, setDeck] = useState<Record<string, number>>(DEFAULT_DECK);
+  const [savedDecks, setSavedDecks] = useState<UserDeck[]>([]);
+  const [isDecksLoading, setIsDecksLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deckRequestError, setDeckRequestError] = useState<string | null>(null);
+  const [deckRequestInfo, setDeckRequestInfo] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const carouselSetWidthRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -421,6 +431,58 @@ export const DeckPage = () => {
     { spell: 0, summon: 0, art: 0, modifier: 0 },
   );
 
+  const serializedDeckCards = useMemo<DeckCardItem[]>(
+    () =>
+      Object.entries(deck)
+        .filter(([, quantity]) => quantity > 0)
+        .sort(([left], [right]) => left.localeCompare(right, "en"))
+        .map(([cardId, quantity]) => ({ cardId, quantity })),
+    [deck],
+  );
+
+  const applySavedDeck = useCallback((savedDeck: UserDeck) => {
+    setDeckId(savedDeck.id);
+    setDeckName(savedDeck.name);
+    setSelectedCharacterId(savedDeck.characterId ?? CHARACTERS[0]?.id ?? "");
+    setDeck(
+      savedDeck.cards.reduce<Record<string, number>>((acc, card) => {
+        acc[card.cardId] = card.quantity;
+        return acc;
+      }, {}),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!session?.token) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsDecksLoading(true);
+    setDeckRequestError(null);
+
+    void deckService.list().then((result) => {
+      if (cancelled) {
+        return;
+      }
+
+      setIsDecksLoading(false);
+      if (!result.ok) {
+        setDeckRequestError(result.error);
+        return;
+      }
+
+      setSavedDecks(result.decks);
+      if (result.decks[0]) {
+        applySavedDeck(result.decks[0]);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applySavedDeck, session?.token]);
+
   const updateDeck = (cardId: string, delta: number) => {
     setDeck((prev) => {
       const nextCount = Math.max((prev[cardId] ?? 0) + delta, 0);
@@ -432,6 +494,90 @@ export const DeckPage = () => {
       }
       return next;
     });
+  };
+
+  const handleCreateDraft = () => {
+    setDeckId(null);
+    setDeckName("Новая колода");
+    setSelectedCharacterId(CHARACTERS[0]?.id ?? "");
+    setDeck(DEFAULT_DECK);
+    setDeckRequestError(null);
+    setDeckRequestInfo("Создан локальный черновик. Сохраните его в backend.");
+  };
+
+  const handleDeckSelection = (nextDeckId: string) => {
+    const savedDeck = savedDecks.find((item) => item.id === nextDeckId);
+    if (!savedDeck) {
+      return;
+    }
+
+    setDeckRequestError(null);
+    setDeckRequestInfo(null);
+    applySavedDeck(savedDeck);
+  };
+
+  const handleSaveDeck = async () => {
+    if (!session?.token) {
+      setDeckRequestError("Для сохранения колод нужно войти в аккаунт.");
+      return;
+    }
+
+    setIsSaving(true);
+    setDeckRequestError(null);
+    setDeckRequestInfo(null);
+
+    const payload = {
+      name: deckName.trim() || "Новая колода",
+      characterId: selectedCharacter?.id ?? null,
+      cards: serializedDeckCards,
+    };
+
+    const result = deckId
+      ? await deckService.update(deckId, payload)
+      : await deckService.create(payload);
+
+    setIsSaving(false);
+    if (!result.ok) {
+      setDeckRequestError(result.error);
+      return;
+    }
+
+    setDeckId(result.deck.id);
+    setDeckName(result.deck.name);
+    setSavedDecks((prev) => {
+      const rest = prev.filter((item) => item.id !== result.deck.id);
+      return [result.deck, ...rest];
+    });
+    setDeckRequestInfo(deckId ? "Колода сохранена." : "Колода создана и сохранена.");
+  };
+
+  const handleDeleteDeck = async () => {
+    if (!deckId) {
+      handleCreateDraft();
+      return;
+    }
+
+    setIsSaving(true);
+    setDeckRequestError(null);
+    setDeckRequestInfo(null);
+
+    const result = await deckService.remove(deckId);
+    setIsSaving(false);
+    if (!result.ok) {
+      setDeckRequestError(result.error);
+      return;
+    }
+
+    const nextDecks = savedDecks.filter((item) => item.id !== deckId);
+    setSavedDecks(nextDecks);
+    if (nextDecks[0]) {
+      applySavedDeck(nextDecks[0]);
+      setDeckRequestInfo("Колода удалена. Открыта следующая сохранённая колода.");
+      return;
+    }
+
+    handleCreateDraft();
+    setDeckRequestInfo("Колода удалена.");
   };
 
   return (
@@ -593,6 +739,82 @@ export const DeckPage = () => {
 
         <section className={styles.rightColumn}>
           <div className={styles.stickyStack}>
+            <Card title="Мои колоды">
+              <div className={styles.deckManager}>
+                <label className={styles.filterLabel} htmlFor="deck-name">
+                  Название колоды
+                </label>
+                <input
+                  id="deck-name"
+                  className={styles.deckNameInput}
+                  type="text"
+                  value={deckName}
+                  maxLength={128}
+                  onChange={(event) => setDeckName(event.target.value)}
+                />
+
+                <label className={styles.filterLabel} htmlFor="saved-deck">
+                  Сохранённые колоды
+                </label>
+                <select
+                  id="saved-deck"
+                  className={styles.deckSelect}
+                  value={deckId ?? ""}
+                  disabled={isDecksLoading || savedDecks.length === 0}
+                  onChange={(event) => handleDeckSelection(event.target.value)}
+                >
+                  <option value="">Черновик</option>
+                  {savedDecks.map((savedDeck) => (
+                    <option key={savedDeck.id} value={savedDeck.id}>
+                      {savedDeck.name}
+                    </option>
+                  ))}
+                </select>
+
+                <div className={styles.deckManagerActions}>
+                  <button
+                    className={styles.presetButton}
+                    type="button"
+                    onClick={handleSaveDeck}
+                    disabled={isSaving || !session?.token}
+                  >
+                    {isSaving ? "Сохраняем..." : "Сохранить"}
+                  </button>
+                  <button
+                    className={styles.presetButton}
+                    type="button"
+                    onClick={handleCreateDraft}
+                    disabled={isSaving}
+                  >
+                    Новый черновик
+                  </button>
+                  <button
+                    className={styles.presetButton}
+                    type="button"
+                    onClick={handleDeleteDeck}
+                    disabled={isSaving}
+                  >
+                    {deckId ? "Удалить" : "Сбросить"}
+                  </button>
+                </div>
+
+                {!session?.token ? (
+                  <p className={styles.presetHint}>
+                    Войдите в аккаунт, чтобы загружать и сохранять колоды в backend.
+                  </p>
+                ) : null}
+                {isDecksLoading ? (
+                  <p className={styles.presetHint}>Загружаем ваши колоды...</p>
+                ) : null}
+                {deckRequestError ? (
+                  <p className={styles.deckStatusError}>{deckRequestError}</p>
+                ) : null}
+                {deckRequestInfo ? (
+                  <p className={styles.deckStatusInfo}>{deckRequestInfo}</p>
+                ) : null}
+              </div>
+            </Card>
+
             <Card title="Текущая колода">
               <div className={styles.deckSummary}>
                 <div>

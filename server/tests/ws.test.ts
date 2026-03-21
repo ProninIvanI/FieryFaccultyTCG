@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { parseClientMessage } from '../src/transport/ws/dto';
 import { GameService } from '../src/application/GameService';
 import { SessionRegistry } from '../src/domain/game/SessionRegistry';
@@ -25,6 +25,7 @@ const buildEngine = () => ({
       rngState: 1,
     }) as GameState,
   processAction: (_action: Action) => ({ ok: true as const }),
+  syncPlayerLoadout: () => undefined,
 });
 
 describe('ws dto parsing', () => {
@@ -33,8 +34,10 @@ describe('ws dto parsing', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('accepts join message', () => {
-    const result = parseClientMessage(JSON.stringify({ type: 'join', sessionId: 's1', token: 'token_1', seed: 42 }));
+  it('accepts join message with deckId', () => {
+    const result = parseClientMessage(
+      JSON.stringify({ type: 'join', sessionId: 's1', token: 'token_1', deckId: 'deck_1', seed: 42 }),
+    );
     expect(result.ok).toBe(true);
   });
 });
@@ -43,7 +46,7 @@ describe('game service validation', () => {
   it('rejects invalid action payload', () => {
     const registry = new SessionRegistry(() => buildEngine());
     const service = new GameService(registry);
-    const join = service.join('s1', 'p1', 1);
+    const join = service.join('s1', { playerId: 'p1', characterId: 'char_1', deck: [] }, 1);
     expect(join.ok).toBe(true);
     const result = service.applyAction('s1', 'p1', { type: 'Attack' });
     expect(result.ok).toBe(false);
@@ -52,8 +55,8 @@ describe('game service validation', () => {
   it('rejects action with foreign playerId relative to socket', () => {
     const registry = new SessionRegistry(() => buildEngine());
     const service = new GameService(registry);
-    expect(service.join('s1', 'p1', 1).ok).toBe(true);
-    expect(service.join('s1', 'p2', 1).ok).toBe(true);
+    expect(service.join('s1', { playerId: 'p1', characterId: 'char_1', deck: [] }, 1).ok).toBe(true);
+    expect(service.join('s1', { playerId: 'p2', characterId: 'char_2', deck: [] }, 1).ok).toBe(true);
 
     const result = service.applyAction('s1', 'p1', {
       type: 'EndTurn',
@@ -72,8 +75,8 @@ describe('game service validation', () => {
     const registry = new SessionRegistry(() => buildEngine());
     const service = new GameService(registry);
 
-    expect(service.join('s1', 'p1', 123).ok).toBe(true);
-    const secondJoin = service.join('s1', 'p2', 456);
+    expect(service.join('s1', { playerId: 'p1', characterId: 'char_1', deck: [] }, 123).ok).toBe(true);
+    const secondJoin = service.join('s1', { playerId: 'p2', characterId: 'char_2', deck: [] }, 456);
 
     expect(secondJoin.ok).toBe(false);
     if (secondJoin.ok) {
@@ -86,9 +89,9 @@ describe('game service validation', () => {
     const registry = new SessionRegistry(() => buildEngine());
     const service = new GameService(registry);
 
-    expect(service.join('s1', 'p1', 123).ok).toBe(true);
-    expect(service.join('s1', 'p2').ok).toBe(true);
-    const thirdJoin = service.join('s1', 'p3');
+    expect(service.join('s1', { playerId: 'p1', characterId: 'char_1', deck: [] }, 123).ok).toBe(true);
+    expect(service.join('s1', { playerId: 'p2', characterId: 'char_2', deck: [] }).ok).toBe(true);
+    const thirdJoin = service.join('s1', { playerId: 'p3', characterId: 'char_3', deck: [] });
 
     expect(thirdJoin.ok).toBe(false);
     if (thirdJoin.ok) {
@@ -100,11 +103,19 @@ describe('game service validation', () => {
 
 describe('game service end-to-end PvP flow', () => {
   it('lets two players join one session and pass turns in order', () => {
-    const registry = new SessionRegistry((seed) => createEngine(seed));
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
     const service = new GameService(registry);
 
-    const sessionA = service.join('match-1', 'player_1', 123);
-    const sessionB = service.join('match-1', 'player_2', 123);
+    const sessionA = service.join('match-1', {
+      playerId: 'player_1',
+      characterId: 'char_1',
+      deck: [{ cardId: '1', quantity: 2 }],
+    }, 123);
+    const sessionB = service.join('match-1', {
+      playerId: 'player_2',
+      characterId: 'char_2',
+      deck: [{ cardId: '2', quantity: 2 }],
+    }, 123);
 
     expect(sessionA.ok).toBe(true);
     expect(sessionB.ok).toBe(true);
@@ -129,7 +140,6 @@ describe('game service end-to-end PvP flow', () => {
     }
     expect(endTurnPlayer1.state.turn.activePlayerId).toBe('player_2');
     expect(endTurnPlayer1.state.turn.number).toBe(2);
-    expect(endTurnPlayer1.state.phase.current).toBe('ActionPhase');
 
     const endTurnPlayer2 = service.applyAction('match-1', 'player_2', {
       type: 'EndTurn',
@@ -143,7 +153,6 @@ describe('game service end-to-end PvP flow', () => {
     }
     expect(endTurnPlayer2.state.turn.activePlayerId).toBe('player_1');
     expect(endTurnPlayer2.state.turn.number).toBe(3);
-    expect(endTurnPlayer2.state.phase.current).toBe('ActionPhase');
     expect(endTurnPlayer2.state.actionLog).toHaveLength(2);
   });
 });

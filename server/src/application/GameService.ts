@@ -12,6 +12,7 @@ import {
 } from '../../../game-core/src/types';
 import { SessionRegistry } from '../domain/game/SessionRegistry';
 import { GameState } from '../../../game-core/src/types';
+import { SessionPlayerLoadout } from '../types/session';
 
 const isString = (value: unknown): value is string => typeof value === 'string';
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
@@ -116,13 +117,14 @@ type ApplyActionResult =
   | { ok: false; error: string };
 
 type JoinResult =
-  | { ok: true; session: ReturnType<SessionRegistry['getOrCreate']> }
+  | { ok: true; session: ReturnType<SessionRegistry['create']> }
   | { ok: false; error: string };
 
 export class GameService {
   constructor(private readonly sessions: SessionRegistry) {}
 
-  join(sessionId: string, playerId: string, seed?: number): JoinResult {
+  join(sessionId: string, loadout: SessionPlayerLoadout, seed?: number): JoinResult {
+    const playerId = loadout.playerId;
     const existing = this.sessions.get(sessionId);
     if (existing) {
       if (seed !== undefined && existing.getSeed() !== seed) {
@@ -131,9 +133,14 @@ export class GameService {
       if (!existing.hasPlayer(playerId) && existing.getPlayerCount() >= 2) {
         return { ok: false, error: 'Session is full' };
       }
+      if (!existing.hasPlayer(playerId)) {
+        existing.syncPlayerLoadout(loadout);
+      }
+      existing.addPlayer(playerId);
+      return { ok: true, session: existing };
     }
 
-    const session = this.sessions.getOrCreate(sessionId, seed ?? 1);
+    const session = this.sessions.create(sessionId, seed ?? 1, [loadout]);
     session.addPlayer(playerId);
     return { ok: true, session };
   }

@@ -1,20 +1,9 @@
 import { Request, Response } from 'express';
+import { readBearerToken } from '../middlewares/requireAuth';
 import { AuthService } from '../services/authService';
 import { ApiResponse, AuthResponse, AuthenticatedUserResponse } from '../types';
 
 const authService = new AuthService();
-
-const readBearerToken = (request: Request): string | null => {
-  const header = request.header('authorization');
-  if (!header) {
-    return null;
-  }
-  const [scheme, token] = header.split(' ');
-  if (scheme !== 'Bearer' || !token) {
-    return null;
-  }
-  return token;
-};
 
 export const register = async (
   req: Request,

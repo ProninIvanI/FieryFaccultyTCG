@@ -112,7 +112,7 @@ class GameWsService {
     });
   }
 
-  private send(message: { type: 'join'; sessionId: string; token: string; seed?: number } | { type: 'action'; action: GameActionPayload }): void {
+  private send(message: { type: 'join'; sessionId: string; token: string; deckId: string; seed?: number } | { type: 'action'; action: GameActionPayload }): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket is not connected');
     }

@@ -1,4 +1,4 @@
-﻿import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 import { createEngine } from '../src/engine/createEngine';
 import { GameService } from '../src/application/GameService';
@@ -29,11 +29,12 @@ describe('ws gateway integration', () => {
   afterEach(() => {
     gateways.forEach((gateway) => gateway.stop());
     gateways.length = 0;
+    vi.restoreAllMocks();
   });
 
   it('broadcasts a fresh state to existing players when a second player joins', async () => {
     const port = 45000 + Math.floor(Math.random() * 1000);
-    const registry = new SessionRegistry((seed) => createEngine(seed));
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
     const service = new GameService(registry);
     const gateway = new WsGateway(service, async (token) => {
       if (token === 'token_1') {
@@ -44,13 +45,34 @@ describe('ws gateway integration', () => {
       }
       return null;
     });
+
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const deckId = url.endsWith('/deck_1') ? 'deck_1' : 'deck_2';
+      const characterId = deckId === 'deck_1' ? 'char_1' : 'char_2';
+
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            deck: {
+              id: deckId,
+              characterId,
+              cards: [{ cardId: '1', quantity: 2 }],
+            },
+          },
+        }),
+      } as Response;
+    }));
+
     gateway.start(port);
     gateways.push(gateway);
 
     const playerOne = new WebSocket(`ws://127.0.0.1:${port}`);
     await waitForOpen(playerOne);
 
-    playerOne.send(JSON.stringify({ type: 'join', sessionId: 'match-sync', token: 'token_1', seed: 123 }));
+    playerOne.send(JSON.stringify({ type: 'join', sessionId: 'match-sync', token: 'token_1', deckId: 'deck_1', seed: 123 }));
     const firstJoinState = await waitForMessage<{ type: 'state' }>(playerOne);
     expect(firstJoinState.type).toBe('state');
 
@@ -60,7 +82,7 @@ describe('ws gateway integration', () => {
     const broadcastToPlayerOne = waitForMessage<{ type: 'state' }>(playerOne);
     const secondJoinState = waitForMessage<{ type: 'state' }>(playerTwo);
 
-    playerTwo.send(JSON.stringify({ type: 'join', sessionId: 'match-sync', token: 'token_2' }));
+    playerTwo.send(JSON.stringify({ type: 'join', sessionId: 'match-sync', token: 'token_2', deckId: 'deck_2' }));
 
     const [playerOneUpdated, playerTwoUpdated] = await Promise.all([broadcastToPlayerOne, secondJoinState]);
 

@@ -16,6 +16,7 @@ export interface HealthCheckResponse {
 // Реэкспорт типов из api
 export type { ApiError, ApiRequestConfig } from './api';
 export type { UserAccount, AuthSession } from './auth';
+export type { DeckCardItem, DeckListResponse, DeckResponse, SaveDeckRequest, UserDeck } from './deck';
 export type {
   AckServerMessage,
   ActionMessage,

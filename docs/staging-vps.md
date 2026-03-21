@@ -99,6 +99,7 @@ curl http://YOUR_SERVER_IP:3001/api/health
 
 - `http://YOUR_SERVER_IP:3000`
 - логин под двумя пользователями в двух вкладках
+- после логина проверить logout из меню пользователя и убедиться, что `POST /api/auth/logout` уходит на backend
 - открыть `PlayPvpPage`
 - указать один `sessionId`
 - подключить обоих игроков

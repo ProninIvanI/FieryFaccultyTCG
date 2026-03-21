@@ -6,6 +6,7 @@ export interface JoinMatchMessage {
   type: 'join';
   sessionId: string;
   token: string;
+  deckId: string;
   seed?: number;
 }
 

@@ -1,6 +1,7 @@
 // Экспорт всех сервисов
 export * from './healthService';
 export * from './authService';
+export * from './deckService';
 export * from './gameWsService';
 
 // Экспорт API слоя

@@ -1,5 +1,6 @@
 import { Action, GameState } from '../../../../game-core/src/types';
 import { GameEngineLike } from '../../types/engine';
+import { SessionPlayerLoadout } from '../../types/session';
 
 export class GameSession {
   private readonly players = new Set<string>();
@@ -19,6 +20,10 @@ export class GameSession {
 
   addPlayer(playerId: string): void {
     this.players.add(playerId);
+  }
+
+  syncPlayerLoadout(loadout: SessionPlayerLoadout): void {
+    this.engine.syncPlayerLoadout(loadout);
   }
 
   hasPlayer(playerId: string): boolean {

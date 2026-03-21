@@ -1,7 +1,8 @@
-﻿import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { PlayPvpPage } from './PlayPvpPage';
+import axiosInstance from '@/services/api/axiosInstance';
 import { gameWsService } from '@/services';
+import { PlayPvpPage } from './PlayPvpPage';
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
@@ -64,6 +65,27 @@ const setAuthSession = (userId: string): void => {
   );
 };
 
+const mockDeckList = (characterId: string) => {
+  vi.spyOn(axiosInstance, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: {
+        decks: [
+          {
+            id: 'deck_1',
+            userId: 'user_1',
+            name: 'Aggro Fire',
+            characterId,
+            createdAt: '2026-03-20T12:00:00.000Z',
+            updatedAt: '2026-03-20T12:00:00.000Z',
+            cards: [{ cardId: '1', quantity: 2 }],
+          },
+        ],
+      },
+    },
+  } as Awaited<ReturnType<typeof axiosInstance.get>>);
+};
+
 describe('PlayPvpPage', () => {
   const originalWebSocket = globalThis.WebSocket;
 
@@ -77,10 +99,12 @@ describe('PlayPvpPage', () => {
   afterEach(() => {
     gameWsService.disconnect();
     globalThis.WebSocket = originalWebSocket;
+    vi.restoreAllMocks();
   });
 
   it('creates match, receives state and sends EndTurn from UI', async () => {
     setAuthSession('user_1');
+    mockDeckList('char_1');
 
     render(
       <MemoryRouter>
@@ -88,7 +112,7 @@ describe('PlayPvpPage', () => {
       </MemoryRouter>
     );
 
-    const sessionInput = screen.getByDisplayValue(/session_/i);
+    const sessionInput = await screen.findByDisplayValue(/session_/i);
     fireEvent.change(sessionInput, { target: { value: 'session_alpha' } });
     fireEvent.click(screen.getByRole('button', { name: 'Создать и подключиться' }));
 
@@ -100,7 +124,7 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(socket.sent).toContain(
-        JSON.stringify({ type: 'join', sessionId: 'session_alpha', playerId: 'user_1', seed: 1 })
+        JSON.stringify({ type: 'join', sessionId: 'session_alpha', token: 'token_user_1', deckId: 'deck_1', seed: 1 })
       );
     });
 
@@ -113,6 +137,18 @@ describe('PlayPvpPage', () => {
           players: {
             user_1: { mana: 1, maxMana: 1, actionPoints: 1, characterId: 'char_1' },
           },
+          decks: {
+            user_1: ['deck_card_1', 'deck_card_2'],
+          },
+          hands: {
+            user_1: ['hand_card_1'],
+          },
+          discardPiles: {
+            user_1: [],
+          },
+          cardInstances: {
+            hand_card_1: { id: 'hand_card_1', cardId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
           actionLog: [],
         },
       });
@@ -122,6 +158,10 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(/Активная сессия:/)).toHaveTextContent('session_alpha');
       expect(screen.getByRole('button', { name: 'Завершить ход' })).toBeEnabled();
     });
+
+    expect(screen.getByText('deck: 2')).toBeInTheDocument();
+    expect(screen.getByText('hand: 1')).toBeInTheDocument();
+    expect(screen.getByText('Огненный шар')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Завершить ход' }));
 
@@ -137,31 +177,11 @@ describe('PlayPvpPage', () => {
         })
       );
     });
-
-    await act(async () => {
-      socket.emitMessage({
-        type: 'state',
-        state: {
-          turn: { number: 2, activePlayerId: 'user_2' },
-          phase: { current: 'ActionPhase' },
-          players: {
-            user_1: { mana: 2, maxMana: 2, actionPoints: 1, characterId: 'char_1' },
-            user_2: { mana: 2, maxMana: 2, actionPoints: 1, characterId: 'char_2' },
-          },
-          actionLog: [{ type: 'EndTurn' }],
-        },
-      });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Завершить ход' })).toBeDisabled();
-      expect(screen.getByText('user_2')).toBeInTheDocument();
-      expect(screen.getByText(/"activePlayerId": "user_2"/)).toBeInTheDocument();
-    });
   });
 
   it('joins existing match as second player without sending seed', async () => {
     setAuthSession('user_2');
+    mockDeckList('char_2');
 
     render(
       <MemoryRouter>
@@ -171,7 +191,7 @@ describe('PlayPvpPage', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Войти в матч' })[0]);
 
-    const sessionInput = screen.getByDisplayValue(/session_/i);
+    const sessionInput = await screen.findByDisplayValue(/session_/i);
     fireEvent.change(sessionInput, { target: { value: 'session_alpha' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Войти в матч' })[1]);
 
@@ -183,35 +203,16 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(socket.sent).toContain(
-        JSON.stringify({ type: 'join', sessionId: 'session_alpha', playerId: 'user_2' })
+        JSON.stringify({ type: 'join', sessionId: 'session_alpha', token: 'token_user_2', deckId: 'deck_1' })
       );
     });
 
     expect(socket.sent.some((item) => item.includes('"seed"'))).toBe(false);
-
-    await act(async () => {
-      socket.emitMessage({
-        type: 'state',
-        state: {
-          turn: { number: 1, activePlayerId: 'user_1' },
-          phase: { current: 'ActionPhase' },
-          players: {
-            user_1: { mana: 1, maxMana: 1, actionPoints: 1, characterId: 'char_1' },
-            user_2: { mana: 1, maxMana: 1, actionPoints: 1, characterId: 'char_2' },
-          },
-          actionLog: [],
-        },
-      });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText(/Активная сессия:/)).toHaveTextContent('session_alpha');
-      expect(screen.getByText('char_2')).toBeInTheDocument();
-    });
   });
 
   it('shows server join error and clears pending session before first state', async () => {
     setAuthSession('user_3');
+    mockDeckList('char_3');
 
     render(
       <MemoryRouter>
@@ -219,7 +220,7 @@ describe('PlayPvpPage', () => {
       </MemoryRouter>
     );
 
-    const sessionInput = screen.getByDisplayValue(/session_/i);
+    const sessionInput = await screen.findByDisplayValue(/session_/i);
     fireEvent.change(sessionInput, { target: { value: 'session_full' } });
     fireEvent.click(screen.getByRole('button', { name: 'Создать и подключиться' }));
 

@@ -279,6 +279,7 @@ GET /api/health
 ```
 POST /api/auth/register
 POST /api/auth/login
+POST /api/auth/logout
 GET /api/auth/me
 ```
 
@@ -287,6 +288,8 @@ GET /api/auth/me
 - `frontend` больше не хранит список пользователей как источник истины;
 - в `localStorage` остаётся только текущая клиентская сессия (`fftcg_session`);
 - `GET /api/auth/me` использует `Authorization: Bearer <token>`.
+- `POST /api/auth/logout` использует тот же `Authorization: Bearer <token>` и удаляет серверную auth-сессию.
+- logout на frontend выполняется централизованно через `authService`, а не прямым `fetch` из страницы.
 - WebSocket-сервер использует этот же token для привязки PvP-подключения к серверной identity пользователя.
 
 ### API Routes

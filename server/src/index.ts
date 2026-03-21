@@ -6,7 +6,7 @@ import { logger } from './infrastructure/logger';
 
 const port = Number(process.env.WS_PORT ?? 4000);
 
-const sessions = new SessionRegistry((seed) => createEngine(seed));
+const sessions = new SessionRegistry((seed, players) => createEngine(seed, players));
 const gameService = new GameService(sessions);
 const gateway = new WsGateway(gameService);
 

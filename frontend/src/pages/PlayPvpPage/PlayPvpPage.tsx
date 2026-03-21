@@ -2,8 +2,9 @@
 import { Link } from 'react-router-dom';
 import { Card, HomeLinkButton, PageShell } from '@/components';
 import { ROUTES } from '@/constants';
-import { authService, gameWsService } from '@/services';
-import { GameStateSnapshot, PvpConnectionStatus, PvpServiceEvent } from '@/types';
+import rawCardData from '@/data/cards.json';
+import { authService, deckService, gameWsService } from '@/services';
+import { GameStateSnapshot, PvpConnectionStatus, PvpServiceEvent, UserDeck } from '@/types';
 import styles from './PlayPvpPage.module.css';
 
 interface MatchSummary {
@@ -22,8 +23,25 @@ interface LocalPlayerSummary {
   characterId: string;
 }
 
+interface PlayerBoardSummary extends LocalPlayerSummary {
+  deckSize: number;
+  handSize: number;
+  discardSize: number;
+  isActive: boolean;
+}
+
+interface HandCardSummary {
+  instanceId: string;
+  cardId: string;
+  name: string;
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
+
+const cardNameById = new Map(
+  rawCardData.cards.map((card) => [String(card.id), card.name] as const)
+);
 
 const getMatchSummary = (state: GameStateSnapshot | null): MatchSummary | null => {
   if (!state || !isRecord(state.turn) || !isRecord(state.phase) || !isRecord(state.players)) {
@@ -67,6 +85,75 @@ const getLocalPlayerSummary = (
   };
 };
 
+const getZoneSize = (zones: unknown, playerId: string): number => {
+  if (!isRecord(zones)) {
+    return 0;
+  }
+
+  const zone = zones[playerId];
+  return Array.isArray(zone) ? zone.length : 0;
+};
+
+const getPlayerBoardSummaries = (state: GameStateSnapshot | null): PlayerBoardSummary[] => {
+  if (!state || !isRecord(state.players)) {
+    return [];
+  }
+
+  const activePlayerId =
+    isRecord(state.turn) && typeof state.turn.activePlayerId === 'string' ? state.turn.activePlayerId : '';
+
+  return Object.keys(state.players).flatMap((playerId) => {
+    const baseSummary = getLocalPlayerSummary(state, playerId);
+    if (!baseSummary) {
+      return [];
+    }
+
+    return [
+      {
+        ...baseSummary,
+        deckSize: getZoneSize(state.decks, playerId),
+        handSize: getZoneSize(state.hands, playerId),
+        discardSize: getZoneSize(state.discardPiles, playerId),
+        isActive: activePlayerId === playerId,
+      },
+    ];
+  });
+};
+
+const getLocalHandCards = (state: GameStateSnapshot | null, playerId: string): HandCardSummary[] => {
+  const hands = state?.hands;
+  const cardInstances = state?.cardInstances;
+
+  if (!state || !isRecord(hands) || !isRecord(cardInstances)) {
+    return [];
+  }
+
+  const hand = hands[playerId];
+  if (!Array.isArray(hand)) {
+    return [];
+  }
+
+  return hand.flatMap((instanceId) => {
+    if (typeof instanceId !== 'string') {
+      return [];
+    }
+
+    const instance = cardInstances[instanceId];
+    if (!isRecord(instance)) {
+      return [];
+    }
+
+    const cardId = typeof instance.cardId === 'string' ? instance.cardId : '';
+    return [
+      {
+        instanceId,
+        cardId,
+        name: cardNameById.get(cardId) ?? `Карта ${cardId || instanceId}`,
+      },
+    ];
+  });
+};
+
 const buildSessionId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return `session_${crypto.randomUUID().slice(0, 8)}`;
@@ -106,6 +193,9 @@ export const PlayPvpPage = () => {
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [sessionId, setSessionId] = useState(() => buildSessionId());
   const [seed, setSeed] = useState('1');
+  const [deckId, setDeckId] = useState('');
+  const [savedDecks, setSavedDecks] = useState<UserDeck[]>([]);
+  const [isDecksLoading, setIsDecksLoading] = useState(false);
   const [status, setStatus] = useState<PvpConnectionStatus>(gameWsService.getStatus());
   const [matchState, setMatchState] = useState<GameStateSnapshot | null>(null);
   const [error, setError] = useState('');
@@ -141,8 +231,40 @@ export const PlayPvpPage = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!authToken) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsDecksLoading(true);
+
+    void deckService.list().then((result) => {
+      if (cancelled) {
+        return;
+      }
+
+      setIsDecksLoading(false);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      setSavedDecks(result.decks);
+      if (!deckId && result.decks[0]) {
+        setDeckId(result.decks[0].id);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, deckId]);
+
   const matchSummary = useMemo(() => getMatchSummary(matchState), [matchState]);
   const localPlayer = useMemo(() => getLocalPlayerSummary(matchState, playerId), [matchState, playerId]);
+  const playerBoards = useMemo(() => getPlayerBoardSummaries(matchState), [matchState]);
+  const localHandCards = useMemo(() => getLocalHandCards(matchState, playerId), [matchState, playerId]);
   const canEndTurn = Boolean(
     matchSummary &&
       localPlayer &&
@@ -162,6 +284,10 @@ export const PlayPvpPage = () => {
       setError('Не удалось получить auth token для PvP.');
       return;
     }
+    if (!deckId) {
+      setError('Выбери сохранённую колоду для PvP.');
+      return;
+    }
 
     const normalizedSessionId = sessionId.trim();
     if (!normalizedSessionId) {
@@ -176,12 +302,14 @@ export const PlayPvpPage = () => {
             type: 'join' as const,
             sessionId: normalizedSessionId,
             token: authToken,
+            deckId,
             seed: Number.isFinite(parsedSeed) ? parsedSeed : 1,
           }
         : {
             type: 'join' as const,
             sessionId: normalizedSessionId,
             token: authToken,
+            deckId,
           };
 
     setIsSubmitting(true);
@@ -316,6 +444,23 @@ export const PlayPvpPage = () => {
                 />
               </label>
 
+              <label className={styles.formRow}>
+                <span className={styles.label}>deck</span>
+                <select
+                  className={styles.input}
+                  value={deckId}
+                  onChange={(event) => setDeckId(event.target.value)}
+                  disabled={isDecksLoading || savedDecks.length === 0}
+                >
+                  <option value="">Выбери колоду</option>
+                  {savedDecks.map((deck) => (
+                    <option key={deck.id} value={deck.id}>
+                      {deck.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               <div className={styles.formActions}>
                 <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
                   {isSubmitting ? 'Подключаемся...' : mode === 'create' ? 'Создать и подключиться' : 'Войти в матч'}
@@ -335,8 +480,14 @@ export const PlayPvpPage = () => {
                 <div className={styles.hint}>
                   Активная сессия: {joinedSessionId || 'ещё не подключено'}
                 </div>
+                <div className={styles.hint}>
+                  Выбранная колода: {savedDecks.find((deck) => deck.id === deckId)?.name ?? 'не выбрана'}
+                </div>
                 {mode === 'join' ? (
                   <div className={styles.hint}>В режиме входа seed не отправляется — используется seed создателя матча.</div>
+                ) : null}
+                {isDecksLoading ? (
+                  <div className={styles.hint}>Загружаем доступные колоды...</div>
                 ) : null}
               </div>
 
@@ -383,6 +534,34 @@ export const PlayPvpPage = () => {
               Кнопка активна только у текущего активного игрока после получения состояния матча.
             </p>
           </Card>
+
+          <Card title="Игроки и зоны">
+            {playerBoards.length > 0 ? (
+              <div className={styles.playerBoardList}>
+                {playerBoards.map((playerBoard) => (
+                  <div
+                    key={playerBoard.playerId}
+                    className={`${styles.playerBoard} ${playerBoard.isActive ? styles.playerBoardActive : ''}`.trim()}
+                  >
+                    <div className={styles.playerBoardHeader}>
+                      <strong>{playerBoard.playerId}</strong>
+                      <span>{playerBoard.isActive ? 'Активный ход' : 'Ожидание'}</span>
+                    </div>
+                    <div className={styles.zoneGrid}>
+                      <span>deck: {playerBoard.deckSize}</span>
+                      <span>hand: {playerBoard.handSize}</span>
+                      <span>discard: {playerBoard.discardSize}</span>
+                      <span>
+                        mana: {playerBoard.mana}/{playerBoard.maxMana}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.emptyState}>Зоны игроков появятся после первого server `state`.</div>
+            )}
+          </Card>
         </div>
 
         <div className={styles.sideColumn}>
@@ -410,6 +589,21 @@ export const PlayPvpPage = () => {
               </div>
             ) : (
               <div className={styles.emptyState}>Локальный игрок появится после первого server `state`.</div>
+            )}
+          </Card>
+
+          <Card title="Рука локального игрока">
+            {localHandCards.length > 0 ? (
+              <div className={styles.handCardList}>
+                {localHandCards.map((card) => (
+                  <div key={card.instanceId} className={styles.handCard}>
+                    <strong>{card.name}</strong>
+                    <span>{card.instanceId}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.emptyState}>После старта матча здесь появятся реальные карты из руки.</div>
             )}
           </Card>
 
