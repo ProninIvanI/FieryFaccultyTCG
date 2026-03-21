@@ -20,6 +20,10 @@ type LoginResult =
   | { ok: true; data: AuthSuccess }
   | { ok: false; error: string };
 
+type LogoutResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
 const hashPassword = (password: string, salt?: string): string => {
   const resolvedSalt = salt ?? randomBytes(16).toString('hex');
   const derived = scryptSync(password, resolvedSalt, 64).toString('hex');
@@ -112,5 +116,18 @@ export class AuthService {
 
     const user = await userModel.findBySessionTokenHash(hashToken(token));
     return user ? toPublicUser(user) : null;
+  }
+
+  async logout(token: string): Promise<LogoutResult> {
+    if (!token) {
+      return { ok: false, error: 'Не авторизован' };
+    }
+
+    const deleted = await userModel.deleteSessionByTokenHash(hashToken(token));
+    if (!deleted) {
+      return { ok: false, error: 'Не авторизован' };
+    }
+
+    return { ok: true };
   }
 }

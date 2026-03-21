@@ -81,3 +81,22 @@ export const me = async (
 
   res.status(200).json({ success: true, data: { user } });
 };
+
+export const logout = async (
+  req: Request,
+  res: Response<ApiResponse<{ message: string }>>,
+): Promise<void> => {
+  const token = readBearerToken(req);
+  if (!token) {
+    res.status(401).json({ success: false, error: 'Не авторизован' });
+    return;
+  }
+
+  const result = await authService.logout(token);
+  if (!result.ok) {
+    res.status(401).json({ success: false, error: result.error });
+    return;
+  }
+
+  res.status(200).json({ success: true, data: { message: 'Сессия завершена' } });
+};

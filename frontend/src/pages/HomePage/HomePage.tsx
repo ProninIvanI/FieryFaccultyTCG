@@ -8,6 +8,7 @@ import styles from "./HomePage.module.css";
 
 export const HomePage = () => {
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   useEffect(() => {
     setSession(authService.getSession());
@@ -19,8 +20,14 @@ export const HomePage = () => {
 
   return (
     <AuthHome
-      onLogout={() => {
-        authService.logout();
+      logoutError={logoutError}
+      onLogout={async () => {
+        const result = await authService.logout();
+        if (!result.ok) {
+          setLogoutError(result.error ?? "Не удалось завершить сессию");
+          return;
+        }
+        setLogoutError(null);
         setSession(null);
       }}
     />
@@ -71,7 +78,13 @@ const PublicHome = () => {
   );
 };
 
-const AuthHome = ({ onLogout }: { onLogout: () => void }) => {
+const AuthHome = ({
+  logoutError,
+  onLogout,
+}: {
+  logoutError: string | null;
+  onLogout: () => Promise<void>;
+}) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [friendNickname, setFriendNickname] = useState("");
@@ -198,6 +211,9 @@ const AuthHome = ({ onLogout }: { onLogout: () => void }) => {
                         Список друзей
                       </button>
                     </div>
+                    {logoutError ? (
+                      <div className={styles.userMenuSection}>{logoutError}</div>
+                    ) : null}
                     <div className={styles.userMenuFooter}>
                       <button
                         className={styles.menuLogout}

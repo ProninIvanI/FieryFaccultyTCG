@@ -195,4 +195,17 @@ export const userModel = {
       createdAt: row.created_at.toISOString(),
     };
   },
+
+  async deleteSessionByTokenHash(tokenHash: string): Promise<boolean> {
+    await ensureSchema();
+    const result = await pool.query(
+      `
+        DELETE FROM auth_sessions
+        WHERE token_hash = $1
+      `,
+      [tokenHash],
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  },
 };

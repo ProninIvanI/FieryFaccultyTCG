@@ -25,6 +25,10 @@ const saveSession = (session: AuthSession): void => {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 };
 
+const clearSession = (): void => {
+  localStorage.removeItem(SESSION_KEY);
+};
+
 export const authService = {
   async register(params: {
     email: string;
@@ -81,7 +85,34 @@ export const authService = {
     }
   },
 
-  logout(): void {
-    localStorage.removeItem(SESSION_KEY);
+  async logout(): Promise<{ ok: boolean; error?: string }> {
+    const session = authService.getSession();
+    if (!session?.token) {
+      clearSession();
+      return { ok: true };
+    }
+
+    try {
+      await axiosInstance.post<{ success: boolean; data?: { message: string } }>(
+        '/api/auth/logout',
+        {},
+      );
+      clearSession();
+      return { ok: true };
+    } catch (error) {
+      const status = typeof error === 'object' && error && 'status' in error
+        ? Number((error as { status?: unknown }).status)
+        : null;
+
+      if (status === 401) {
+        clearSession();
+        return { ok: true };
+      }
+
+      const message = typeof error === 'object' && error && 'error' in error
+        ? String((error as { error?: unknown }).error)
+        : 'Ошибка выхода';
+      return { ok: false, error: message };
+    }
   },
 };
