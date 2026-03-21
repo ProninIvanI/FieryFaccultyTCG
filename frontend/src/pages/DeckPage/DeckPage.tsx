@@ -521,7 +521,7 @@ export const DeckPage = () => {
     applySavedDeck(savedDeck);
   };
 
-  const handleSaveDeck = async () => {
+  const handleSaveDeck = async (mode: "default" | "create-new" = "default") => {
     if (!session?.token) {
       setDeckRequestError("Для сохранения колод нужно войти в аккаунт.");
       return;
@@ -537,7 +537,8 @@ export const DeckPage = () => {
       cards: serializedDeckCards,
     };
 
-    const result = deckId
+    const shouldCreateNew = mode === "create-new";
+    const result = !shouldCreateNew && deckId
       ? await deckService.update(deckId, payload)
       : await deckService.create(payload);
 
@@ -553,7 +554,11 @@ export const DeckPage = () => {
       const rest = prev.filter((item) => item.id !== result.deck.id);
       return [result.deck, ...rest];
     });
-    setDeckRequestInfo(deckId ? "Колода сохранена." : "Колода создана и сохранена.");
+    setDeckRequestInfo(
+      shouldCreateNew || !deckId
+        ? "Колода создана и сохранена."
+        : "Колода сохранена.",
+    );
   };
 
   const handleDeleteDeck = async () => {
@@ -800,10 +805,18 @@ export const DeckPage = () => {
                   <button
                     className={styles.presetButton}
                     type="button"
-                    onClick={handleSaveDeck}
+                    onClick={() => void handleSaveDeck()}
                     disabled={isSaving || !session?.token}
                   >
                     {isSaving ? "Сохраняем..." : deckId ? "Сохранить изменения" : "Сохранить колоду"}
+                  </button>
+                  <button
+                    className={styles.presetButton}
+                    type="button"
+                    onClick={() => void handleSaveDeck("create-new")}
+                    disabled={isSaving || !session?.token}
+                  >
+                    Сохранить как новую
                   </button>
                   <button
                     className={styles.presetButton}
