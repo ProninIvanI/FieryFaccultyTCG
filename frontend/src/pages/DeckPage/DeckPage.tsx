@@ -527,13 +527,18 @@ export const DeckPage = () => {
       return;
     }
 
+    if (!selectedCharacter?.id) {
+      setDeckRequestError("Для сохранения колоды нужно выбрать персонажа.");
+      return;
+    }
+
     setIsSaving(true);
     setDeckRequestError(null);
     setDeckRequestInfo(null);
 
     const payload = {
       name: deckName.trim() || "Новая колода",
-      characterId: selectedCharacter?.id ?? null,
+      characterId: selectedCharacter.id,
       cards: serializedDeckCards,
     };
 

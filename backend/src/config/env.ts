@@ -14,6 +14,7 @@ export interface EnvConfig {
   // Server
   NODE_ENV: 'development' | 'production' | 'test';
   PORT: number;
+  INTERNAL_API_TOKEN: string;
   
   // Database
   POSTGRES_USER: string;
@@ -52,6 +53,7 @@ export const config: EnvConfig = {
   // Server
   NODE_ENV: (getEnvString('NODE_ENV', 'development') as 'development' | 'production' | 'test'),
   PORT: getEnvNumber('PORT', 3001),
+  INTERNAL_API_TOKEN: getEnvString('INTERNAL_API_TOKEN', 'dev-internal-token'),
   
   // Database
   POSTGRES_USER: getEnvString('POSTGRES_USER', 'postgres'),
@@ -72,6 +74,7 @@ export const validateConfig = (): void => {
   const requiredVars: (keyof EnvConfig)[] = [
     'NODE_ENV',
     'PORT',
+    'INTERNAL_API_TOKEN',
     'POSTGRES_USER',
     'POSTGRES_HOST',
     'POSTGRES_DB',
@@ -106,6 +109,7 @@ export const validateConfig = (): void => {
 export const serverConfig = {
   nodeEnv: config.NODE_ENV,
   port: config.PORT,
+  internalApiToken: config.INTERNAL_API_TOKEN,
   isDevelopment: config.NODE_ENV === 'development',
   isProduction: config.NODE_ENV === 'production',
   isTest: config.NODE_ENV === 'test',
@@ -130,4 +134,3 @@ export const apiConfig = {
 export const corsConfig = {
   origin: config.CORS_ORIGIN === '*' ? '*' : config.CORS_ORIGIN.split(','),
 };
-

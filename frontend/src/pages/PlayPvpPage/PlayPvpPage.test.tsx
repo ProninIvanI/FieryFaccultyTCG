@@ -58,15 +58,37 @@ class FakeWebSocket {
   }
 }
 
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+};
+
+const createDeferred = <T,>(): Deferred<T> => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((innerResolve) => {
+    resolve = innerResolve;
+  });
+
+  return { promise, resolve };
+};
+
+const flushMicrotasks = async (): Promise<void> => {
+  await Promise.resolve();
+};
+
 const setAuthSession = (userId: string): void => {
   localStorage.setItem(
     'fftcg_session',
-    JSON.stringify({ userId, token: `token_${userId}`, createdAt: '2026-03-20T12:00:00.000Z' })
+    JSON.stringify({ userId, token: `token_${userId}`, createdAt: '2026-03-20T12:00:00.000Z' }),
   );
 };
 
 const mockDeckList = (characterId: string) => {
-  vi.spyOn(axiosInstance, 'get').mockResolvedValue({
+  const deferred = createDeferred<Awaited<ReturnType<typeof axiosInstance.get>>>();
+
+  vi.spyOn(axiosInstance, 'get').mockReturnValue(deferred.promise);
+
+  const response = {
     data: {
       success: true,
       data: {
@@ -83,7 +105,52 @@ const mockDeckList = (characterId: string) => {
         ],
       },
     },
-  } as Awaited<ReturnType<typeof axiosInstance.get>>);
+  } as Awaited<ReturnType<typeof axiosInstance.get>>;
+
+  return async () => {
+    deferred.resolve(response);
+    await deferred.promise;
+    await flushMicrotasks();
+  };
+};
+
+const renderPage = async (characterId: string, userId: string): Promise<void> => {
+  setAuthSession(userId);
+  const resolveDeckList = mockDeckList(characterId);
+
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <PlayPvpPage />
+    </MemoryRouter>,
+  );
+
+  await act(async () => {
+    await resolveDeckList();
+  });
+};
+
+const submitJoin = async (sessionId: string, buttonName: RegExp | string): Promise<FakeWebSocket> => {
+  const sessionInput = await screen.findByDisplayValue(/session_/i);
+  fireEvent.change(sessionInput, { target: { value: sessionId } });
+  const matchingButtons = screen.getAllByRole('button', { name: buttonName });
+  const submitButton = matchingButtons[matchingButtons.length - 1];
+
+  expect(submitButton).toBeDefined();
+
+  await act(async () => {
+    fireEvent.click(submitButton!);
+    await flushMicrotasks();
+  });
+
+  const socket = FakeWebSocket.instances[0];
+  expect(socket).toBeDefined();
+
+  await act(async () => {
+    socket.emitOpen();
+    await flushMicrotasks();
+  });
+
+  return socket;
 };
 
 describe('PlayPvpPage', () => {
@@ -96,35 +163,23 @@ describe('PlayPvpPage', () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
   });
 
-  afterEach(() => {
-    gameWsService.disconnect();
+  afterEach(async () => {
+    await act(async () => {
+      gameWsService.disconnect();
+      await flushMicrotasks();
+    });
     globalThis.WebSocket = originalWebSocket;
     vi.restoreAllMocks();
   });
 
   it('creates match, receives state and sends EndTurn from UI', async () => {
-    setAuthSession('user_1');
-    mockDeckList('char_1');
+    await renderPage('char_1', 'user_1');
 
-    render(
-      <MemoryRouter>
-        <PlayPvpPage />
-      </MemoryRouter>
-    );
-
-    const sessionInput = await screen.findByDisplayValue(/session_/i);
-    fireEvent.change(sessionInput, { target: { value: 'session_alpha' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Создать и подключиться' }));
-
-    const socket = FakeWebSocket.instances[0];
-    expect(socket).toBeDefined();
-    await act(async () => {
-      socket.emitOpen();
-    });
+    const socket = await submitJoin('session_alpha', /Создать и подключиться/i);
 
     await waitFor(() => {
       expect(socket.sent).toContain(
-        JSON.stringify({ type: 'join', sessionId: 'session_alpha', token: 'token_user_1', deckId: 'deck_1', seed: 1 })
+        JSON.stringify({ type: 'join', sessionId: 'session_alpha', token: 'token_user_1', deckId: 'deck_1', seed: 1 }),
       );
     });
 
@@ -147,23 +202,27 @@ describe('PlayPvpPage', () => {
             user_1: [],
           },
           cardInstances: {
-            hand_card_1: { id: 'hand_card_1', cardId: '1', ownerId: 'user_1', zone: 'hand' },
+            hand_card_1: { id: 'hand_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
           },
           actionLog: [],
         },
       });
+      await flushMicrotasks();
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Активная сессия:/)).toHaveTextContent('session_alpha');
-      expect(screen.getByRole('button', { name: 'Завершить ход' })).toBeEnabled();
+      expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('session_alpha');
+      expect(screen.getByRole('button', { name: /Завершить ход/i })).toBeEnabled();
     });
 
     expect(screen.getByText('deck: 2')).toBeInTheDocument();
     expect(screen.getByText('hand: 1')).toBeInTheDocument();
     expect(screen.getByText('Огненный шар')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Завершить ход' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Завершить ход/i }));
+      await flushMicrotasks();
+    });
 
     await waitFor(() => {
       expect(socket.sent).toContain(
@@ -174,66 +233,99 @@ describe('PlayPvpPage', () => {
             actorId: 'char_1',
             playerId: 'user_1',
           },
-        })
+        }),
       );
     });
   });
 
   it('joins existing match as second player without sending seed', async () => {
-    setAuthSession('user_2');
-    mockDeckList('char_2');
+    await renderPage('char_2', 'user_2');
 
-    render(
-      <MemoryRouter>
-        <PlayPvpPage />
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Войти в матч' })[0]);
-
-    const sessionInput = await screen.findByDisplayValue(/session_/i);
-    fireEvent.change(sessionInput, { target: { value: 'session_alpha' } });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Войти в матч' })[1]);
-
-    const socket = FakeWebSocket.instances[0];
-    expect(socket).toBeDefined();
     await act(async () => {
-      socket.emitOpen();
+      fireEvent.click(screen.getAllByRole('button', { name: /Войти в матч/i })[0]);
+      await flushMicrotasks();
     });
+
+    const socket = await submitJoin('session_alpha', /Войти в матч/i);
 
     await waitFor(() => {
       expect(socket.sent).toContain(
-        JSON.stringify({ type: 'join', sessionId: 'session_alpha', token: 'token_user_2', deckId: 'deck_1' })
+        JSON.stringify({ type: 'join', sessionId: 'session_alpha', token: 'token_user_2', deckId: 'deck_1' }),
       );
     });
 
     expect(socket.sent.some((item) => item.includes('"seed"'))).toBe(false);
   });
 
-  it('shows server join error and clears pending session before first state', async () => {
-    setAuthSession('user_3');
-    mockDeckList('char_3');
+  it('sends Summon action for summon card from hand', async () => {
+    await renderPage('char_1', 'user_1');
 
-    render(
-      <MemoryRouter>
-        <PlayPvpPage />
-      </MemoryRouter>
-    );
+    const socket = await submitJoin('session_summon', /Создать и подключиться/i);
 
-    const sessionInput = await screen.findByDisplayValue(/session_/i);
-    fireEvent.change(sessionInput, { target: { value: 'session_full' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Создать и подключиться' }));
-
-    const socket = FakeWebSocket.instances[0];
-    expect(socket).toBeDefined();
     await act(async () => {
-      socket.emitOpen();
+      socket.emitMessage({
+        type: 'state',
+        state: {
+          turn: { number: 1, activePlayerId: 'user_1' },
+          phase: { current: 'ActionPhase' },
+          players: {
+            user_1: { mana: 4, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+          },
+          creatures: {},
+          decks: {
+            user_1: ['deck_card_1'],
+          },
+          hands: {
+            user_1: ['summon_card_1'],
+          },
+          discardPiles: {
+            user_1: [],
+          },
+          cardInstances: {
+            summon_card_1: { id: 'summon_card_1', definitionId: '81', ownerId: 'user_1', zone: 'hand' },
+          },
+          actionLog: [],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    const summonButton = await screen.findByRole('button', { name: /Призвать/i });
+    expect(summonButton).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(summonButton);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(socket.sent).toContain(
+        JSON.stringify({
+          type: 'action',
+          action: {
+            type: 'Summon',
+            actorId: 'char_1',
+            playerId: 'user_1',
+            cardInstanceId: 'summon_card_1',
+          },
+        }),
+      );
+    });
+  });
+
+  it('shows server join error and clears pending session before first state', async () => {
+    await renderPage('char_3', 'user_3');
+
+    const socket = await submitJoin('session_full', /Создать и подключиться/i);
+
+    await act(async () => {
       socket.emitMessage({ type: 'error', error: 'Session is full' });
+      await flushMicrotasks();
     });
 
     await waitFor(() => {
       expect(screen.getByText('Session is full')).toBeInTheDocument();
-      expect(screen.getByText(/Активная сессия:/)).toHaveTextContent('ещё не подключено');
+      expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
       expect(screen.getByText('Ожидание данных матча...')).toBeInTheDocument();
     });
   });

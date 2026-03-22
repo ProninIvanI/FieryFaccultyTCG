@@ -39,13 +39,13 @@ const parseDeckRequest = (value: unknown): SaveDeckRequest | null => {
     return null;
   }
 
-  if (characterId !== null && characterId !== undefined && typeof characterId !== 'string') {
+  if (typeof characterId !== 'string' || !characterId.trim()) {
     return null;
   }
 
   return {
     name,
-    characterId: characterId ?? null,
+    characterId: characterId.trim(),
     cards: parsedCards.filter((card): card is NonNullable<typeof card> => card !== null),
   };
 };

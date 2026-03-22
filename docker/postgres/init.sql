@@ -48,6 +48,66 @@ CREATE TABLE IF NOT EXISTS deck_cards (
 
 CREATE INDEX IF NOT EXISTS idx_decks_user_id ON decks(user_id);
 
+CREATE TABLE IF NOT EXISTS matches (
+    id TEXT PRIMARY KEY,
+    match_id TEXT UNIQUE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('pending', 'active', 'finished', 'aborted')),
+    created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    winner_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    seed BIGINT NOT NULL,
+    game_core_version VARCHAR(64) NOT NULL,
+    rules_version VARCHAR(64) NOT NULL,
+    end_reason VARCHAR(32),
+    start_state_json JSONB NOT NULL,
+    final_state_json JSONB,
+    turn_count INTEGER NOT NULL DEFAULT 0 CHECK (turn_count >= 0),
+    action_count INTEGER NOT NULL DEFAULT 0 CHECK (action_count >= 0),
+    last_applied_action_at TIMESTAMPTZ,
+    started_at TIMESTAMPTZ,
+    finished_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status);
+CREATE INDEX IF NOT EXISTS idx_matches_created_by_user_id ON matches(created_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_matches_winner_user_id ON matches(winner_user_id);
+CREATE INDEX IF NOT EXISTS idx_matches_started_at ON matches(started_at DESC);
+
+CREATE TABLE IF NOT EXISTS match_players (
+    id TEXT PRIMARY KEY,
+    match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    player_slot INTEGER NOT NULL CHECK (player_slot > 0),
+    player_id_in_match TEXT NOT NULL,
+    deck_id TEXT REFERENCES decks(id) ON DELETE SET NULL,
+    deck_name_snapshot VARCHAR(128),
+    deck_snapshot_json JSONB,
+    is_winner BOOLEAN NOT NULL DEFAULT FALSE,
+    finish_result VARCHAR(32) NOT NULL CHECK (finish_result IN ('pending', 'win', 'loss', 'draw', 'abandoned')),
+    connected_at TIMESTAMPTZ,
+    disconnected_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (match_id, player_slot),
+    UNIQUE (match_id, player_id_in_match),
+    UNIQUE (match_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_match_players_match_id ON match_players(match_id);
+CREATE INDEX IF NOT EXISTS idx_match_players_user_id ON match_players(user_id);
+CREATE INDEX IF NOT EXISTS idx_match_players_deck_id ON match_players(deck_id);
+
+CREATE TABLE IF NOT EXISTS match_replays (
+    id TEXT PRIMARY KEY,
+    match_id TEXT NOT NULL UNIQUE REFERENCES matches(id) ON DELETE CASCADE,
+    format_version VARCHAR(32) NOT NULL,
+    initial_context_json JSONB NOT NULL,
+    command_log_json JSONB NOT NULL,
+    checkpoints_json JSONB,
+    final_hash TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 
 
 

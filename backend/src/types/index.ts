@@ -64,8 +64,147 @@ export interface DeleteDeckResponse {
 
 export interface SaveDeckRequest {
   name: string;
-  characterId: string | null;
+  characterId: string;
   cards: DeckCardItem[];
+}
+
+export type MatchStatus = 'pending' | 'active' | 'finished' | 'aborted';
+
+export type MatchEndReason = 'victory' | 'surrender' | 'disconnect' | 'abort' | 'error';
+
+export type MatchPlayerFinishResult = 'pending' | 'win' | 'loss' | 'draw' | 'abandoned';
+
+export interface MatchPlayerRecord {
+  id: string;
+  matchId: string;
+  userId: string;
+  playerSlot: number;
+  playerIdInMatch: string;
+  deckId: string | null;
+  deckNameSnapshot: string | null;
+  deckSnapshot: unknown | null;
+  isWinner: boolean;
+  finishResult: MatchPlayerFinishResult;
+  connectedAt: string | null;
+  disconnectedAt: string | null;
+  createdAt: string;
+}
+
+export interface MatchReplayRecord {
+  id: string;
+  matchId: string;
+  formatVersion: string;
+  initialContext: unknown;
+  commandLog: unknown;
+  checkpoints: unknown | null;
+  finalHash: string | null;
+  createdAt: string;
+}
+
+export interface MatchRecord {
+  id: string;
+  matchId: string;
+  status: MatchStatus;
+  createdByUserId: string | null;
+  winnerUserId: string | null;
+  seed: string;
+  gameCoreVersion: string;
+  rulesVersion: string;
+  endReason: MatchEndReason | null;
+  startState: unknown;
+  finalState: unknown | null;
+  turnCount: number;
+  actionCount: number;
+  lastAppliedActionAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  players: MatchPlayerRecord[];
+}
+
+export interface MatchSummary {
+  matchId: string;
+  status: MatchStatus;
+  createdByUserId: string | null;
+  winnerUserId: string | null;
+  seed: string;
+  gameCoreVersion: string;
+  rulesVersion: string;
+  endReason: MatchEndReason | null;
+  turnCount: number;
+  actionCount: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  players: MatchPlayerRecord[];
+}
+
+export interface CreateMatchPlayerInput {
+  id: string;
+  userId: string;
+  playerSlot: number;
+  playerIdInMatch: string;
+  deckId: string | null;
+  deckNameSnapshot?: string | null;
+  deckSnapshot?: unknown | null;
+  connectedAt?: string | null;
+}
+
+export interface CreateMatchRecordInput {
+  id: string;
+  matchId: string;
+  status: MatchStatus;
+  createdByUserId: string | null;
+  seed: string;
+  gameCoreVersion: string;
+  rulesVersion: string;
+  startState: unknown;
+  startedAt?: string | null;
+  lastAppliedActionAt?: string | null;
+  players: CreateMatchPlayerInput[];
+}
+
+export interface CompleteMatchPlayerInput {
+  userId: string;
+  isWinner: boolean;
+  finishResult: MatchPlayerFinishResult;
+  disconnectedAt?: string | null;
+}
+
+export interface CompleteMatchInput {
+  status: Extract<MatchStatus, 'finished' | 'aborted'>;
+  winnerUserId: string | null;
+  endReason: MatchEndReason;
+  finalState: unknown;
+  turnCount: number;
+  actionCount: number;
+  finishedAt?: string | null;
+  lastAppliedActionAt?: string | null;
+  players: CompleteMatchPlayerInput[];
+}
+
+export interface SaveMatchReplayInput {
+  id: string;
+  matchId: string;
+  formatVersion: string;
+  initialContext: unknown;
+  commandLog: unknown;
+  checkpoints?: unknown | null;
+  finalHash?: string | null;
+}
+
+export interface MatchResponse {
+  match: MatchRecord;
+}
+
+export interface MatchListResponse {
+  matches: MatchSummary[];
+}
+
+export interface MatchReplayResponse {
+  replay: MatchReplayRecord;
 }
 
 

@@ -7,6 +7,7 @@
 - убрать размазывание данных между `frontend`, `backend`, `server` и `game-core`;
 - зафиксировать единый `source of truth` для каждого домена;
 - подготовить основу для перехода от локального demo/mock-хранения к нормальному серверному хранению.
+- детальную схему persistent-хранения матчей и replay см. в `docs/match-storage-architecture.md`.
 
 ## Текущая ситуация
 
@@ -111,6 +112,15 @@ Frontend хранит:
 Почему:
 - это уже persistent-данные;
 - они нужны для истории, аналитики, replay, дебага и админки.
+
+Детализация структуры:
+- отдельный документ `docs/match-storage-architecture.md` фиксирует lifecycle матча, таблицы `matches`, `match_players`, `match_replays` и обязательный состав сохраняемых данных.
+
+Текущий статус:
+- backend уже хранит `matches`, `match_players`, `match_replays`;
+- доступны user-facing read-only ручки истории матчей;
+- `server` уже сохраняет старт матча и replay в persistent-слой;
+- финальное завершение матча ещё ждёт явного сигнала `game over` из игрового контура.
 
 ### 5. User Decks
 
@@ -259,5 +269,6 @@ Frontend хранит:
 
 - `users/auth` уже серверные и используются как основа для PvP identity.
 - `decks` уже серверные и используются как источник истины для состава колоды.
+- `match history / replay` уже получили первый рабочий persistent-слой: схема БД, backend-модель, read-only API и server persistence для `match start + replay`.
 - `PlayPvpPage` уже показывает не только raw state, но и derived-данные из server snapshot: игроков, размеры `deck/hand/discard` и руку локального игрока.
 - Следующий logical data/UI step: выводить не только зоны, но и реальные доступные игровые действия поверх server state.

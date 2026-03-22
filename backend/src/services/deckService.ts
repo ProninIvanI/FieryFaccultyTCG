@@ -18,7 +18,7 @@ type RawCatalog = {
 
 type DeckPayload = {
   name: string;
-  characterId: string | null;
+  characterId: string;
   cards: DeckCardRecord[];
 };
 
@@ -97,7 +97,11 @@ const validateDeckPayload = (payload: DeckPayload): { ok: true; payload: DeckPay
 
   const { cardIds, characterIds } = getDeckCatalog();
 
-  if (payload.characterId && !characterIds.has(payload.characterId)) {
+  if (!payload.characterId.trim()) {
+    return { ok: false, error: 'Для колоды нужно выбрать персонажа' };
+  }
+
+  if (!characterIds.has(payload.characterId)) {
     return { ok: false, error: 'Неизвестный персонаж для колоды' };
   }
 

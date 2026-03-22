@@ -34,13 +34,61 @@ interface HandCardSummary {
   instanceId: string;
   cardId: string;
   name: string;
+  mana: number;
+  cardType: string;
+}
+
+interface CreatureSummary {
+  creatureId: string;
+  ownerId: string;
+  hp: number;
+  maxHp: number;
+  attack: number;
+  speed: number;
+}
+
+interface MatchEventSummary {
+  id: string;
+  title: string;
+  description: string;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
-const cardNameById = new Map(
-  rawCardData.cards.map((card) => [String(card.id), card.name] as const)
+const extraPvpCardCatalog = [
+  { id: '81', name: 'Огненный элементаль', type: 'summon', mana: 4 },
+  { id: '82', name: 'Пепельный дух', type: 'summon', mana: 2 },
+  { id: '83', name: 'Лавовый голем', type: 'summon', mana: 5 },
+  { id: '84', name: 'Огненная саламандра', type: 'summon', mana: 3 },
+  { id: '85', name: 'Искровой дух', type: 'summon', mana: 2 },
+  { id: '86', name: 'Водный элементаль', type: 'summon', mana: 4 },
+  { id: '87', name: 'Ледяной страж', type: 'summon', mana: 4 },
+  { id: '88', name: 'Морской дух', type: 'summon', mana: 3 },
+  { id: '89', name: 'Хранитель глубин', type: 'summon', mana: 5 },
+  { id: '90', name: 'Ледяная нимфа', type: 'summon', mana: 3 },
+  { id: '91', name: 'Каменный голем', type: 'summon', mana: 5 },
+  { id: '92', name: 'Корневой дух', type: 'summon', mana: 3 },
+  { id: '93', name: 'Каменный страж', type: 'summon', mana: 4 },
+  { id: '94', name: 'Земляной элементаль', type: 'summon', mana: 4 },
+  { id: '95', name: 'Дух леса', type: 'summon', mana: 3 },
+  { id: '96', name: 'Воздушный элементаль', type: 'summon', mana: 4 },
+  { id: '97', name: 'Штормовой дух', type: 'summon', mana: 3 },
+  { id: '98', name: 'Громовой ястреб', type: 'summon', mana: 3 },
+  { id: '99', name: 'Вихревой страж', type: 'summon', mana: 4 },
+  { id: '100', name: 'Дух бури', type: 'summon', mana: 4 },
+] as const;
+
+const cardCatalogById = new Map(
+  [
+    ...rawCardData.cards.map((card) => ({
+      id: String(card.id),
+      name: card.name,
+      type: typeof card.type === 'string' ? card.type : '',
+      mana: typeof card.mana === 'number' ? card.mana : 0,
+    })),
+    ...extraPvpCardCatalog,
+  ].map((card) => [card.id, card] as const)
 );
 
 const getMatchSummary = (state: GameStateSnapshot | null): MatchSummary | null => {
@@ -143,15 +191,106 @@ const getLocalHandCards = (state: GameStateSnapshot | null, playerId: string): H
       return [];
     }
 
-    const cardId = typeof instance.cardId === 'string' ? instance.cardId : '';
+    const cardId =
+      typeof instance.definitionId === 'string'
+        ? instance.definitionId
+        : typeof instance.cardId === 'string'
+          ? instance.cardId
+          : '';
     return [
       {
         instanceId,
         cardId,
-        name: cardNameById.get(cardId) ?? `Карта ${cardId || instanceId}`,
+        name: cardCatalogById.get(cardId)?.name ?? `Карта ${cardId || instanceId}`,
+        mana: cardCatalogById.get(cardId)?.mana ?? 0,
+        cardType: cardCatalogById.get(cardId)?.type ?? 'unknown',
       },
     ];
   });
+};
+
+const getCreatureSummaries = (state: GameStateSnapshot | null): CreatureSummary[] => {
+  if (!state || !isRecord(state.creatures)) {
+    return [];
+  }
+
+  return Object.values(state.creatures).flatMap((creature) => {
+    if (!isRecord(creature) || typeof creature.creatureId !== 'string' || typeof creature.ownerId !== 'string') {
+      return [];
+    }
+
+    return [{
+      creatureId: creature.creatureId,
+      ownerId: creature.ownerId,
+      hp: typeof creature.hp === 'number' ? creature.hp : 0,
+      maxHp: typeof creature.maxHp === 'number' ? creature.maxHp : 0,
+      attack: typeof creature.attack === 'number' ? creature.attack : 0,
+      speed: typeof creature.speed === 'number' ? creature.speed : 0,
+    }];
+  });
+};
+
+const getMatchEvents = (state: GameStateSnapshot | null): MatchEventSummary[] => {
+  if (!state || !Array.isArray(state.log)) {
+    return [];
+  }
+
+  return state.log
+    .slice(-8)
+    .reverse()
+    .flatMap((entry, index) => {
+      if (!isRecord(entry)) {
+        return [];
+      }
+
+      const eventType = typeof entry.type === 'string' ? entry.type : 'event';
+      const seq = typeof entry.seq === 'number' ? entry.seq : index + 1;
+      const payload = isRecord(entry.payload) ? entry.payload : null;
+
+      if (eventType === 'action' && payload && isRecord(payload.action)) {
+        const action = payload.action;
+        const actorId = typeof action.actorId === 'string' ? action.actorId : 'unknown';
+        const actionType = typeof action.type === 'string' ? action.type : 'Action';
+
+        return [{
+          id: `action_${seq}`,
+          title: actionType,
+          description: `Актор ${actorId} выполнил ${actionType}.`,
+        }];
+      }
+
+      if (eventType === 'summon') {
+        const creatureId = payload && typeof payload.creatureId === 'string' ? payload.creatureId : 'unknown';
+        return [{
+          id: `summon_${seq}`,
+          title: 'Призыв',
+          description: `На стол вышло существо ${creatureId}.`,
+        }];
+      }
+
+      if (eventType === 'damage') {
+        return [{
+          id: `damage_${seq}`,
+          title: 'Урон',
+          description: 'В матче был зарегистрирован урон.',
+        }];
+      }
+
+      if (eventType === 'effect') {
+        const effectId = payload && typeof payload.effectId === 'string' ? payload.effectId : 'unknown';
+        return [{
+          id: `effect_${seq}`,
+          title: 'Эффект',
+          description: `Сработал эффект ${effectId}.`,
+        }];
+      }
+
+      return [{
+        id: `event_${seq}`,
+        title: eventType,
+        description: 'Событие матча обновило состояние.',
+      }];
+    });
 };
 
 const buildSessionId = (): string => {
@@ -265,12 +404,24 @@ export const PlayPvpPage = () => {
   const localPlayer = useMemo(() => getLocalPlayerSummary(matchState, playerId), [matchState, playerId]);
   const playerBoards = useMemo(() => getPlayerBoardSummaries(matchState), [matchState]);
   const localHandCards = useMemo(() => getLocalHandCards(matchState, playerId), [matchState, playerId]);
+  const creatures = useMemo(() => getCreatureSummaries(matchState), [matchState]);
+  const matchEvents = useMemo(() => getMatchEvents(matchState), [matchState]);
+  const alliedCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId === playerId), [creatures, playerId]);
+  const enemyCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId !== playerId), [creatures, playerId]);
+  const enemyBoards = useMemo(() => playerBoards.filter((playerBoard) => playerBoard.playerId !== playerId), [playerBoards, playerId]);
   const canEndTurn = Boolean(
     matchSummary &&
       localPlayer &&
       localPlayer.characterId &&
       matchSummary.activePlayerId === playerId &&
       status === 'connected'
+  );
+
+  const canActFromHand = Boolean(
+    localPlayer &&
+      localPlayer.characterId &&
+      status === 'connected' &&
+      matchSummary?.activePlayerId === playerId
   );
 
   const submitJoin = async (event: FormEvent<HTMLFormElement>) => {
@@ -349,6 +500,29 @@ export const PlayPvpPage = () => {
         type: 'EndTurn',
         actorId: localPlayer.characterId,
         playerId: localPlayer.playerId,
+      });
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : 'Не удалось отправить действие');
+    }
+  };
+
+  const handleSummon = (card: HandCardSummary) => {
+    if (!localPlayer) {
+      setError('Локальный игрок ещё не синхронизирован с матчем.');
+      return;
+    }
+
+    if (card.cardType !== 'summon') {
+      setError('Для этой карты действие из UI пока не реализовано.');
+      return;
+    }
+
+    try {
+      gameWsService.sendAction({
+        type: 'Summon',
+        actorId: localPlayer.characterId,
+        playerId: localPlayer.playerId,
+        cardInstanceId: card.instanceId,
       });
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : 'Не удалось отправить действие');
@@ -497,26 +671,37 @@ export const PlayPvpPage = () => {
 
           <Card title="Состояние матча">
             {matchSummary ? (
-              <div className={styles.summaryGrid}>
-                <div className={styles.summaryTile}>
-                  <span className={styles.summaryLabel}>Ход</span>
-                  <strong>{matchSummary.turnNumber}</strong>
+              <div className={styles.matchOverview}>
+                <div className={styles.matchSpotlight}>
+                  <span className={styles.summaryLabel}>Текущий ритм матча</span>
+                  <strong className={styles.spotlightValue}>
+                    {matchSummary.activePlayerId === playerId ? 'Твой темп' : 'Темп соперника'}
+                  </strong>
+                  <p className={styles.paragraph}>
+                    Ход {matchSummary.turnNumber}, фаза {matchSummary.phase}. Сейчас активен {matchSummary.activePlayerId}.
+                  </p>
                 </div>
-                <div className={styles.summaryTile}>
-                  <span className={styles.summaryLabel}>Фаза</span>
-                  <strong>{matchSummary.phase}</strong>
-                </div>
-                <div className={styles.summaryTile}>
-                  <span className={styles.summaryLabel}>Активный игрок</span>
-                  <strong>{matchSummary.activePlayerId}</strong>
-                </div>
-                <div className={styles.summaryTile}>
-                  <span className={styles.summaryLabel}>Игроков</span>
-                  <strong>{matchSummary.playerCount}</strong>
-                </div>
-                <div className={styles.summaryTile}>
-                  <span className={styles.summaryLabel}>Action log</span>
-                  <strong>{matchSummary.actionLogCount}</strong>
+                <div className={styles.summaryGrid}>
+                  <div className={styles.summaryTile}>
+                    <span className={styles.summaryLabel}>Ход</span>
+                    <strong>{matchSummary.turnNumber}</strong>
+                  </div>
+                  <div className={styles.summaryTile}>
+                    <span className={styles.summaryLabel}>Фаза</span>
+                    <strong>{matchSummary.phase}</strong>
+                  </div>
+                  <div className={styles.summaryTile}>
+                    <span className={styles.summaryLabel}>Активный игрок</span>
+                    <strong>{matchSummary.activePlayerId}</strong>
+                  </div>
+                  <div className={styles.summaryTile}>
+                    <span className={styles.summaryLabel}>Игроков</span>
+                    <strong>{matchSummary.playerCount}</strong>
+                  </div>
+                  <div className={styles.summaryTile}>
+                    <span className={styles.summaryLabel}>Action log</span>
+                    <strong>{matchSummary.actionLogCount}</strong>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -525,7 +710,11 @@ export const PlayPvpPage = () => {
           </Card>
 
           <Card title="Действия">
-            <div className={styles.inlineActions}>
+            <div className={styles.controlStrip}>
+              <div className={styles.controlStatus}>
+                <span className={styles.summaryLabel}>Статус хода</span>
+                <strong>{canEndTurn ? 'Можно действовать' : 'Ожидание окна действия'}</strong>
+              </div>
               <button className={styles.primaryButton} type="button" onClick={handleEndTurn} disabled={!canEndTurn}>
                 Завершить ход
               </button>
@@ -533,6 +722,88 @@ export const PlayPvpPage = () => {
             <p className={styles.paragraph}>
               Кнопка активна только у текущего активного игрока после получения состояния матча.
             </p>
+          </Card>
+
+          <Card title="Стол">
+            <div className={styles.battlefield}>
+              <section className={styles.battleLane}>
+                <div className={styles.battleLaneHeader}>
+                  <div>
+                    <span className={styles.summaryLabel}>Верхняя линия</span>
+                    <strong>Соперник</strong>
+                  </div>
+                  <span className={styles.battleCount}>{enemyCreatures.length} существ</span>
+                </div>
+                {enemyCreatures.length > 0 ? (
+                  <div className={styles.creatureGrid}>
+                    {enemyCreatures.map((creature) => (
+                      <div key={creature.creatureId} className={styles.creatureCard}>
+                        <div className={styles.playerBoardHeader}>
+                          <strong>{creature.creatureId}</strong>
+                          <span>Игрок {creature.ownerId}</span>
+                        </div>
+                        <div className={styles.zoneGrid}>
+                          <span>
+                            hp: {creature.hp}/{creature.maxHp}
+                          </span>
+                          <span>attack: {creature.attack}</span>
+                          <span>speed: {creature.speed}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.emptyState}>Пока пусто. Здесь будут существа соперника.</div>
+                )}
+              </section>
+
+              <section className={styles.duelStrip}>
+                <div className={styles.duelAvatar}>
+                  <span className={styles.summaryLabel}>Ты</span>
+                  <strong>{playerId}</strong>
+                  <span>{localPlayer ? `${localPlayer.mana}/${localPlayer.maxMana} mana` : 'Нет state'}</span>
+                </div>
+                <div className={styles.duelDivider}>VS</div>
+                <div className={styles.duelAvatar}>
+                  <span className={styles.summaryLabel}>Соперник</span>
+                  <strong>{enemyBoards[0]?.playerId ?? 'Ожидание'}</strong>
+                  <span>
+                    {enemyBoards[0] ? `${enemyBoards[0].mana}/${enemyBoards[0].maxMana} mana` : 'Подключится позже'}
+                  </span>
+                </div>
+              </section>
+
+              <section className={styles.battleLane}>
+                <div className={styles.battleLaneHeader}>
+                  <div>
+                    <span className={styles.summaryLabel}>Нижняя линия</span>
+                    <strong>Твой стол</strong>
+                  </div>
+                  <span className={styles.battleCount}>{alliedCreatures.length} существ</span>
+                </div>
+                {alliedCreatures.length > 0 ? (
+                  <div className={styles.creatureGrid}>
+                    {alliedCreatures.map((creature) => (
+                      <div key={creature.creatureId} className={`${styles.creatureCard} ${styles.creatureCardLocal}`.trim()}>
+                        <div className={styles.playerBoardHeader}>
+                          <strong>{creature.creatureId}</strong>
+                          <span>Твоё существо</span>
+                        </div>
+                        <div className={styles.zoneGrid}>
+                          <span>
+                            hp: {creature.hp}/{creature.maxHp}
+                          </span>
+                          <span>attack: {creature.attack}</span>
+                          <span>speed: {creature.speed}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.emptyState}>Пока пусто. Призови первое существо из руки.</div>
+                )}
+              </section>
+            </div>
           </Card>
 
           <Card title="Игроки и зоны">
@@ -567,24 +838,33 @@ export const PlayPvpPage = () => {
         <div className={styles.sideColumn}>
           <Card title="Локальный игрок">
             {localPlayer ? (
-              <div className={styles.detailsList}>
-                <div className={styles.detailRow}>
-                  <span>playerId</span>
-                  <strong>{localPlayer.playerId}</strong>
+              <div className={styles.heroPanel}>
+                <div className={styles.heroPanelHeader}>
+                  <div>
+                    <span className={styles.summaryLabel}>Твой маг</span>
+                    <strong>{localPlayer.playerId}</strong>
+                  </div>
+                  <span className={styles.heroChip}>{canEndTurn ? 'Твой ход' : 'Ожидание'}</span>
                 </div>
-                <div className={styles.detailRow}>
-                  <span>characterId</span>
-                  <strong>{localPlayer.characterId}</strong>
-                </div>
-                <div className={styles.detailRow}>
-                  <span>mana</span>
-                  <strong>
-                    {localPlayer.mana} / {localPlayer.maxMana}
-                  </strong>
-                </div>
-                <div className={styles.detailRow}>
-                  <span>actionPoints</span>
-                  <strong>{localPlayer.actionPoints}</strong>
+                <div className={styles.detailsList}>
+                  <div className={styles.detailRow}>
+                    <span>playerId</span>
+                    <strong>{localPlayer.playerId}</strong>
+                  </div>
+                  <div className={styles.detailRow}>
+                    <span>characterId</span>
+                    <strong>{localPlayer.characterId}</strong>
+                  </div>
+                  <div className={styles.detailRow}>
+                    <span>mana</span>
+                    <strong>
+                      {localPlayer.mana} / {localPlayer.maxMana}
+                    </strong>
+                  </div>
+                  <div className={styles.detailRow}>
+                    <span>actionPoints</span>
+                    <strong>{localPlayer.actionPoints}</strong>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -596,9 +876,28 @@ export const PlayPvpPage = () => {
             {localHandCards.length > 0 ? (
               <div className={styles.handCardList}>
                 {localHandCards.map((card) => (
-                  <div key={card.instanceId} className={styles.handCard}>
+                  <div
+                    key={card.instanceId}
+                    className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''}`.trim()}
+                  >
                     <strong>{card.name}</strong>
+                    <div className={styles.handMetaRow}>
+                      <span className={styles.cardBadge}>{card.cardType}</span>
+                      <span className={styles.cardBadge}>{card.mana} mana</span>
+                    </div>
                     <span>{card.instanceId}</span>
+                    {card.cardType === 'summon' ? (
+                      <button
+                        className={styles.primaryButton}
+                        type="button"
+                        onClick={() => handleSummon(card)}
+                        disabled={!canActFromHand || !localPlayer || localPlayer.mana < card.mana}
+                      >
+                        Призвать
+                      </button>
+                    ) : (
+                      <div className={styles.hint}>Для этой карты таргетный UI появится следующим этапом.</div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -607,10 +906,28 @@ export const PlayPvpPage = () => {
             )}
           </Card>
 
-          <Card title="Raw state">
-            <pre className={styles.rawState}>
-              {matchState ? JSON.stringify(matchState, null, 2) : 'Ожидание данных матча...'}
-            </pre>
+          <Card title="Лента матча">
+            {matchEvents.length > 0 ? (
+              <div className={styles.eventFeed}>
+                {matchEvents.map((event) => (
+                  <div key={event.id} className={styles.eventItem}>
+                    <strong>{event.title}</strong>
+                    <span>{event.description}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.emptyState}>После первых действий здесь появится читаемая лента матча.</div>
+            )}
+          </Card>
+
+          <Card title="Debug state">
+            <details className={styles.debugPanel}>
+              <summary className={styles.debugSummary}>Открыть raw snapshot</summary>
+              <pre className={styles.rawState}>
+                {matchState ? JSON.stringify(matchState, null, 2) : 'Ожидание данных матча...'}
+              </pre>
+            </details>
           </Card>
         </div>
       </div>

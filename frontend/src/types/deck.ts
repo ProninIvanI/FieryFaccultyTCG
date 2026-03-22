@@ -23,6 +23,6 @@ export interface DeckResponse {
 
 export interface SaveDeckRequest {
   name: string;
-  characterId: string | null;
+  characterId: string;
   cards: DeckCardItem[];
 }

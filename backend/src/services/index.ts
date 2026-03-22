@@ -2,6 +2,7 @@
 export * from './healthService';
 export * from './authService';
 export * from './deckService';
+export * from './matchService';
 
 
 

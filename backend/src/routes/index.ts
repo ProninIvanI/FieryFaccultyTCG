@@ -3,6 +3,8 @@ import healthRoutes from './healthRoutes';
 import newsRoutes from './newsRoutes';
 import authRoutes from './authRoutes';
 import deckRoutes from './deckRoutes';
+import matchRoutes from './matchRoutes';
+import internalMatchRoutes from './internalMatchRoutes';
 
 const router = Router();
 
@@ -11,6 +13,8 @@ router.use('/health', healthRoutes);
 router.use('/news', newsRoutes);
 router.use('/auth', authRoutes);
 router.use('/decks', deckRoutes);
+router.use('/matches', matchRoutes);
+router.use('/internal', internalMatchRoutes);
 
 // API routes
 router.get('/', (_req, res) => {
@@ -22,6 +26,8 @@ router.get('/', (_req, res) => {
       news: '/api/news',
       auth: '/api/auth',
       decks: '/api/decks',
+      matches: '/api/matches',
+      internal: '/api/internal',
     },
   });
 });

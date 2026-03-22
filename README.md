@@ -108,6 +108,8 @@ projectBot/
    
    # API
    API_PREFIX=/api
+   BACKEND_API_URL=http://backend:3001
+   INTERNAL_API_TOKEN=dev-internal-token
    
    # CORS
    CORS_ORIGIN=*
@@ -300,6 +302,29 @@ GET /api
 
 Базовый эндпоинт API с информацией о доступных эндпоинтах.
 
+### Match History / Replay
+
+```
+GET /api/matches
+GET /api/matches/:matchId
+GET /api/matches/:matchId/replay
+```
+
+Текущий пользовательский контур истории матчей:
+- `backend` хранит `matches`, `match_players`, `match_replays`;
+- `server` после успешного старта PvP-сессии сохраняет persistent-запись матча;
+- после каждого принятого action `server` обновляет replay через внутренний backend API.
+
+### Internal Server API
+
+```
+POST /api/internal/matches
+POST /api/internal/matches/:matchId/complete
+POST /api/internal/matches/:matchId/replay
+```
+
+Эти ручки не для frontend. Они защищены `x-internal-token` и используются только контуром `server -> backend`.
+
 ## PvP Bootstrap `v0`
 
 На текущем этапе для первого живого PvP используется временный bootstrap без отдельной HTTP-ручки матчмейкинга.
@@ -309,6 +334,8 @@ GET /api
 - Frontend для `join` передаёт `token`, а не доверенный клиентом `playerId`.
 - Игрок 1 создаёт/вводит `sessionId` и подключается к WS первым.
 - Игрок 2 вводит тот же `sessionId` и подключается ко второй стороне матча.
+- После успешного сбора двух участников `server` сохраняет persistent-запись матча в `backend + postgres`.
+- По ходу матча `server` сохраняет replay как `initial_context + accepted command log`.
 - Для подключения используется WS-сообщение формата:
 
 ```json

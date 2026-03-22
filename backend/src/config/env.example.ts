@@ -9,6 +9,7 @@ export const envExample = {
   // Server
   NODE_ENV: 'development', // development | production | test
   PORT: '3001',
+  INTERNAL_API_TOKEN: 'dev-internal-token',
   
   // Database
   POSTGRES_USER: 'postgres',
