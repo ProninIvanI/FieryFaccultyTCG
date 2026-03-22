@@ -6,11 +6,14 @@ import {
   createInitialState,
 } from '../../../game-core/src';
 import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
 import path from 'path';
 import { GameEngineLike } from '../types/engine';
 import { SessionPlayerLoadout } from '../types/session';
 
-const cardCatalogPath = path.resolve(__dirname, '..', '..', '..', 'game-core', 'data', 'cards.json');
+const currentFilePath = fileURLToPath(import.meta.url);
+const currentDirPath = path.dirname(currentFilePath);
+const cardCatalogPath = path.resolve(currentDirPath, '..', '..', '..', 'game-core', 'data', 'cards.json');
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
