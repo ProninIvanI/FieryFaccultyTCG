@@ -59,8 +59,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile.staging
     container_name: projectbot_frontend_staging
     restart: unless-stopped
     environment:
