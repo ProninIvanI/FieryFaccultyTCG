@@ -10,6 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@game-core': fileURLToPath(new URL('../game-core/src', import.meta.url)),
     },
   },
   server: {

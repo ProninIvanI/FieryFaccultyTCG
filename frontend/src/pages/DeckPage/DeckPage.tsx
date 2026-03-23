@@ -1,195 +1,29 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildCatalogCardSummaries,
+  buildCatalogCharacterSummaries,
+  getCatalogCardTypeLabel,
+  getCatalogSchoolLabel,
+  type CatalogCardSummary,
+  type CatalogCardUiType,
+  type CatalogCharacterSummary,
+  type CatalogSchool,
+} from "@game-core/cards/catalog";
 import { Card, HomeLinkButton, PageShell } from "@/components";
 import rawCardData from "@/data/cards.json";
 import { authService, deckService } from "@/services";
 import { DeckCardItem, UserDeck } from "@/types";
 import styles from "./DeckPage.module.css";
 
-type CardType = "spell" | "summon" | "art" | "modifier";
-type School = "fire" | "water" | "earth" | "air";
+type CardType = CatalogCardUiType;
+type School = CatalogSchool;
 
-type CardSummary = {
-  id: string;
-  name: string;
-  type: CardType;
-  school?: School;
-  mana: number;
-  speed?: number;
-  effect?: string;
-  hp?: number;
-  attack?: number;
-};
+type CardSummary = CatalogCardSummary;
 
-type CharacterSummary = {
-  id: string;
-  name: string;
-  faculty: School;
-  hp: number;
-  mana: number;
-  focus: number;
-  strength: number;
-  agility: number;
-  ability: string;
-};
+type CharacterSummary = CatalogCharacterSummary;
 
-type RawCard = {
-  id: number;
-  name: string;
-  type: string;
-  school?: string;
-  mana?: number;
-  speed?: number;
-  effect?: string;
-  hp?: number;
-  attack?: number;
-};
-
-type RawCharacter = {
-  id: number;
-  name: string;
-  faculty: string;
-  hp: number;
-  mana: number;
-  focus: number;
-  strength: number;
-  agility: number;
-  ability: string;
-};
-
-type RawCardData = {
-  cards: RawCard[];
-  characters: RawCharacter[];
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const isString = (value: unknown): value is string => typeof value === "string";
-const isNumber = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value);
-
-const isRawCard = (value: unknown): value is RawCard => {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    isNumber(value.id) &&
-    isString(value.name) &&
-    isString(value.type) &&
-    (value.school === undefined || isString(value.school)) &&
-    (value.mana === undefined || isNumber(value.mana)) &&
-    (value.speed === undefined || isNumber(value.speed)) &&
-    (value.effect === undefined || isString(value.effect)) &&
-    (value.hp === undefined || isNumber(value.hp)) &&
-    (value.attack === undefined || isNumber(value.attack))
-  );
-};
-
-const isRawCharacter = (value: unknown): value is RawCharacter => {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    isNumber(value.id) &&
-    isString(value.name) &&
-    isString(value.faculty) &&
-    isNumber(value.hp) &&
-    isNumber(value.mana) &&
-    isNumber(value.focus) &&
-    isNumber(value.strength) &&
-    isNumber(value.agility) &&
-    isString(value.ability)
-  );
-};
-
-const isRawCardData = (value: unknown): value is RawCardData => {
-  if (!isRecord(value)) {
-    return false;
-  }
-  const { cards, characters } = value;
-  return (
-    Array.isArray(cards) &&
-    cards.every(isRawCard) &&
-    Array.isArray(characters) &&
-    characters.every(isRawCharacter)
-  );
-};
-
-const toSchool = (value?: string): School | undefined => {
-  switch (value) {
-    case "fire":
-    case "water":
-    case "earth":
-    case "air":
-      return value;
-    default:
-      return undefined;
-  }
-};
-
-const toCardType = (value: string): CardType | null => {
-  switch (value) {
-    case "spell":
-    case "summon":
-    case "art":
-    case "modifier":
-      return value;
-    default:
-      return null;
-  }
-};
-
-const normalizeText = (value: string): string => value.replace(/\u2212/g, "-");
-
-const parsedCardData = isRawCardData(rawCardData) ? rawCardData : null;
-
-const buildCardPool = (): CardSummary[] => {
-  const result: CardSummary[] = [];
-  for (const card of parsedCardData?.cards ?? []) {
-    const type = toCardType(card.type);
-    if (!type) {
-      continue;
-    }
-    const school = toSchool(card.school);
-    result.push({
-      id: String(card.id),
-      name: normalizeText(card.name),
-      type,
-      mana: card.mana ?? 0,
-      speed: card.speed,
-      effect: card.effect ? normalizeText(card.effect) : undefined,
-      hp: card.hp,
-      attack: card.attack,
-      ...(school ? { school } : {}),
-    });
-  }
-  return result;
-};
-
-const buildCharacters = (): CharacterSummary[] => {
-  const result: CharacterSummary[] = [];
-  for (const character of parsedCardData?.characters ?? []) {
-    const faculty = toSchool(character.faculty);
-    if (!faculty) {
-      continue;
-    }
-    result.push({
-      id: String(character.id),
-      name: normalizeText(character.name),
-      faculty,
-      hp: character.hp,
-      mana: character.mana,
-      focus: character.focus,
-      strength: character.strength,
-      agility: character.agility,
-      ability: normalizeText(character.ability),
-    });
-  }
-  return result;
-};
-
-const CARD_POOL = buildCardPool();
-const CHARACTERS = buildCharacters();
+const CARD_POOL: CardSummary[] = buildCatalogCardSummaries(rawCardData);
+const CHARACTERS: CharacterSummary[] = buildCatalogCharacterSummaries(rawCardData);
 
 const DEFAULT_DECK: Record<string, number> = CARD_POOL.slice(0, 4).reduce<
   Record<string, number>
@@ -200,18 +34,18 @@ const DEFAULT_DECK: Record<string, number> = CARD_POOL.slice(0, 4).reduce<
 
 const SCHOOL_FILTERS: Array<{ id: "all" | School; label: string }> = [
   { id: "all", label: "Все школы" },
-  { id: "fire", label: "Огонь" },
-  { id: "water", label: "Вода" },
-  { id: "earth", label: "Земля" },
-  { id: "air", label: "Воздух" },
+  { id: "fire", label: getCatalogSchoolLabel("fire") },
+  { id: "water", label: getCatalogSchoolLabel("water") },
+  { id: "earth", label: getCatalogSchoolLabel("earth") },
+  { id: "air", label: getCatalogSchoolLabel("air") },
 ];
 
 const TYPE_FILTERS: Array<{ id: "all" | CardType; label: string }> = [
   { id: "all", label: "Все типы" },
-  { id: "spell", label: "Заклинания" },
-  { id: "summon", label: "Призывы" },
-  { id: "art", label: "Техники" },
-  { id: "modifier", label: "Модификаторы" },
+  { id: "spell", label: getCatalogCardTypeLabel("spell", "plural") },
+  { id: "summon", label: getCatalogCardTypeLabel("summon", "plural") },
+  { id: "art", label: getCatalogCardTypeLabel("art", "plural") },
+  { id: "modifier", label: getCatalogCardTypeLabel("modifier", "plural") },
 ];
 
 export const DeckPage = () => {
@@ -639,7 +473,7 @@ export const DeckPage = () => {
                           Иллюстрация
                         </div>
                         <div className={styles.characterTag}>
-                          {original.faculty}
+                          {getCatalogSchoolLabel(original.faculty)}
                         </div>
                       </div>
                       <div className={styles.characterName}>
@@ -721,8 +555,8 @@ export const DeckPage = () => {
                   <div>
                     <div className={styles.cardName}>{card.name}</div>
                     <div className={styles.cardMeta}>
-                      {card.type}
-                      {card.school ? ` · ${card.school}` : ""}
+                      {getCatalogCardTypeLabel(card.type)}
+                      {card.school ? ` · ${getCatalogSchoolLabel(card.school)}` : ""}
                       {card.speed ? ` · speed ${card.speed}` : ""}
                     </div>
                     {card.type === "summon" && (card.hp || card.attack) ? (
@@ -886,7 +720,7 @@ export const DeckPage = () => {
                       <div>
                         <div className={styles.cardName}>{card.name}</div>
                         <div className={styles.cardMeta}>
-                          {card.type} · {card.mana} mana
+                          {getCatalogCardTypeLabel(card.type)} · {card.mana} mana
                         </div>
                       </div>
                       <div className={styles.deckControls}>

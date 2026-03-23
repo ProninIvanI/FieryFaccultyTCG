@@ -189,6 +189,21 @@ components/      (рендеринг компонентов)
 - Первый реальный action-flow уже выведен в интерфейс: для карт типа `summon` локальный игрок может отправить `Summon` из руки, а UI показывает disabled-состояния и server error без локальной пересборки матча.
 - PvP UI всё ещё остаётся минимальным playable-срезом: bootstrap ручной, lobby/matchmaking и полноценный target-heavy action panel остаются следующими итерациями.
 
+### Shared Catalog Flow
+
+- Нормализация карточного каталога вынесена в `game-core/src/cards/catalog.ts` и используется как единый источник данных для frontend и server.
+- `PlayPvpPage`, `CardsPage` и `DeckPage` больше не парсят `cards.json` каждая по-своему: они получают либо `normalizeCatalog(...)`, либо уже готовые summary-builder’ы из `game-core`.
+- Для каталога централизованы:
+  - metadata-типизация карточек и персонажей;
+  - нормализация `cards + characters`;
+  - summary-builder’ы для UI-экранов;
+  - label/helper’ы для школ и карточных типов.
+- Такой поток уменьшает риск расхождения между PvP UI, каталогом карт, декбилдером и server contract.
+
+### Next Step
+
+- Следующий логичный шаг: так же вынести в общий слой label/helper’ы для `targetType` и, если потребуется, для фаз матча, чтобы `PlayPvpPage` полностью отказался от локальных UI-словарей строк.
+
 ### Зафиксированный техдолг
 
 - Сценарий `PlayPvpPage` в тестах стабилизирован через управляемую загрузку колод, явные `act(...)`-границы и router `future` flags, поэтому `act(...)` и React Router warnings больше не считаются активным техдолгом.

@@ -313,6 +313,80 @@ describe('PlayPvpPage', () => {
     });
   });
 
+  it('builds and sends CastSpell action through target draft UI', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_spell', /Создать и подключиться/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: {
+          turn: { number: 1, activePlayerId: 'user_1' },
+          phase: { current: 'ActionPhase' },
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: ['deck_card_1'],
+            user_2: ['deck_card_2'],
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+          actionLog: [],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    const spellCardId = await screen.findByText('ID: spell_card_1');
+    const spellCardButton = spellCardId.closest('button');
+    expect(spellCardButton).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(spellCardButton!);
+      await flushMicrotasks();
+    });
+
+    const targetButton = await screen.findByRole('button', { name: /Маг user_2/i });
+    await act(async () => {
+      fireEvent.click(targetButton);
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Отправить действие/i }));
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(socket.sent).toContain(
+        JSON.stringify({
+          type: 'action',
+          action: {
+            type: 'CastSpell',
+            actorId: 'char_1',
+            playerId: 'user_1',
+            cardInstanceId: 'spell_card_1',
+            targetType: 'enemyCharacter',
+            targetId: 'char_2',
+          },
+        }),
+      );
+    });
+  });
+
   it('shows server join error and clears pending session before first state', async () => {
     await renderPage('char_3', 'user_3');
 

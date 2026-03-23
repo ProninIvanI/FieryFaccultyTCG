@@ -1,210 +1,43 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  buildCatalogCardSummaries,
+  buildCatalogCharacterSummaries,
+  getCatalogCardTypeLabel,
+  getCatalogSchoolLabel,
+  type CatalogCardSummary,
+  type CatalogCardUiType,
+  type CatalogCharacterSummary,
+  type CatalogSchool,
+} from "@game-core/cards/catalog";
 import { Card, HomeLinkButton, PageShell } from "@/components";
 import { ROUTES } from "@/constants";
 import rawCardData from "@/data/cards.json";
 import styles from "./CardsPage.module.css";
 
-type CardType = "spell" | "summon" | "art" | "modifier";
-type School = "fire" | "water" | "earth" | "air";
+type CardType = CatalogCardUiType;
+type School = CatalogSchool;
 
-type CardSummary = {
-  id: string;
-  name: string;
-  type: CardType;
-  school?: School;
-  mana: number;
-  speed?: number;
-  effect?: string;
-  hp?: number;
-  attack?: number;
-};
+type CardSummary = CatalogCardSummary;
+type CharacterSummary = CatalogCharacterSummary;
 
-type CharacterSummary = {
-  id: string;
-  name: string;
-  faculty: School;
-  hp: number;
-  mana: number;
-  focus: number;
-  strength: number;
-  agility: number;
-  ability: string;
-};
-
-type RawCard = {
-  id: number;
-  name: string;
-  type: string;
-  school?: string;
-  mana?: number;
-  speed?: number;
-  effect?: string;
-  hp?: number;
-  attack?: number;
-};
-
-type RawCharacter = {
-  id: number;
-  name: string;
-  faculty: string;
-  hp: number;
-  mana: number;
-  focus: number;
-  strength: number;
-  agility: number;
-  ability: string;
-};
-
-type RawCardData = {
-  cards: RawCard[];
-  characters: RawCharacter[];
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const isString = (value: unknown): value is string => typeof value === "string";
-const isNumber = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value);
-
-const isRawCard = (value: unknown): value is RawCard => {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    isNumber(value.id) &&
-    isString(value.name) &&
-    isString(value.type) &&
-    (value.school === undefined || isString(value.school)) &&
-    (value.mana === undefined || isNumber(value.mana)) &&
-    (value.speed === undefined || isNumber(value.speed)) &&
-    (value.effect === undefined || isString(value.effect)) &&
-    (value.hp === undefined || isNumber(value.hp)) &&
-    (value.attack === undefined || isNumber(value.attack))
-  );
-};
-
-const isRawCharacter = (value: unknown): value is RawCharacter => {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    isNumber(value.id) &&
-    isString(value.name) &&
-    isString(value.faculty) &&
-    isNumber(value.hp) &&
-    isNumber(value.mana) &&
-    isNumber(value.focus) &&
-    isNumber(value.strength) &&
-    isNumber(value.agility) &&
-    isString(value.ability)
-  );
-};
-
-const isRawCardData = (value: unknown): value is RawCardData => {
-  if (!isRecord(value)) {
-    return false;
-  }
-  const { cards, characters } = value;
-  return (
-    Array.isArray(cards) &&
-    cards.every(isRawCard) &&
-    Array.isArray(characters) &&
-    characters.every(isRawCharacter)
-  );
-};
-
-const toSchool = (value?: string): School | undefined => {
-  switch (value) {
-    case "fire":
-    case "water":
-    case "earth":
-    case "air":
-      return value;
-    default:
-      return undefined;
-  }
-};
-
-const toCardType = (value: string): CardType | null => {
-  switch (value) {
-    case "spell":
-    case "summon":
-    case "art":
-    case "modifier":
-      return value;
-    default:
-      return null;
-  }
-};
-
-const normalizeText = (value: string): string => value.replace(/\u2212/g, "-");
-
-const parsedCardData = isRawCardData(rawCardData) ? rawCardData : null;
-
-const buildCardPool = (): CardSummary[] => {
-  const result: CardSummary[] = [];
-  for (const card of parsedCardData?.cards ?? []) {
-    const type = toCardType(card.type);
-    if (!type) {
-      continue;
-    }
-    const school = toSchool(card.school);
-    result.push({
-      id: String(card.id),
-      name: normalizeText(card.name),
-      type,
-      mana: card.mana ?? 0,
-      speed: card.speed,
-      effect: card.effect ? normalizeText(card.effect) : undefined,
-      hp: card.hp,
-      attack: card.attack,
-      ...(school ? { school } : {}),
-    });
-  }
-  return result;
-};
-
-const buildCharacters = (): CharacterSummary[] => {
-  const result: CharacterSummary[] = [];
-  for (const character of parsedCardData?.characters ?? []) {
-    const faculty = toSchool(character.faculty);
-    if (!faculty) {
-      continue;
-    }
-    result.push({
-      id: String(character.id),
-      name: normalizeText(character.name),
-      faculty,
-      hp: character.hp,
-      mana: character.mana,
-      focus: character.focus,
-      strength: character.strength,
-      agility: character.agility,
-      ability: normalizeText(character.ability),
-    });
-  }
-  return result;
-};
-
-const CARD_POOL = buildCardPool();
-const CHARACTERS = buildCharacters();
+const CARD_POOL: CardSummary[] = buildCatalogCardSummaries(rawCardData);
+const CHARACTERS: CharacterSummary[] = buildCatalogCharacterSummaries(rawCardData);
 
 const SCHOOL_FILTERS: Array<{ id: "all" | School; label: string }> = [
   { id: "all", label: "Все" },
-  { id: "fire", label: "Огонь" },
-  { id: "water", label: "Вода" },
-  { id: "earth", label: "Земля" },
-  { id: "air", label: "Воздух" },
+  { id: "fire", label: getCatalogSchoolLabel("fire") },
+  { id: "water", label: getCatalogSchoolLabel("water") },
+  { id: "earth", label: getCatalogSchoolLabel("earth") },
+  { id: "air", label: getCatalogSchoolLabel("air") },
 ];
 
 const TYPE_FILTERS: Array<{ id: "all" | CardType; label: string }> = [
   { id: "all", label: "Все" },
-  { id: "spell", label: "Заклинания" },
-  { id: "modifier", label: "Модификаторы" },
-  { id: "art", label: "Искусство" },
-  { id: "summon", label: "Призывы" },
+  { id: "spell", label: getCatalogCardTypeLabel("spell", "plural") },
+  { id: "modifier", label: getCatalogCardTypeLabel("modifier", "plural") },
+  { id: "art", label: getCatalogCardTypeLabel("art", "plural") },
+  { id: "summon", label: getCatalogCardTypeLabel("summon", "plural") },
 ];
 
 type ManaFilter = "all" | "0-2" | "3-4" | "5+";
@@ -566,7 +399,7 @@ export const CardsPage = () => {
                     >
                       <div className={styles.characterVisual}>
                         <div className={styles.characterAvatar}>Иллюстрация</div>
-                        <div className={styles.characterTag}>{original.faculty}</div>
+                        <div className={styles.characterTag}>{getCatalogSchoolLabel(original.faculty)}</div>
                       </div>
                       <div className={styles.characterName}>{original.name}</div>
                       <p className={styles.characterSkill}>{original.ability}</p>
@@ -595,12 +428,7 @@ export const CardsPage = () => {
                   >
                     <div className={styles.previewHeader}>
                       <span className={styles.previewName}>{card.name}</span>
-                      <span className={styles.previewTag}>
-                        {card.type === "spell" && "Заклинание"}
-                        {card.type === "modifier" && "Модификатор"}
-                        {card.type === "art" && "Искусство"}
-                        {card.type === "summon" && "Призыв"}
-                      </span>
+                      <span className={styles.previewTag}>{getCatalogCardTypeLabel(card.type)}</span>
                     </div>
                     {card.effect ? (
                       <p className={styles.previewEffect}>{card.effect}</p>
@@ -620,7 +448,7 @@ export const CardsPage = () => {
                   <div className={styles.detailArtwork}>Иллюстрация</div>
                   <div className={styles.detailTitle}>{selectedCharacter.name}</div>
                   <div className={styles.detailMeta}>
-                    Факультет: {selectedCharacter.faculty} · HP {selectedCharacter.hp} ·
+                    Факультет: {getCatalogSchoolLabel(selectedCharacter.faculty)} · HP {selectedCharacter.hp} ·
                     Мана {selectedCharacter.mana}
                   </div>
                   <div className={styles.detailStats}>
@@ -654,7 +482,8 @@ export const CardsPage = () => {
                   <div className={styles.detailArtwork}>Иллюстрация</div>
                   <div className={styles.detailTitle}>{selectedCard.name}</div>
                   <div className={styles.detailMeta}>
-                    {selectedCard.type} {selectedCard.school ? `· ${selectedCard.school}` : ""}
+                    {getCatalogCardTypeLabel(selectedCard.type)}
+                    {selectedCard.school ? ` · ${getCatalogSchoolLabel(selectedCard.school)}` : ""}
                     {` · мана ${selectedCard.mana}`}
                     {selectedCard.speed ? ` · скорость ${selectedCard.speed}` : ""}
                   </div>
@@ -684,7 +513,7 @@ export const CardsPage = () => {
                     {selectedCard.school ? (
                       <div className={styles.detailStat}>
                         <span>Школа</span>
-                        <strong>{selectedCard.school}</strong>
+                        <strong>{getCatalogSchoolLabel(selectedCard.school)}</strong>
                       </div>
                     ) : null}
                   </div>

@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-03-23
+
+### Changed
+
+- PvP-экран (`PlayPvpPage`) переведён на более читаемый battlefield-layout: компактная панель матча, центральное игровое поле, focus/context panel, нижний hand tray и spotlight по ходу матча.
+- В PvP UI добавлены выбор карты/существа, focus-состояния и рабочий target-draft flow для target-heavy карт с отправкой `CastSpell` / `PlayCard`.
+- `targetType` для PvP действий больше не выбирается вручную во frontend и определяется из общего карточного каталога.
+- Карточный каталог (`cards + characters`) нормализован в `game-core`, а `server`, `PlayPvpPage`, `CardsPage` и `DeckPage` переведены на единый shared-layer вместо локального разбора `cards.json`.
+- В `game-core` вынесены общие metadata/helper-слои для каталога: `normalizeCatalog(...)`, `buildCatalogCardSummaries(...)`, `buildCatalogCharacterSummaries(...)`, label-helper’ы для школ и типов карт.
+- `CardsPage` и `DeckPage` больше не держат локальные `buildCardPool/buildCharacters`, ручные валидаторы raw-каталога и локальные словари для школ/типов карт.
+
+### Docs
+
+- Обновлена архитектурная документация frontend под текущий shared catalog flow между `game-core`, PvP UI, `CardsPage` и `DeckPage`.
+- Зафиксирован следующий возможный шаг: вынести в общий слой UI-label/helper’ы для `targetType` и, при необходимости, фаз матча, чтобы `PlayPvpPage` тоже отказался от локальных словарей строк.
+
 ## 2026-03-21
 
 ### Fixed

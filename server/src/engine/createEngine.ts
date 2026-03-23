@@ -1,9 +1,9 @@
 import {
-  CardDefinition,
   CardInstance,
   GameEngine,
   CardRegistry,
   createInitialState,
+  toCardDefinitionFromCatalog,
 } from '../../../game-core/src';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -18,50 +18,16 @@ const cardCatalogPath = path.resolve(currentDirPath, '..', '..', '..', 'game-cor
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
-const toCardType = (value: unknown): CardDefinition['type'] => {
-  switch (value) {
-    case 'spell':
-      return 'spell';
-    case 'summon':
-      return 'creature';
-    default:
-      return 'artifact';
-  }
-};
-
-const toTargetType = (value: unknown): CardDefinition['targetType'] => {
-  switch (value) {
-    case 'summon':
-      return 'self';
-    case 'modifier':
-    case 'art':
-      return 'self';
-    default:
-      return 'enemyCharacter';
-  }
-};
-
-const loadCardDefinitions = (): CardDefinition[] => {
+const loadCardDefinitions = () => {
   const fileContent = readFileSync(cardCatalogPath, 'utf-8').replace(/^\uFEFF/, '');
   const raw = JSON.parse(fileContent) as unknown;
   if (!isRecord(raw) || !Array.isArray(raw.cards)) {
     return [];
   }
 
-  return raw.cards.flatMap((card): CardDefinition[] => {
-    if (!isRecord(card) || typeof card.id !== 'number' || typeof card.name !== 'string') {
-      return [];
-    }
-
-    return [{
-      id: String(card.id),
-      name: card.name,
-      type: toCardType(card.type),
-      manaCost: typeof card.mana === 'number' ? card.mana : 0,
-      speed: typeof card.speed === 'number' ? card.speed : 0,
-      targetType: toTargetType(card.type),
-      effects: [],
-    }];
+  return raw.cards.flatMap((card) => {
+    const definition = toCardDefinitionFromCatalog(card);
+    return definition ? [definition] : [];
   });
 };
 
