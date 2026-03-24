@@ -320,6 +320,14 @@ const getMatchEvents = (state: GameStateSnapshot | null): MatchEventSummary[] =>
     });
 };
 
+const getDeckVisualCount = (deckSize: number): number => {
+  if (deckSize <= 0) {
+    return 0;
+  }
+
+  return Math.min(Math.max(deckSize, 1), 18);
+};
+
 const buildSessionId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return `session_${crypto.randomUUID().slice(0, 8)}`;
@@ -438,6 +446,13 @@ export const PlayPvpPage = () => {
   const alliedCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId === playerId), [creatures, playerId]);
   const enemyCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId !== playerId), [creatures, playerId]);
   const enemyBoards = useMemo(() => playerBoards.filter((playerBoard) => playerBoard.playerId !== playerId), [playerBoards, playerId]);
+  const localBoard = useMemo(
+    () => playerBoards.find((playerBoard) => playerBoard.playerId === playerId) ?? null,
+    [playerBoards, playerId]
+  );
+  const primaryEnemyBoard = enemyBoards[0] ?? null;
+  const isEnemySideActive = Boolean(matchSummary && matchSummary.activePlayerId && matchSummary.activePlayerId !== playerId);
+  const isLocalSideActive = Boolean(matchSummary && matchSummary.activePlayerId === playerId);
   const canEndTurn = Boolean(
     matchSummary &&
       localPlayer &&
@@ -722,7 +737,7 @@ export const PlayPvpPage = () => {
     >
       <div className={styles.workbench}>
         <div className={styles.controlColumn}>
-          <Card title="Панель матча">
+          <Card title="Панель матча" className={styles.themedCard}>
             <form className={styles.formGrid} onSubmit={submitJoin}>
               <div className={styles.segmentedRow}>
                 <button
@@ -830,7 +845,11 @@ export const PlayPvpPage = () => {
         </div>
 
         <div className={styles.boardColumn}>
-          <Card title="Игровое поле">
+          <Card
+            title="Игровое поле"
+            className={styles.boardCard}
+            contentClassName={styles.boardCardContent}
+          >
             {matchSummary ? (
               <div className={styles.matchOverview}>
                 <div className={styles.matchSpotlight}>
@@ -874,7 +893,56 @@ export const PlayPvpPage = () => {
                 </div>
 
                 <div className={styles.battlefield}>
-                  <section className={styles.battleLane}>
+                  <section className={styles.tableTopRow}>
+                    <div className={`${styles.playerSideCard} ${isEnemySideActive ? styles.playerSideCardActive : ''}`.trim()}>
+                      <span className={styles.playerSideLabel}>Игрок 1</span>
+                      <button
+                        className={`${styles.avatarTargetButton} ${primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetable : ''} ${primaryEnemyBoard?.characterId && isDraftTargetActive(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                        type="button"
+                        onClick={() => {
+                          const enemyCharacterId = primaryEnemyBoard?.characterId;
+                          if (enemyCharacterId && isSelectableTarget(enemyCharacterId)) {
+                            setDraftTargetId(enemyCharacterId);
+                          }
+                        }}
+                      >
+                        <div className={styles.playerPortraitFrame}>
+                          <div className={styles.playerPortraitSilhouette}>P1</div>
+                        </div>
+                        <strong>{primaryEnemyBoard?.playerId ?? 'Ожидание соперника'}</strong>
+                        <span>
+                          {primaryEnemyBoard
+                            ? `${primaryEnemyBoard.mana}/${primaryEnemyBoard.maxMana} mana`
+                            : 'Подключится позже'}
+                        </span>
+                      </button>
+                    </div>
+
+                    <div className={`${styles.deckRail} ${isEnemySideActive ? styles.deckRailActive : ''}`.trim()}>
+                      <div className={styles.deckRailHeader}>
+                        <span className={styles.summaryLabel}>колода игрока 1</span>
+                        <span className={styles.deckRailMeta}>
+                          deck: {primaryEnemyBoard?.deckSize ?? 0} · hand: {primaryEnemyBoard?.handSize ?? 0}
+                        </span>
+                      </div>
+                      <div className={styles.deckRailCards} aria-hidden="true">
+                        {Array.from({ length: getDeckVisualCount(primaryEnemyBoard?.deckSize ?? 0) }).map((_, index, array) => (
+                          <span
+                            key={`enemy-deck-${index}`}
+                            className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className={styles.fieldFrame}>
+                    <div className={styles.arenaHeader}>
+                      <span className={styles.summaryLabel}>Поле</span>
+                      <strong>Центральная арена</strong>
+                    </div>
+
+                  <section className={`${styles.battleLane} ${isEnemySideActive ? styles.battleLaneActive : ''}`.trim()}>
                     <div className={styles.battleLaneHeader}>
                       <div>
                         <span className={styles.summaryLabel}>Сторона соперника</span>
@@ -974,7 +1042,7 @@ export const PlayPvpPage = () => {
                     </div>
                   </section>
 
-                  <section className={styles.battleLane}>
+                  <section className={`${styles.battleLane} ${isLocalSideActive ? styles.battleLaneActive : ''}`.trim()}>
                     <div className={styles.battleLaneHeader}>
                       <div>
                         <span className={styles.summaryLabel}>Твоя сторона</span>
@@ -1030,6 +1098,46 @@ export const PlayPvpPage = () => {
                     )}
                   </section>
 
+                  </section>
+
+                  <section className={styles.tableBottomRow}>
+                    <div className={`${styles.playerSideCard} ${isLocalSideActive ? styles.playerSideCardActive : ''}`.trim()}>
+                      <span className={styles.playerSideLabel}>Игрок 2</span>
+                      <button
+                        className={`${styles.avatarTargetButton} ${localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : ''} ${localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                        type="button"
+                        onClick={() => {
+                          if (localPlayer && isSelectableTarget(localPlayer.characterId)) {
+                            setDraftTargetId(localPlayer.characterId);
+                          }
+                        }}
+                      >
+                        <div className={styles.playerPortraitFrame}>
+                          <div className={`${styles.playerPortraitSilhouette} ${styles.playerPortraitSilhouetteLocal}`.trim()}>P2</div>
+                        </div>
+                        <strong>{playerId}</strong>
+                        <span>{localPlayer ? `${localPlayer.mana}/${localPlayer.maxMana} mana` : 'Нет state'}</span>
+                      </button>
+                    </div>
+
+                    <div className={`${styles.deckRail} ${isLocalSideActive ? styles.deckRailActive : ''}`.trim()}>
+                      <div className={styles.deckRailHeader}>
+                        <span className={styles.summaryLabel}>колода игрока 2</span>
+                        <span className={styles.deckRailMeta}>
+                          deck: {localBoard?.deckSize ?? 0} · hand: {localBoard?.handSize ?? 0}
+                        </span>
+                      </div>
+                      <div className={styles.deckRailCards} aria-hidden="true">
+                        {Array.from({ length: getDeckVisualCount(localBoard?.deckSize ?? 0) }).map((_, index, array) => (
+                          <span
+                            key={`local-deck-${index}`}
+                            className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+
                   <section className={styles.handTray}>
                     <div className={styles.battleLaneHeader}>
                       <div>
@@ -1039,7 +1147,7 @@ export const PlayPvpPage = () => {
                       <span className={styles.battleCount}>{localHandCards.length} карт</span>
                     </div>
                     {localHandCards.length > 0 ? (
-                      <div className={styles.handTrayGrid}>
+                      <div className={styles.handFanGrid}>
                         {localHandCards.map((card) => (
                           <div
                             key={card.instanceId}
@@ -1104,7 +1212,11 @@ export const PlayPvpPage = () => {
         </div>
 
         <div className={styles.contextColumn}>
-          <Card title="Фокус">
+          <Card
+            title="Модификаторы"
+            className={styles.themedCard}
+            contentClassName={styles.modifiersCardContent}
+          >
             {selectedHandCard ? (
               <div className={styles.focusPanel}>
                 <div className={styles.focusHeader}>
@@ -1218,7 +1330,7 @@ export const PlayPvpPage = () => {
             )}
           </Card>
 
-          <Card title="Сводка игрока">
+          <Card title="Статус мага" className={styles.themedCard}>
             {localPlayer ? (
               <div className={styles.heroPanel}>
                 <div className={styles.heroPanelHeader}>
@@ -1254,7 +1366,7 @@ export const PlayPvpPage = () => {
             )}
           </Card>
 
-          <Card title="Зоны игроков">
+          <Card title="Зоны игроков" className={styles.themedCard}>
             {playerBoards.length > 0 ? (
               <div className={styles.playerBoardList}>
                 {playerBoards.map((playerBoard) => (
@@ -1282,7 +1394,7 @@ export const PlayPvpPage = () => {
             )}
           </Card>
 
-          <Card title="Лента матча">
+          <Card title="Лента матча" className={styles.themedCard}>
             {matchEvents.length > 0 ? (
               <div className={styles.eventFeed}>
                 {matchEvents.map((event) => (
@@ -1297,7 +1409,7 @@ export const PlayPvpPage = () => {
             )}
           </Card>
 
-          <Card title="Debug state">
+          <Card title="Debug state" className={styles.themedCard}>
             <details className={styles.debugPanel}>
               <summary className={styles.debugSummary}>Открыть raw snapshot</summary>
               <pre className={styles.rawState}>

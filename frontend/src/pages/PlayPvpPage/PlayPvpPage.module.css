@@ -1,6 +1,6 @@
 .workbench {
   display: grid;
-  grid-template-columns: minmax(280px, 320px) minmax(0, 1.8fr) minmax(280px, 340px);
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1.7fr) minmax(300px, 360px);
   gap: 24px;
   align-items: start;
 }
@@ -12,73 +12,37 @@
   gap: 20px;
 }
 
+.themedCard,
+.boardCard {
+  color: #f3ddbd;
+  border-radius: 24px;
+  border: 1px solid rgba(176, 121, 72, 0.7);
+  background:
+    linear-gradient(180deg, rgba(69, 39, 24, 0.96), rgba(45, 25, 16, 0.98)),
+    radial-gradient(circle at top, rgba(202, 148, 84, 0.12), transparent 42%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 223, 179, 0.12),
+    0 18px 36px rgba(17, 9, 6, 0.26);
+}
+
+.boardCardContent {
+  display: grid;
+  gap: 18px;
+}
+
+.modifiersCardContent {
+  display: grid;
+  gap: 16px;
+  background: linear-gradient(180deg, rgba(48, 26, 18, 0.42), rgba(26, 14, 10, 0.18));
+  border-radius: 18px;
+}
+
 .formGrid {
   display: grid;
   gap: 16px;
 }
 
-.segmentedRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.segmentButton,
-.segmentActive,
-.primaryButton,
-.secondaryButton {
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.segmentButton,
-.segmentActive {
-  border: 1px solid #d1d5db;
-  padding: 10px 14px;
-}
-
-.segmentButton {
-  background: #ffffff;
-  color: #1f2937;
-}
-
-.segmentActive {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #ffffff;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
-}
-
-.formRow {
-  display: grid;
-  gap: 8px;
-}
-
-.label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #64748b;
-}
-
-.input {
-  width: 100%;
-  border: 1px solid #dbe4ef;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-size: 14px;
-  background: #ffffff;
-  color: #0f172a;
-}
-
-.input:disabled {
-  background: #f8fafc;
-  color: #64748b;
-}
-
-.inlineField,
+.segmentedRow,
 .inlineActions,
 .formActions {
   display: flex;
@@ -87,151 +51,440 @@
   align-items: center;
 }
 
+.inlineField {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.segmentButton,
+.segmentActive,
+.primaryButton,
+.secondaryButton,
+.input,
+.targetDraftItem {
+  border-radius: 14px;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.segmentButton,
+.segmentActive {
+  padding: 10px 14px;
+  border: 1px solid rgba(196, 143, 92, 0.52);
+}
+
+.segmentButton {
+  background: rgba(108, 65, 41, 0.72);
+  color: #f2dec6;
+}
+
+.segmentActive {
+  background: linear-gradient(180deg, #c69052, #8c5a32);
+  color: #2e170d;
+  box-shadow: 0 10px 22px rgba(140, 90, 50, 0.35);
+}
+
+.formRow {
+  display: grid;
+  gap: 8px;
+}
+
+.label,
+.summaryLabel,
+.creatureStatLabel,
+.playerSideLabel {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #c79a68;
+}
+
+.creatureStatLabel {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.creatureStatLabel::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(232, 191, 130, 0.55);
+  box-shadow: 0 0 0 1px rgba(93, 55, 28, 0.35);
+}
+
+.input {
+  width: 100%;
+  border: 1px solid rgba(191, 141, 92, 0.55);
+  padding: 10px 12px;
+  font-size: 14px;
+  background: rgba(36, 20, 13, 0.82);
+  color: #f5e6d0;
+}
+
+.input:disabled {
+  background: rgba(54, 32, 21, 0.9);
+  color: #b69069;
+}
+
 .primaryButton,
 .secondaryButton {
   padding: 10px 16px;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .primaryButton {
-  border: none;
-  background: #111827;
-  color: #ffffff;
-  text-decoration: none;
+  border: 1px solid rgba(231, 177, 118, 0.65);
+  background: linear-gradient(180deg, #d39a59 0%, #8e5a31 100%);
+  color: #2f180d;
+  box-shadow: 0 12px 24px rgba(52, 28, 14, 0.24);
 }
 
 .secondaryButton {
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  color: #111827;
-  text-decoration: none;
+  border: 1px solid rgba(176, 121, 72, 0.6);
+  background: rgba(74, 43, 26, 0.86);
+  color: #f3ddbd;
 }
 
 .primaryButton:hover,
 .secondaryButton:hover,
 .segmentButton:hover,
-.segmentActive:hover {
+.segmentActive:hover,
+.targetDraftItem:hover {
   transform: translateY(-1px);
 }
 
 .primaryButton:disabled,
 .secondaryButton:disabled {
-  opacity: 0.6;
+  opacity: 0.58;
   cursor: not-allowed;
   transform: none;
 }
 
-.hintBlock {
+.hintBlock,
+.detailsList,
+.focusPanel,
+.focusControls,
+.debugPanel,
+.noticeBlock,
+.modifierStack {
   display: grid;
-  gap: 6px;
+  gap: 12px;
 }
 
-.hint {
+.hint,
+.paragraph,
+.targetDraftItem span,
+.eventItem span,
+.deckRailMeta,
+.modifierTile span,
+.detailRow,
+.handCard span {
+  color: #d1b08d;
   font-size: 13px;
-  color: #64748b;
+  line-height: 1.5;
 }
 
 .errorBox {
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #b91c1c;
-  border-radius: 12px;
+  border: 1px solid rgba(218, 97, 72, 0.68);
+  background: rgba(100, 24, 19, 0.72);
+  color: #ffd9ce;
+  border-radius: 14px;
   padding: 12px;
   font-size: 14px;
 }
 
-.summaryGrid {
+.summaryGrid,
+.focusStats,
+.zoneGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-}
-
-.matchOverview {
-  display: grid;
-  gap: 16px;
-}
-
-.matchSpotlight {
-  border: 1px solid #c7d2fe;
-  border-radius: 18px;
-  padding: 18px;
-  background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 42%),
-    linear-gradient(135deg, #eff6ff 0%, #f8fafc 55%, #eef2ff 100%);
-  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
 }
 
-.matchSpotlightHeader {
+.matchOverview,
+.battlefield {
+  display: grid;
+  gap: 18px;
+}
+
+.matchSpotlight,
+.battleLane,
+.handTray,
+.deckRail,
+.playerSideCard,
+.heroPanel,
+.duelAvatar,
+.summaryTile,
+.focusStat,
+.modifierTile,
+.playerBoard,
+.eventItem,
+.targetDraftItem {
+  border-radius: 18px;
+  border: 1px solid rgba(161, 110, 66, 0.62);
+  background:
+    linear-gradient(180deg, rgba(83, 49, 31, 0.92), rgba(55, 31, 20, 0.95)),
+    radial-gradient(circle at top left, rgba(200, 143, 85, 0.12), transparent 35%);
+  box-shadow: inset 0 1px 0 rgba(255, 229, 188, 0.08);
+}
+
+.matchSpotlight {
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.matchSpotlightHeader,
+.battleLaneHeader,
+.focusHeader,
+.heroPanelHeader,
+.deckRailHeader {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   align-items: start;
   flex-wrap: wrap;
 }
 
 .spotlightValue {
   display: block;
-  font-size: 24px;
-  line-height: 1.1;
-  color: #172554;
+  font-size: 28px;
+  line-height: 1.05;
+  color: #f8ebd6;
 }
 
-.summaryTile {
-  border: 1px solid #dbe4ef;
-  border-radius: 14px;
-  padding: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+.summaryTile,
+.focusStat,
+.modifierTile,
+.playerBoard,
+.eventItem,
+.targetDraftItem,
+.heroPanel {
+  padding: 12px 14px;
+}
+
+.tableTopRow,
+.tableBottomRow {
   display: grid;
+  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.fieldFrame {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  position: relative;
+  border-radius: 24px;
+  border: 1px solid rgba(176, 124, 74, 0.66);
+  background:
+    linear-gradient(180deg, rgba(81, 47, 29, 0.82), rgba(54, 29, 19, 0.88)),
+    radial-gradient(circle at center, rgba(221, 168, 104, 0.08), transparent 52%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 225, 186, 0.05),
+    0 14px 28px rgba(18, 8, 6, 0.2);
+}
+
+.fieldFrame::before,
+.fieldFrame::after {
+  content: "";
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(214, 164, 100, 0.32);
+  pointer-events: none;
+}
+
+.fieldFrame::before {
+  top: 10px;
+  left: 10px;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 16px 0 0 0;
+}
+
+.fieldFrame::after {
+  right: 10px;
+  bottom: 10px;
+  border-left: none;
+  border-top: none;
+  border-radius: 0 0 16px 0;
+}
+
+.arenaHeader {
+  display: grid;
+  justify-items: center;
   gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(177, 126, 77, 0.28);
+  text-align: center;
 }
 
-.summaryLabel {
-  font-size: 12px;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.detailsList {
+.playerSideCard {
+  padding: 16px;
   display: grid;
-  gap: 10px;
+  align-content: start;
+  gap: 12px;
+}
+
+.playerSideCardActive {
+  border-color: rgba(238, 194, 129, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 231, 193, 0.1),
+    0 0 0 2px rgba(213, 157, 92, 0.16),
+    0 14px 28px rgba(48, 23, 11, 0.26);
+}
+
+.playerPortraitFrame {
+  width: 88px;
+  height: 110px;
+  position: relative;
+  border-radius: 999px 999px 24px 24px;
+  border: 2px solid rgba(192, 142, 93, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  background: radial-gradient(circle at 50% 35%, rgba(18, 9, 6, 0.5), rgba(18, 9, 6, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 225, 186, 0.12);
+}
+
+.playerPortraitFrame::after {
+  content: "";
+  position: absolute;
+  inset: 8px 18px auto 18px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(237, 194, 132, 0.45), transparent);
+}
+
+.playerPortraitSilhouette,
+.playerPortraitSilhouetteLocal {
+  display: inline-flex;
+  width: 68px;
+  height: 88px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px 999px 20px 20px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(232, 199, 163, 0.88);
+  background: linear-gradient(180deg, rgba(14, 8, 7, 0.9), rgba(45, 25, 17, 0.72));
+}
+
+.playerPortraitSilhouetteLocal {
+  background: linear-gradient(180deg, rgba(40, 20, 12, 0.82), rgba(88, 52, 29, 0.72));
+}
+
+.deckRail {
+  padding: 14px 16px;
+  display: grid;
+  gap: 14px;
+  position: relative;
+}
+
+.deckRailActive {
+  border-color: rgba(235, 187, 120, 0.7);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 223, 178, 0.08),
+    0 12px 24px rgba(43, 21, 10, 0.22);
+}
+
+.deckRail::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 10px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(220, 171, 108, 0.28), transparent);
+  pointer-events: none;
+}
+
+.deckRailCards {
+  display: flex;
+  gap: 6px;
+  min-height: 88px;
+  overflow: hidden;
+  align-items: center;
+}
+
+.deckCardBack,
+.deckCardBackTop {
+  width: 52px;
+  height: 76px;
+  border-radius: 12px;
+  border: 1px solid rgba(182, 131, 82, 0.45);
+  flex: 0 0 auto;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(211, 156, 92, 0.72) 0, rgba(211, 156, 92, 0.16) 18%, transparent 20%),
+    linear-gradient(135deg, rgba(104, 61, 39, 0.95), rgba(57, 32, 21, 0.98));
+  box-shadow: inset 0 0 0 2px rgba(42, 22, 14, 0.65);
+}
+
+.deckCardBackTop {
+  border-color: rgba(240, 189, 124, 0.66);
+  transform: translateY(-2px);
 }
 
 .playerBoardList,
 .creatureGrid,
-.eventFeed {
+.eventFeed,
+.targetDraftList {
   display: grid;
   gap: 12px;
-}
-
-.battlefield {
-  display: grid;
-  gap: 18px;
 }
 
 .battleLane,
 .handTray {
-  border: 1px solid #dbe4ef;
-  border-radius: 18px;
   padding: 16px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96)),
-    linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(148, 163, 184, 0.04));
   display: grid;
   gap: 14px;
 }
 
-.battleLaneHeader {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: end;
+.battleLane {
+  min-height: 164px;
+  position: relative;
+  overflow: hidden;
+  align-content: start;
+  background:
+    linear-gradient(180deg, rgba(83, 49, 31, 0.72), rgba(55, 31, 20, 0.9)),
+    radial-gradient(circle at center, rgba(226, 172, 107, 0.06), transparent 58%);
 }
 
-.battleCount {
-  color: #475569;
+.battleLaneActive {
+  border-color: rgba(240, 192, 123, 0.78);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 228, 191, 0.08),
+    0 0 0 2px rgba(214, 160, 94, 0.14),
+    0 16px 32px rgba(38, 18, 8, 0.24);
+  background:
+    linear-gradient(180deg, rgba(96, 56, 34, 0.8), rgba(60, 34, 22, 0.92)),
+    radial-gradient(circle at center, rgba(240, 187, 118, 0.12), transparent 60%);
+}
+
+.battleLane::after {
+  content: "";
+  position: absolute;
+  inset: auto 18px 18px 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(203, 153, 99, 0.35), transparent);
+  pointer-events: none;
+}
+
+.battleCount,
+.turnIndicator {
+  color: #d7b08c;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .duelStrip {
@@ -243,20 +496,14 @@
 
 .duelCenter {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   justify-items: center;
 }
 
 .duelAvatar {
-  border-radius: 16px;
-  border: 1px solid #cbd5e1;
-  background:
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   padding: 14px 16px;
   display: grid;
-  gap: 6px;
   text-align: center;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .avatarTargetButton {
@@ -275,30 +522,66 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 58px;
+  height: 58px;
   border-radius: 999px;
-  background: #111827;
-  color: #fff;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-.turnIndicator {
-  font-size: 12px;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-align: center;
+  border: 1px solid rgba(240, 194, 131, 0.66);
+  background: radial-gradient(circle at 30% 30%, #dba25c, #7d4e2a 72%);
+  color: #2c160b;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  box-shadow: 0 10px 20px rgba(29, 14, 8, 0.24);
 }
 
 .playerBoard,
 .handCard,
 .creatureCard {
-  border: 1px solid #dbe4ef;
-  border-radius: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(187, 140, 93, 0.4);
   padding: 14px;
-  background: #ffffff;
+  background: rgba(28, 15, 11, 0.36);
+}
+
+.creatureGrid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(172px, 188px);
+  justify-content: start;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.creatureGrid::-webkit-scrollbar {
+  height: 8px;
+}
+
+.creatureGrid::-webkit-scrollbar-thumb {
+  background: rgba(196, 147, 96, 0.4);
+  border-radius: 999px;
+}
+
+.creatureCard {
+  min-height: 132px;
+  padding: 12px;
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(39, 21, 14, 0.72), rgba(24, 12, 9, 0.82)),
+    radial-gradient(circle at top, rgba(230, 176, 109, 0.06), transparent 44%);
+}
+
+.creatureCard::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(220, 172, 111, 0.3);
+  background: radial-gradient(circle, rgba(223, 177, 114, 0.28), transparent 65%);
 }
 
 .selectionSurface {
@@ -317,50 +600,47 @@
 }
 
 .selectionSurfaceTargetable {
-  border-radius: 12px;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+  border-radius: 16px;
+  box-shadow: 0 0 0 2px rgba(214, 163, 94, 0.32);
 }
 
 .selectionSurfaceTargetActive {
-  border-radius: 12px;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.38);
+  border-radius: 16px;
+  box-shadow: 0 0 0 3px rgba(238, 190, 118, 0.54);
 }
 
 .selectionSurfaceActive .creaturePortrait,
 .selectionSurfaceActive .handManaGem {
   transform: translateY(-1px);
-  box-shadow: 0 14px 24px rgba(37, 99, 235, 0.22);
+  box-shadow: 0 14px 24px rgba(228, 166, 99, 0.18);
 }
 
 .selectionSurfaceActive .creatureStat,
 .selectionSurfaceActive .handCardBody {
-  border-color: #93c5fd;
+  border-color: rgba(241, 195, 134, 0.48);
 }
 
 .selectionSurface:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid rgba(245, 201, 137, 0.78);
   outline-offset: 6px;
-  border-radius: 12px;
+  border-radius: 16px;
 }
 
 .playerBoardActive {
-  border-color: #0f172a;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  border-color: rgba(244, 196, 129, 0.58);
+  box-shadow: 0 12px 24px rgba(29, 15, 8, 0.18);
 }
 
-.playerBoardHeader {
+.playerBoardHeader,
+.creatureBanner {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-  color: #0f172a;
+  gap: 8px;
+  align-items: start;
 }
 
 .zoneGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px;
-  color: #475569;
+  color: #d5b08b;
   font-size: 14px;
 }
 
@@ -370,9 +650,48 @@
   gap: 12px;
 }
 
+.handFanGrid {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: end;
+  justify-content: center;
+  gap: 0;
+  padding: 10px 12px 4px;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.handFanGrid > .handCard {
+  width: 186px;
+  flex: 0 0 186px;
+  margin-left: -28px;
+  transform-origin: center bottom;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, margin 0.18s ease;
+}
+
+.handFanGrid > .handCard:first-child {
+  margin-left: 0;
+}
+
+.handFanGrid > .handCard:nth-child(odd) {
+  transform: translateY(8px) rotate(-3deg);
+}
+
+.handFanGrid > .handCard:nth-child(even) {
+  transform: translateY(2px) rotate(2.6deg);
+}
+
+.handFanGrid > .handCard:hover,
+.handFanGrid > .handCard:focus-within {
+  transform: translateY(-8px) scale(1.02);
+  margin-left: 8px;
+  margin-right: 8px;
+  z-index: 2;
+}
+
 .handCard {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   position: relative;
   overflow: hidden;
@@ -380,11 +699,22 @@
   align-content: start;
 }
 
+.handCard::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(230, 189, 128, 0.22);
+  background: radial-gradient(circle at center, rgba(240, 199, 136, 0.35) 0, rgba(240, 199, 136, 0.12) 26%, transparent 28%);
+  pointer-events: none;
+}
+
 .handCardPlayable {
-  border-color: #93c5fd;
-  background:
-    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: 0 10px 22px rgba(59, 130, 246, 0.08);
+  border-color: rgba(230, 178, 110, 0.52);
+  box-shadow: 0 10px 22px rgba(57, 29, 14, 0.18);
 }
 
 .cardAccentSummon::before,
@@ -397,15 +727,15 @@
 }
 
 .cardAccentSummon::before {
-  background: linear-gradient(180deg, #2563eb, #0f172a);
+  background: linear-gradient(180deg, #d9a055, #7b4926);
 }
 
 .cardAccentSpell::before {
-  background: linear-gradient(180deg, #7c3aed, #312e81);
+  background: linear-gradient(180deg, #c47752, #5b2b2f);
 }
 
 .cardAccentNeutral::before {
-  background: linear-gradient(180deg, #64748b, #1e293b);
+  background: linear-gradient(180deg, #ad8157, #573624);
 }
 
 .handCardTop {
@@ -422,11 +752,10 @@
   width: 40px;
   height: 40px;
   border-radius: 14px;
-  background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), rgba(191, 219, 254, 0.72) 35%, rgba(37, 99, 235, 0.9) 100%);
-  color: #0f172a;
+  background: radial-gradient(circle at 30% 30%, #ffd39b, #b7743d 65%, #694126 100%);
+  color: #2f170b;
   font-weight: 800;
-  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 10px 18px rgba(85, 45, 19, 0.28);
 }
 
 .handCardBody {
@@ -435,12 +764,12 @@
   margin-top: 8px;
   border-radius: 14px;
   padding: 12px;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.98));
+  background: rgba(20, 10, 7, 0.28);
   border: 1px solid transparent;
 }
 
 .handCardSubtitle {
-  color: #64748b;
+  color: #d2ad87;
   font-size: 13px;
   word-break: break-word;
 }
@@ -456,206 +785,83 @@
   flex-wrap: wrap;
 }
 
-.cardBadge {
+.cardBadge,
+.creatureOwnerTag,
+.heroChip {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 4px 10px;
-  background: #e2e8f0;
-  color: #334155;
+  padding: 5px 10px;
+  background: rgba(222, 181, 129, 0.12);
+  color: #f3debf;
   font-size: 12px;
   font-weight: 700;
-}
-
-.handCard span {
-  color: #64748b;
-  font-size: 13px;
+  border: 1px solid rgba(204, 152, 98, 0.3);
 }
 
 .creatureCardLocal {
-  border-color: #2563eb;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.08);
-}
-
-.creatureBanner {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: start;
-}
-
-.creatureOwnerTag {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: #e2e8f0;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
+  border-color: rgba(230, 179, 112, 0.55);
+  box-shadow: 0 12px 24px rgba(54, 27, 13, 0.18);
 }
 
 .creatureStage {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: 60px minmax(0, 1fr);
+  gap: 10px;
   align-items: center;
 }
 
 .creaturePortrait {
-  width: 76px;
-  height: 92px;
-  border-radius: 20px;
+  width: 60px;
+  height: 74px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.75), transparent 35%),
-    linear-gradient(180deg, #334155 0%, #0f172a 100%);
-  color: #e2e8f0;
-  font-size: 24px;
+  background: linear-gradient(180deg, #a76d42 0%, #4d2a1a 100%);
+  color: #f9ead0;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 230, 191, 0.18);
 }
 
 .creaturePortraitLocal {
-  background:
-    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.75), transparent 35%),
-    linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%);
-  color: #eff6ff;
+  background: linear-gradient(180deg, #d49a56 0%, #734522 100%);
 }
 
 .creatureStats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 6px;
+  align-self: stretch;
 }
 
 .creatureStat {
-  border-radius: 14px;
-  padding: 10px 12px;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-  border: 1px solid #dbe4ef;
-  display: grid;
-  gap: 4px;
+  padding: 8px 6px;
+  text-align: center;
 }
 
-.creatureStatLabel {
-  font-size: 11px;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.heroPanel {
-  border-radius: 18px;
-  border: 1px solid #bfdbfe;
-  background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 38%),
-    linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
-  padding: 16px;
-  display: grid;
-  gap: 14px;
-}
-
-.focusPanel {
-  display: grid;
-  gap: 14px;
-}
-
-.focusControls {
-  display: grid;
-  gap: 12px;
-}
-
-.focusHeader {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: start;
-}
-
-.focusStats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 10px;
-}
-
-.focusStat {
-  border-radius: 14px;
-  padding: 12px;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-  border: 1px solid #dbe4ef;
-  display: grid;
-  gap: 6px;
-}
-
-.targetDraftList {
-  display: grid;
-  gap: 8px;
-  max-height: 220px;
-  overflow: auto;
-}
-
-.targetDraftItem {
-  border: 1px solid #dbe4ef;
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: #ffffff;
-  display: grid;
-  gap: 4px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.targetDraftItemActive {
-  border-color: #2563eb;
-  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
-  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.08);
-}
-
-.targetDraftItem span {
-  color: #64748b;
+.creatureStat strong {
   font-size: 13px;
 }
 
-.heroPanelHeader {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: start;
+.creatureStat:nth-child(1) .creatureStatLabel::before {
+  background: linear-gradient(180deg, #d36850, #8e3122);
 }
 
-.heroChip {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: #172554;
-  color: #eff6ff;
-  font-size: 12px;
-  font-weight: 700;
+.creatureStat:nth-child(2) .creatureStatLabel::before {
+  background: linear-gradient(180deg, #e1ad61, #966025);
+}
+
+.creatureStat:nth-child(3) .creatureStatLabel::before {
+  background: linear-gradient(180deg, #8dc8c1, #3b7c78);
 }
 
 .detailRow {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 14px;
-  color: #334155;
-}
-
-.paragraph {
-  margin: 0;
-  color: #475569;
-  line-height: 1.5;
-}
-
-.noticeBlock {
-  display: grid;
-  gap: 16px;
 }
 
 .boardEmpty {
@@ -666,35 +872,15 @@
 
 .emptyState {
   padding: 14px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
-  background: #f8fafc;
-  color: #64748b;
-}
-
-.eventItem {
-  display: grid;
-  gap: 4px;
-  border: 1px solid #dbe4ef;
+  border: 1px dashed rgba(197, 148, 100, 0.45);
   border-radius: 14px;
-  padding: 12px 14px;
-  background: #fff;
-}
-
-.eventItem span {
-  color: #64748b;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.debugPanel {
-  display: grid;
-  gap: 12px;
+  background: rgba(24, 13, 9, 0.24);
+  color: #d4b18e;
 }
 
 .debugSummary {
   cursor: pointer;
-  color: #0f172a;
+  color: #f2dec6;
   font-weight: 700;
 }
 
@@ -703,14 +889,14 @@
   max-height: 420px;
   overflow: auto;
   padding: 14px;
-  border-radius: 12px;
-  background: #0f172a;
-  color: #dbeafe;
+  border-radius: 14px;
+  background: rgba(14, 8, 7, 0.88);
+  color: #f1dac0;
   font-size: 12px;
   line-height: 1.5;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1440px) {
   .workbench {
     grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
   }
@@ -721,26 +907,35 @@
   }
 }
 
+@media (max-width: 1180px) {
+  .tableTopRow,
+  .tableBottomRow {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1024px) {
-  .workbench {
+  .workbench,
+  .contextColumn {
     grid-template-columns: 1fr;
   }
 
   .inlineField {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .matchSpotlightHeader {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .duelStrip {
     grid-template-columns: 1fr;
   }
 
-  .creatureStage {
+  .matchSpotlightHeader,
+  .battleLaneHeader,
+  .deckRailHeader,
+  .focusHeader,
+  .heroPanelHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .duelStrip,
+  .creatureStage,
+  .creatureStats {
     grid-template-columns: 1fr;
   }
 
@@ -749,15 +944,22 @@
     max-width: 120px;
   }
 
-  .creatureStats {
-    grid-template-columns: 1fr;
-  }
-
   .duelDivider {
     margin: 0 auto;
   }
 
-  .contextColumn {
-    grid-template-columns: 1fr;
+  .handFanGrid {
+    justify-content: start;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .handFanGrid > .handCard,
+  .handFanGrid > .handCard:nth-child(odd),
+  .handFanGrid > .handCard:nth-child(even) {
+    margin-left: 0;
+    transform: none;
+    width: 180px;
+    flex-basis: 180px;
   }
 }
