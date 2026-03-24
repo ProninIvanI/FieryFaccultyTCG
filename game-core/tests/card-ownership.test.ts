@@ -61,16 +61,35 @@ describe('game-core card ownership and location validation', () => {
   });
 
   it('rejects summoning a card that is not in hand', () => {
-    const engine = buildEngine(
-      { instanceId: 'card_1', ownerId: 'player_1', definitionId: 'sprite', location: 'deck' },
-      { instanceId: 'card_2', ownerId: 'player_2', definitionId: 'sprite', location: 'hand' },
-    );
+    const registry = new CardRegistry(cards);
+    const state = createInitialState(123, [
+      {
+        playerId: 'player_1',
+        characterId: 'char_1',
+        deck: [
+          { instanceId: 'card_1', ownerId: 'player_1', definitionId: 'sprite', location: 'deck' },
+          { instanceId: 'card_2', ownerId: 'player_1', definitionId: 'sprite', location: 'deck' },
+          { instanceId: 'card_3', ownerId: 'player_1', definitionId: 'sprite', location: 'deck' },
+          { instanceId: 'card_4', ownerId: 'player_1', definitionId: 'sprite', location: 'deck' },
+        ],
+      },
+      {
+        playerId: 'player_2',
+        characterId: 'char_2',
+        deck: [{ instanceId: 'enemy_1', ownerId: 'player_2', definitionId: 'sprite', location: 'deck' }],
+      },
+    ]);
+
+    state.players.player_1.mana = 5;
+    state.players.player_2.mana = 5;
+
+    const engine = new GameEngine(state, registry);
 
     const action: SummonAction = {
       type: 'Summon',
       actorId: 'char_1',
       playerId: 'player_1',
-      cardInstanceId: 'card_1',
+      cardInstanceId: 'card_4',
     };
 
     const result = engine.processAction(action);

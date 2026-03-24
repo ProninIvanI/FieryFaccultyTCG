@@ -3,6 +3,7 @@ import {
   GameEngine,
   CardRegistry,
   createInitialState,
+  dealOpeningHand,
   toCardDefinitionFromCatalog,
 } from '../../../game-core/src';
 import { readFileSync } from 'fs';
@@ -87,6 +88,7 @@ const syncPlayerLoadoutIntoState = (
   nextDeck.forEach((card) => {
     state.cardInstances[card.instanceId] = card;
   });
+  dealOpeningHand(state, player.playerId);
 };
 
 class ConfigurableGameEngine extends GameEngine {

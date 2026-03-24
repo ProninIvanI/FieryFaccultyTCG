@@ -5,11 +5,40 @@ import {
   CharacterId,
 } from '../types';
 
+const STARTING_HAND_SIZE = 3;
+
 export interface InitialPlayerConfig {
   playerId: PlayerId;
   characterId: CharacterId;
   deck: CardInstance[];
 }
+
+export const dealOpeningHand = (
+  state: GameState,
+  playerId: PlayerId,
+  handSize = STARTING_HAND_SIZE,
+): void => {
+  const deckState = state.decks[playerId];
+  const handState = state.hands[playerId];
+
+  if (!deckState || !handState) {
+    return;
+  }
+
+  const drawCount = Math.min(handSize, deckState.cards.length);
+  if (drawCount <= 0) {
+    return;
+  }
+
+  const drawnCards = deckState.cards.splice(0, drawCount);
+  drawnCards.forEach((instanceId) => {
+    handState.push(instanceId);
+    const instance = state.cardInstances[instanceId];
+    if (instance) {
+      instance.location = 'hand';
+    }
+  });
+};
 
 export const createInitialState = (
   seed: number,
@@ -63,6 +92,8 @@ export const createInitialState = (
     player.deck.forEach((card) => {
       state.cardInstances[card.instanceId] = card;
     });
+
+    dealOpeningHand(state, player.playerId);
   });
 
   return state;

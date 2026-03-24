@@ -127,6 +127,10 @@ describe('game service end-to-end PvP flow', () => {
     expect(sessionA.session.getState().turn.activePlayerId).toBe('player_1');
     expect(sessionA.session.getState().turn.number).toBe(1);
     expect(sessionA.session.getState().phase.current).toBe('ActionPhase');
+    expect(sessionA.session.getState().hands.player_1).toHaveLength(2);
+    expect(sessionA.session.getState().hands.player_2).toHaveLength(2);
+    expect(sessionA.session.getState().decks.player_1.cards).toHaveLength(0);
+    expect(sessionA.session.getState().decks.player_2.cards).toHaveLength(0);
 
     const endTurnPlayer1 = service.applyAction('match-1', 'player_1', {
       type: 'EndTurn',

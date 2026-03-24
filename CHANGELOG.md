@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-03-25 update: `game-core` now deals a deterministic opening hand on match start, and the server sync path mirrors that behavior so PvP players immediately receive real cards in hand instead of an empty tray.
+
 > 2026-03-25 update: `PlayPvpPage` hand cards and the selected-card panel now render richer card content from the shared catalog, including school/type badges, effect text, and summon stats (`HP / ATK / SPD`) in a layout closer to `DeckPage`.
 
 > 2026-03-24 update: `PlayPvpPage` now reads deck size from `state.decks[playerId].cards`, and frontend PvP snapshots are typed via `GameState` from `game-core` to catch contract mismatches earlier.
