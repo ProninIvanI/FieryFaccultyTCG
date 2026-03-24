@@ -218,6 +218,19 @@
   gap: 18px;
 }
 
+.boardShell {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(180px, 220px);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.boardSideColumn {
+  display: grid;
+  gap: 16px;
+  align-content: space-between;
+}
+
 .matchSpotlight,
 .battleLane,
 .handTray,
@@ -269,14 +282,6 @@
 .targetDraftItem,
 .heroPanel {
   padding: 12px 14px;
-}
-
-.tableTopRow,
-.tableBottomRow {
-  display: grid;
-  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
-  gap: 20px;
-  align-items: stretch;
 }
 
 .fieldFrame {
@@ -391,6 +396,11 @@
   position: relative;
 }
 
+.deckRailVertical {
+  min-height: 260px;
+  align-content: start;
+}
+
 .deckRailActive {
   border-color: #93c5fd;
   box-shadow:
@@ -414,6 +424,13 @@
   gap: 6px;
   min-height: 88px;
   overflow: hidden;
+  align-items: center;
+}
+
+.deckRailVertical .deckRailCards {
+  min-height: 180px;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
   align-items: center;
 }
 
@@ -620,9 +637,9 @@
   display: flex;
   flex-wrap: nowrap;
   align-items: end;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0;
-  padding: 10px 12px 4px;
+  padding: 10px 4px 4px;
   overflow-x: auto;
   overflow-y: visible;
 }
@@ -919,12 +936,30 @@
     grid-column: 1 / -1;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   }
+
+  .boardShell {
+    grid-template-columns: minmax(160px, 200px) minmax(0, 1fr) minmax(160px, 200px);
+  }
 }
 
 @media (max-width: 1180px) {
-  .tableTopRow,
-  .tableBottomRow {
+  .boardShell {
     grid-template-columns: 1fr;
+  }
+
+  .boardSideColumn {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: stretch;
+  }
+
+  .deckRailVertical {
+    min-height: 0;
+  }
+
+  .deckRailVertical .deckRailCards {
+    min-height: 88px;
+    flex-direction: row;
+    justify-content: flex-start;
   }
 }
 

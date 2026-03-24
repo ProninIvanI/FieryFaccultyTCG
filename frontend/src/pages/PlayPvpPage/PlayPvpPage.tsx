@@ -922,50 +922,51 @@ export const PlayPvpPage = () => {
                 </div>
 
                 <div className={styles.battlefield}>
-                  <section className={styles.tableTopRow}>
-                    <div className={`${styles.playerSideCard} ${isEnemySideActive ? styles.playerSideCardActive : ''}`.trim()}>
-                      <span className={styles.playerSideLabel}>Игрок 1</span>
-                      <button
-                        className={`${styles.avatarTargetButton} ${primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetable : ''} ${primaryEnemyBoard?.characterId && isDraftTargetActive(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                        type="button"
-                        onClick={() => {
-                          const enemyCharacterId = primaryEnemyBoard?.characterId;
-                          if (enemyCharacterId && isSelectableTarget(enemyCharacterId)) {
-                            setDraftTargetId(enemyCharacterId);
-                          }
-                        }}
-                      >
-                        <div className={styles.playerPortraitFrame}>
-                          <div className={styles.playerPortraitSilhouette}>P1</div>
+                  <section className={styles.boardShell}>
+                    <aside className={styles.boardSideColumn}>
+                      <div className={`${styles.playerSideCard} ${isEnemySideActive ? styles.playerSideCardActive : ''}`.trim()}>
+                        <span className={styles.playerSideLabel}>Игрок 1</span>
+                        <button
+                          className={`${styles.avatarTargetButton} ${primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetable : ''} ${primaryEnemyBoard?.characterId && isDraftTargetActive(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                          type="button"
+                          onClick={() => {
+                            const enemyCharacterId = primaryEnemyBoard?.characterId;
+                            if (enemyCharacterId && isSelectableTarget(enemyCharacterId)) {
+                              setDraftTargetId(enemyCharacterId);
+                            }
+                          }}
+                        >
+                          <div className={styles.playerPortraitFrame}>
+                            <div className={styles.playerPortraitSilhouette}>P1</div>
+                          </div>
+                          <strong>{primaryEnemyBoard?.playerId ?? 'Ожидание соперника'}</strong>
+                          <span>
+                            {primaryEnemyBoard
+                              ? `${primaryEnemyBoard.mana}/${primaryEnemyBoard.maxMana} mana`
+                              : 'Подключится позже'}
+                          </span>
+                        </button>
+                      </div>
+
+                      <div className={`${styles.deckRail} ${styles.deckRailVertical} ${isEnemySideActive ? styles.deckRailActive : ''}`.trim()}>
+                        <div className={styles.deckRailHeader}>
+                          <span className={styles.summaryLabel}>колода игрока 1</span>
+                          <span className={styles.deckRailMeta}>
+                            deck: {primaryEnemyBoard?.deckSize ?? 0} · hand: {primaryEnemyBoard?.handSize ?? 0}
+                          </span>
                         </div>
-                        <strong>{primaryEnemyBoard?.playerId ?? 'Ожидание соперника'}</strong>
-                        <span>
-                          {primaryEnemyBoard
-                            ? `${primaryEnemyBoard.mana}/${primaryEnemyBoard.maxMana} mana`
-                            : 'Подключится позже'}
-                        </span>
-                      </button>
-                    </div>
-
-                    <div className={`${styles.deckRail} ${isEnemySideActive ? styles.deckRailActive : ''}`.trim()}>
-                      <div className={styles.deckRailHeader}>
-                        <span className={styles.summaryLabel}>колода игрока 1</span>
-                        <span className={styles.deckRailMeta}>
-                          deck: {primaryEnemyBoard?.deckSize ?? 0} · hand: {primaryEnemyBoard?.handSize ?? 0}
-                        </span>
+                        <div className={styles.deckRailCards} aria-hidden="true">
+                          {Array.from({ length: getDeckVisualCount(primaryEnemyBoard?.deckSize ?? 0) }).map((_, index, array) => (
+                            <span
+                              key={`enemy-deck-${index}`}
+                              className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
+                            />
+                          ))}
+                        </div>
                       </div>
-                      <div className={styles.deckRailCards} aria-hidden="true">
-                        {Array.from({ length: getDeckVisualCount(primaryEnemyBoard?.deckSize ?? 0) }).map((_, index, array) => (
-                          <span
-                            key={`enemy-deck-${index}`}
-                            className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </section>
+                    </aside>
 
-                  <section className={styles.fieldFrame}>
+                    <section className={styles.fieldFrame}>
                     <div className={styles.arenaHeader}>
                       <span className={styles.summaryLabel}>Поле</span>
                       <strong>Центральная арена</strong>
@@ -1079,124 +1080,124 @@ export const PlayPvpPage = () => {
                     )}
                   </section>
 
-                  </section>
-
-                  <section className={styles.tableBottomRow}>
-                    <div className={`${styles.playerSideCard} ${isLocalSideActive ? styles.playerSideCardActive : ''}`.trim()}>
-                      <span className={styles.playerSideLabel}>Игрок 2</span>
-                      <button
-                        className={`${styles.avatarTargetButton} ${localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : ''} ${localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                        type="button"
-                        onClick={() => {
-                          if (localPlayer && isSelectableTarget(localPlayer.characterId)) {
-                            setDraftTargetId(localPlayer.characterId);
-                          }
-                        }}
-                      >
-                        <div className={styles.playerPortraitFrame}>
-                          <div className={`${styles.playerPortraitSilhouette} ${styles.playerPortraitSilhouetteLocal}`.trim()}>P2</div>
+                    <section className={styles.handTray}>
+                      <div className={styles.battleLaneHeader}>
+                        <div>
+                          <span className={styles.summaryLabel}>Твоя рука</span>
+                          <strong>Карты для текущего хода</strong>
                         </div>
-                        <strong>{playerId}</strong>
-                        <span>{localPlayer ? `${localPlayer.mana}/${localPlayer.maxMana} mana` : 'Нет state'}</span>
-                      </button>
-                    </div>
-
-                    <div className={`${styles.deckRail} ${isLocalSideActive ? styles.deckRailActive : ''}`.trim()}>
-                      <div className={styles.deckRailHeader}>
-                        <span className={styles.summaryLabel}>колода игрока 2</span>
-                        <span className={styles.deckRailMeta}>
-                          deck: {localBoard?.deckSize ?? 0} · hand: {localBoard?.handSize ?? 0}
-                        </span>
+                        <span className={styles.battleCount}>{localHandCards.length} карт</span>
                       </div>
-                      <div className={styles.deckRailCards} aria-hidden="true">
-                        {Array.from({ length: getDeckVisualCount(localBoard?.deckSize ?? 0) }).map((_, index, array) => (
-                          <span
-                            key={`local-deck-${index}`}
-                            className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </section>
-
-                  <section className={styles.handTray}>
-                    <div className={styles.battleLaneHeader}>
-                      <div>
-                        <span className={styles.summaryLabel}>Твоя рука</span>
-                        <strong>Карты для текущего хода</strong>
-                      </div>
-                      <span className={styles.battleCount}>{localHandCards.length} карт</span>
-                    </div>
-                    {localHandCards.length > 0 ? (
-                      <div className={styles.handFanGrid}>
-                        {localHandCards.map((card) => (
-                          <div
-                            key={card.instanceId}
-                            className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''} ${getCardAccentClassName(card.cardType)}`.trim()}
-                          >
-                            <button
-                              className={`${styles.selectionSurface} ${selection?.kind === 'hand' && selection.instanceId === card.instanceId ? styles.selectionSurfaceActive : ''}`.trim()}
-                              type="button"
-                              onClick={() => {
-                                setSelection({ kind: 'hand', instanceId: card.instanceId });
-                                setDraftTargetId('');
-                              }}
+                      {localHandCards.length > 0 ? (
+                        <div className={styles.handFanGrid}>
+                          {localHandCards.map((card) => (
+                            <div
+                              key={card.instanceId}
+                              className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''} ${getCardAccentClassName(card.cardType)}`.trim()}
                             >
-                            <div className={styles.handCardTop}>
-                              <span className={styles.handManaGem}>{card.mana}</span>
-                              <div className={styles.handCardBadgeStack}>
-                                <span className={styles.cardBadge}>{getCardTypeLabel(card.cardType)}</span>
-                                {card.school ? (
-                                  <span className={styles.cardBadge}>{getCatalogSchoolLabel(card.school)}</span>
-                                ) : null}
-                              </div>
-                            </div>
-                            <div className={styles.handCardBody}>
-                              <strong>{card.name}</strong>
-                              <div className={styles.handCardMeta}>
-                                <span>{getCardTypeLabel(card.cardType)}</span>
-                                {card.speed ? <span>speed {card.speed}</span> : null}
-                              </div>
-                              {(card.hp || card.attack || card.speed) ? (
-                                <div className={styles.handCardStats}>
-                                  {card.hp ? <span className={styles.handStatPill}>HP {card.hp}</span> : null}
-                                  {card.attack ? <span className={styles.handStatPill}>ATK {card.attack}</span> : null}
-                                  {card.speed ? <span className={styles.handStatPill}>SPD {card.speed}</span> : null}
+                              <button
+                                className={`${styles.selectionSurface} ${selection?.kind === 'hand' && selection.instanceId === card.instanceId ? styles.selectionSurfaceActive : ''}`.trim()}
+                                type="button"
+                                onClick={() => {
+                                  setSelection({ kind: 'hand', instanceId: card.instanceId });
+                                  setDraftTargetId('');
+                                }}
+                              >
+                              <div className={styles.handCardTop}>
+                                <span className={styles.handManaGem}>{card.mana}</span>
+                                <div className={styles.handCardBadgeStack}>
+                                  <span className={styles.cardBadge}>{getCardTypeLabel(card.cardType)}</span>
+                                  {card.school ? (
+                                    <span className={styles.cardBadge}>{getCatalogSchoolLabel(card.school)}</span>
+                                  ) : null}
                                 </div>
-                              ) : null}
-                              {card.effect ? (
-                                <span className={styles.handCardEffect}>{card.effect}</span>
+                              </div>
+                              <div className={styles.handCardBody}>
+                                <strong>{card.name}</strong>
+                                <div className={styles.handCardMeta}>
+                                  <span>{getCardTypeLabel(card.cardType)}</span>
+                                  {card.speed ? <span>speed {card.speed}</span> : null}
+                                </div>
+                                {(card.hp || card.attack || card.speed) ? (
+                                  <div className={styles.handCardStats}>
+                                    {card.hp ? <span className={styles.handStatPill}>HP {card.hp}</span> : null}
+                                    {card.attack ? <span className={styles.handStatPill}>ATK {card.attack}</span> : null}
+                                    {card.speed ? <span className={styles.handStatPill}>SPD {card.speed}</span> : null}
+                                  </div>
+                                ) : null}
+                                {card.effect ? (
+                                  <span className={styles.handCardEffect}>{card.effect}</span>
+                                ) : (
+                                  <span className={styles.handCardSubtitle}>ID: {card.instanceId}</span>
+                                )}
+                              </div>
+                              <div className={styles.handCardFooter}>
+                                <div className={styles.handMetaRow}>
+                                  <span className={styles.cardBadge}>{card.mana} mana</span>
+                                  <span className={styles.cardBadge}>
+                                    {card.cardType === 'summon' ? 'Призыв' : 'Розыгрыш'}
+                                  </span>
+                                </div>
+                              </div>
+                              </button>
+                              {card.cardType === 'summon' ? (
+                                <button
+                                  className={styles.primaryButton}
+                                  type="button"
+                                  onClick={() => handleSummon(card)}
+                                  disabled={!canActFromHand || !localPlayer || localPlayer.mana < card.mana}
+                                >
+                                  Призвать
+                                </button>
                               ) : (
-                                <span className={styles.handCardSubtitle}>ID: {card.instanceId}</span>
+                                <div className={styles.hint}>Для этой карты таргетный UI появится следующим этапом.</div>
                               )}
                             </div>
-                            <div className={styles.handCardFooter}>
-                              <div className={styles.handMetaRow}>
-                                <span className={styles.cardBadge}>{card.mana} mana</span>
-                                <span className={styles.cardBadge}>
-                                  {card.cardType === 'summon' ? 'Призыв' : 'Розыгрыш'}
-                                </span>
-                              </div>
-                            </div>
-                            </button>
-                            {card.cardType === 'summon' ? (
-                              <button
-                                className={styles.primaryButton}
-                                type="button"
-                                onClick={() => handleSummon(card)}
-                                disabled={!canActFromHand || !localPlayer || localPlayer.mana < card.mana}
-                              >
-                                Призвать
-                              </button>
-                            ) : (
-                              <div className={styles.hint}>Для этой карты таргетный UI появится следующим этапом.</div>
-                            )}
-                          </div>
-                        ))}
+                          ))}
+                        </div>
+                      ) : (
+                        <div className={styles.emptyState}>После старта матча здесь появятся реальные карты из руки.</div>
+                      )}
+                    </section>
+                    </section>
+
+                    <aside className={styles.boardSideColumn}>
+                      <div className={`${styles.deckRail} ${styles.deckRailVertical} ${isLocalSideActive ? styles.deckRailActive : ''}`.trim()}>
+                        <div className={styles.deckRailHeader}>
+                          <span className={styles.summaryLabel}>колода игрока 2</span>
+                          <span className={styles.deckRailMeta}>
+                            deck: {localBoard?.deckSize ?? 0} · hand: {localBoard?.handSize ?? 0}
+                          </span>
+                        </div>
+                        <div className={styles.deckRailCards} aria-hidden="true">
+                          {Array.from({ length: getDeckVisualCount(localBoard?.deckSize ?? 0) }).map((_, index, array) => (
+                            <span
+                              key={`local-deck-${index}`}
+                              className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    ) : (
-                      <div className={styles.emptyState}>После старта матча здесь появятся реальные карты из руки.</div>
-                    )}
+
+                      <div className={`${styles.playerSideCard} ${isLocalSideActive ? styles.playerSideCardActive : ''}`.trim()}>
+                        <span className={styles.playerSideLabel}>Игрок 2</span>
+                        <button
+                          className={`${styles.avatarTargetButton} ${localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : ''} ${localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                          type="button"
+                          onClick={() => {
+                            if (localPlayer && isSelectableTarget(localPlayer.characterId)) {
+                              setDraftTargetId(localPlayer.characterId);
+                            }
+                          }}
+                        >
+                          <div className={styles.playerPortraitFrame}>
+                            <div className={`${styles.playerPortraitSilhouette} ${styles.playerPortraitSilhouetteLocal}`.trim()}>P2</div>
+                          </div>
+                          <strong>{playerId}</strong>
+                          <span>{localPlayer ? `${localPlayer.mana}/${localPlayer.maxMana} mana` : 'Нет state'}</span>
+                        </button>
+                      </div>
+                    </aside>
                   </section>
                 </div>
               </div>
