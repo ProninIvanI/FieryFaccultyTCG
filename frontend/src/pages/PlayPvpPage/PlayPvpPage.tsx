@@ -945,10 +945,8 @@ export const PlayPvpPage = () => {
                   <section className={`${styles.battleLane} ${isEnemySideActive ? styles.battleLaneActive : ''}`.trim()}>
                     <div className={styles.battleLaneHeader}>
                       <div>
-                        <span className={styles.summaryLabel}>Сторона соперника</span>
                         <strong>{enemyBoards[0]?.playerId ?? 'Ожидание соперника'}</strong>
                       </div>
-                      <span className={styles.battleCount}>{enemyCreatures.length} существ</span>
                     </div>
                     {enemyCreatures.length > 0 ? (
                       <div className={styles.creatureGrid}>
@@ -998,57 +996,11 @@ export const PlayPvpPage = () => {
                     )}
                   </section>
 
-                  <section className={styles.duelStrip}>
-                    <div className={styles.duelAvatar}>
-                      <button
-                        className={`${styles.avatarTargetButton} ${localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : ''} ${localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                        type="button"
-                        onClick={() => {
-                          if (localPlayer && isSelectableTarget(localPlayer.characterId)) {
-                            setDraftTargetId(localPlayer.characterId);
-                          }
-                        }}
-                      >
-                        <span className={styles.summaryLabel}>Ты</span>
-                        <strong>{playerId}</strong>
-                        <span>{localPlayer ? `${localPlayer.mana}/${localPlayer.maxMana} mana` : 'Нет state'}</span>
-                      </button>
-                    </div>
-                    <div className={styles.duelCenter}>
-                      <div className={styles.duelDivider}>VS</div>
-                      <span className={styles.turnIndicator}>
-                        {canEndTurn ? 'Окно действия открыто' : 'Ожидание хода'}
-                      </span>
-                    </div>
-                    <div className={styles.duelAvatar}>
-                      <button
-                        className={`${styles.avatarTargetButton} ${enemyBoards[0]?.characterId && isSelectableTarget(enemyBoards[0].characterId) ? styles.selectionSurfaceTargetable : ''} ${enemyBoards[0]?.characterId && isDraftTargetActive(enemyBoards[0].characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                        type="button"
-                        onClick={() => {
-                          const enemyCharacterId = enemyBoards[0]?.characterId;
-                          if (enemyCharacterId && isSelectableTarget(enemyCharacterId)) {
-                            setDraftTargetId(enemyCharacterId);
-                          }
-                        }}
-                      >
-                        <span className={styles.summaryLabel}>Соперник</span>
-                        <strong>{enemyBoards[0]?.playerId ?? 'Ожидание'}</strong>
-                        <span>
-                          {enemyBoards[0]
-                            ? `${enemyBoards[0].mana}/${enemyBoards[0].maxMana} mana`
-                            : 'Подключится позже'}
-                        </span>
-                      </button>
-                    </div>
-                  </section>
-
                   <section className={`${styles.battleLane} ${isLocalSideActive ? styles.battleLaneActive : ''}`.trim()}>
                     <div className={styles.battleLaneHeader}>
                       <div>
-                        <span className={styles.summaryLabel}>Твоя сторона</span>
                         <strong>{playerId}</strong>
                       </div>
-                      <span className={styles.battleCount}>{alliedCreatures.length} существ</span>
                     </div>
                     {alliedCreatures.length > 0 ? (
                       <div className={styles.creatureGrid}>

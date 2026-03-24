@@ -1,4 +1,13 @@
 .workbench {
+  --pvp-text: #0f172a;
+  --pvp-muted: #475569;
+  --pvp-soft: #64748b;
+  --pvp-border: #dbe4ef;
+  --pvp-border-strong: #cbd5f5;
+  --pvp-panel: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --pvp-panel-soft: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+  --pvp-accent: #1d4ed8;
+  --pvp-accent-strong: #0f172a;
   display: grid;
   grid-template-columns: minmax(280px, 320px) minmax(0, 1.7fr) minmax(300px, 360px);
   gap: 24px;
@@ -14,15 +23,11 @@
 
 .themedCard,
 .boardCard {
-  color: #f3ddbd;
+  color: var(--pvp-text);
   border-radius: 24px;
-  border: 1px solid rgba(176, 121, 72, 0.7);
-  background:
-    linear-gradient(180deg, rgba(69, 39, 24, 0.96), rgba(45, 25, 16, 0.98)),
-    radial-gradient(circle at top, rgba(202, 148, 84, 0.12), transparent 42%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 223, 179, 0.12),
-    0 18px 36px rgba(17, 9, 6, 0.26);
+  border: 1px solid var(--pvp-border);
+  background: var(--pvp-panel);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.1);
 }
 
 .boardCardContent {
@@ -33,7 +38,7 @@
 .modifiersCardContent {
   display: grid;
   gap: 16px;
-  background: linear-gradient(180deg, rgba(48, 26, 18, 0.42), rgba(26, 14, 10, 0.18));
+  background: linear-gradient(180deg, rgba(241, 245, 249, 0.8), rgba(255, 255, 255, 0.55));
   border-radius: 18px;
 }
 
@@ -76,14 +81,14 @@
 }
 
 .segmentButton {
-  background: rgba(108, 65, 41, 0.72);
-  color: #f2dec6;
+  background: #ffffff;
+  color: var(--pvp-text);
 }
 
 .segmentActive {
-  background: linear-gradient(180deg, #c69052, #8c5a32);
-  color: #2e170d;
-  box-shadow: 0 10px 22px rgba(140, 90, 50, 0.35);
+  background: linear-gradient(180deg, #0f172a, #1d4ed8);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(29, 78, 216, 0.22);
 }
 
 .formRow {
@@ -98,7 +103,7 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #c79a68;
+  color: var(--pvp-soft);
 }
 
 .creatureStatLabel {
@@ -119,16 +124,16 @@
 
 .input {
   width: 100%;
-  border: 1px solid rgba(191, 141, 92, 0.55);
+  border: 1px solid var(--pvp-border);
   padding: 10px 12px;
   font-size: 14px;
-  background: rgba(36, 20, 13, 0.82);
-  color: #f5e6d0;
+  background: #ffffff;
+  color: var(--pvp-text);
 }
 
 .input:disabled {
-  background: rgba(54, 32, 21, 0.9);
-  color: #b69069;
+  background: #f8fafc;
+  color: var(--pvp-soft);
 }
 
 .primaryButton,
@@ -139,16 +144,16 @@
 }
 
 .primaryButton {
-  border: 1px solid rgba(231, 177, 118, 0.65);
-  background: linear-gradient(180deg, #d39a59 0%, #8e5a31 100%);
-  color: #2f180d;
-  box-shadow: 0 12px 24px rgba(52, 28, 14, 0.24);
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
 }
 
 .secondaryButton {
-  border: 1px solid rgba(176, 121, 72, 0.6);
-  background: rgba(74, 43, 26, 0.86);
-  color: #f3ddbd;
+  border: 1px solid var(--pvp-border);
+  background: #ffffff;
+  color: var(--pvp-text);
 }
 
 .primaryButton:hover,
@@ -185,15 +190,15 @@
 .modifierTile span,
 .detailRow,
 .handCard span {
-  color: #d1b08d;
+  color: var(--pvp-muted);
   font-size: 13px;
   line-height: 1.5;
 }
 
 .errorBox {
-  border: 1px solid rgba(218, 97, 72, 0.68);
-  background: rgba(100, 24, 19, 0.72);
-  color: #ffd9ce;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
   border-radius: 14px;
   padding: 12px;
   font-size: 14px;
@@ -219,7 +224,6 @@
 .deckRail,
 .playerSideCard,
 .heroPanel,
-.duelAvatar,
 .summaryTile,
 .focusStat,
 .modifierTile,
@@ -227,11 +231,9 @@
 .eventItem,
 .targetDraftItem {
   border-radius: 18px;
-  border: 1px solid rgba(161, 110, 66, 0.62);
-  background:
-    linear-gradient(180deg, rgba(83, 49, 31, 0.92), rgba(55, 31, 20, 0.95)),
-    radial-gradient(circle at top left, rgba(200, 143, 85, 0.12), transparent 35%);
-  box-shadow: inset 0 1px 0 rgba(255, 229, 188, 0.08);
+  border: 1px solid var(--pvp-border);
+  background: var(--pvp-panel-soft);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .matchSpotlight {
@@ -256,7 +258,7 @@
   display: block;
   font-size: 28px;
   line-height: 1.05;
-  color: #f8ebd6;
+  color: var(--pvp-accent-strong);
 }
 
 .summaryTile,
@@ -283,13 +285,11 @@
   padding: 18px;
   position: relative;
   border-radius: 24px;
-  border: 1px solid rgba(176, 124, 74, 0.66);
+  border: 1px solid var(--pvp-border-strong);
   background:
-    linear-gradient(180deg, rgba(81, 47, 29, 0.82), rgba(54, 29, 19, 0.88)),
-    radial-gradient(circle at center, rgba(221, 168, 104, 0.08), transparent 52%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 225, 186, 0.05),
-    0 14px 28px rgba(18, 8, 6, 0.2);
+    linear-gradient(180deg, #ffffff, #f8fafc),
+    radial-gradient(circle at center, rgba(59, 130, 246, 0.06), transparent 52%);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
 }
 
 .fieldFrame::before,
@@ -298,7 +298,7 @@
   position: absolute;
   width: 36px;
   height: 36px;
-  border: 1px solid rgba(214, 164, 100, 0.32);
+  border: 1px solid rgba(59, 130, 246, 0.18);
   pointer-events: none;
 }
 
@@ -323,7 +323,7 @@
   justify-items: center;
   gap: 6px;
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(177, 126, 77, 0.28);
+  border-bottom: 1px solid var(--pvp-border);
   text-align: center;
 }
 
@@ -335,11 +335,11 @@
 }
 
 .playerSideCardActive {
-  border-color: rgba(238, 194, 129, 0.72);
+  border-color: #93c5fd;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 231, 193, 0.1),
-    0 0 0 2px rgba(213, 157, 92, 0.16),
-    0 14px 28px rgba(48, 23, 11, 0.26);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+    0 0 0 2px rgba(59, 130, 246, 0.08),
+    0 14px 28px rgba(15, 23, 42, 0.12);
 }
 
 .playerPortraitFrame {
@@ -347,13 +347,13 @@
   height: 110px;
   position: relative;
   border-radius: 999px 999px 24px 24px;
-  border: 2px solid rgba(192, 142, 93, 0.72);
+  border: 2px solid #bfdbfe;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto;
-  background: radial-gradient(circle at 50% 35%, rgba(18, 9, 6, 0.5), rgba(18, 9, 6, 0.92));
-  box-shadow: inset 0 1px 0 rgba(255, 225, 186, 0.12);
+  background: radial-gradient(circle at 50% 35%, #eff6ff, #dbeafe);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .playerPortraitFrame::after {
@@ -362,7 +362,7 @@
   inset: 8px 18px auto 18px;
   height: 10px;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgba(237, 194, 132, 0.45), transparent);
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.25), transparent);
 }
 
 .playerPortraitSilhouette,
@@ -376,12 +376,12 @@
   font-size: 20px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: rgba(232, 199, 163, 0.88);
-  background: linear-gradient(180deg, rgba(14, 8, 7, 0.9), rgba(45, 25, 17, 0.72));
+  color: #ffffff;
+  background: linear-gradient(180deg, #1d4ed8, #0f172a);
 }
 
 .playerPortraitSilhouetteLocal {
-  background: linear-gradient(180deg, rgba(40, 20, 12, 0.82), rgba(88, 52, 29, 0.72));
+  background: linear-gradient(180deg, #0f172a, #334155);
 }
 
 .deckRail {
@@ -392,10 +392,10 @@
 }
 
 .deckRailActive {
-  border-color: rgba(235, 187, 120, 0.7);
+  border-color: #93c5fd;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 223, 178, 0.08),
-    0 12px 24px rgba(43, 21, 10, 0.22);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+    0 12px 24px rgba(15, 23, 42, 0.1);
 }
 
 .deckRail::after {
@@ -405,7 +405,7 @@
   right: 16px;
   bottom: 10px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(220, 171, 108, 0.28), transparent);
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.18), transparent);
   pointer-events: none;
 }
 
@@ -422,16 +422,16 @@
   width: 52px;
   height: 76px;
   border-radius: 12px;
-  border: 1px solid rgba(182, 131, 82, 0.45);
+  border: 1px solid #cbd5f5;
   flex: 0 0 auto;
   background:
-    radial-gradient(circle at 50% 50%, rgba(211, 156, 92, 0.72) 0, rgba(211, 156, 92, 0.16) 18%, transparent 20%),
-    linear-gradient(135deg, rgba(104, 61, 39, 0.95), rgba(57, 32, 21, 0.98));
-  box-shadow: inset 0 0 0 2px rgba(42, 22, 14, 0.65);
+    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.32) 0, rgba(59, 130, 246, 0.08) 18%, transparent 20%),
+    linear-gradient(135deg, #eff6ff, #dbeafe);
+  box-shadow: inset 0 0 0 2px rgba(148, 163, 184, 0.22);
 }
 
 .deckCardBackTop {
-  border-color: rgba(240, 189, 124, 0.66);
+  border-color: #93c5fd;
   transform: translateY(-2px);
 }
 
@@ -456,19 +456,19 @@
   overflow: hidden;
   align-content: start;
   background:
-    linear-gradient(180deg, rgba(83, 49, 31, 0.72), rgba(55, 31, 20, 0.9)),
-    radial-gradient(circle at center, rgba(226, 172, 107, 0.06), transparent 58%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.98)),
+    radial-gradient(circle at center, rgba(59, 130, 246, 0.06), transparent 58%);
 }
 
 .battleLaneActive {
-  border-color: rgba(240, 192, 123, 0.78);
+  border-color: #93c5fd;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 228, 191, 0.08),
-    0 0 0 2px rgba(214, 160, 94, 0.14),
-    0 16px 32px rgba(38, 18, 8, 0.24);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.75),
+    0 0 0 2px rgba(59, 130, 246, 0.08),
+    0 16px 32px rgba(15, 23, 42, 0.12);
   background:
-    linear-gradient(180deg, rgba(96, 56, 34, 0.8), rgba(60, 34, 22, 0.92)),
-    radial-gradient(circle at center, rgba(240, 187, 118, 0.12), transparent 60%);
+    linear-gradient(180deg, rgba(239, 246, 255, 0.96), rgba(248, 250, 252, 1)),
+    radial-gradient(circle at center, rgba(59, 130, 246, 0.12), transparent 60%);
 }
 
 .battleLane::after {
@@ -476,34 +476,15 @@
   position: absolute;
   inset: auto 18px 18px 18px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(203, 153, 99, 0.35), transparent);
+  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.28), transparent);
   pointer-events: none;
 }
 
 .battleCount,
 .turnIndicator {
-  color: #d7b08c;
+  color: var(--pvp-muted);
   font-size: 13px;
   font-weight: 700;
-}
-
-.duelStrip {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-}
-
-.duelCenter {
-  display: grid;
-  gap: 8px;
-  justify-items: center;
-}
-
-.duelAvatar {
-  padding: 14px 16px;
-  display: grid;
-  text-align: center;
 }
 
 .avatarTargetButton {
@@ -518,28 +499,13 @@
   cursor: default;
 }
 
-.duelDivider {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 999px;
-  border: 1px solid rgba(240, 194, 131, 0.66);
-  background: radial-gradient(circle at 30% 30%, #dba25c, #7d4e2a 72%);
-  color: #2c160b;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  box-shadow: 0 10px 20px rgba(29, 14, 8, 0.24);
-}
-
 .playerBoard,
 .handCard,
 .creatureCard {
   border-radius: 18px;
-  border: 1px solid rgba(187, 140, 93, 0.4);
+  border: 1px solid var(--pvp-border);
   padding: 14px;
-  background: rgba(28, 15, 11, 0.36);
+  background: rgba(255, 255, 255, 0.86);
 }
 
 .creatureGrid {
@@ -559,7 +525,7 @@
 }
 
 .creatureGrid::-webkit-scrollbar-thumb {
-  background: rgba(196, 147, 96, 0.4);
+  background: rgba(148, 163, 184, 0.4);
   border-radius: 999px;
 }
 
@@ -568,8 +534,8 @@
   padding: 12px;
   position: relative;
   background:
-    linear-gradient(180deg, rgba(39, 21, 14, 0.72), rgba(24, 12, 9, 0.82)),
-    radial-gradient(circle at top, rgba(230, 176, 109, 0.06), transparent 44%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.98)),
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.06), transparent 44%);
 }
 
 .creatureCard::before {
@@ -580,8 +546,8 @@
   width: 18px;
   height: 18px;
   border-radius: 999px;
-  border: 1px solid rgba(220, 172, 111, 0.3);
-  background: radial-gradient(circle, rgba(223, 177, 114, 0.28), transparent 65%);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.18), transparent 65%);
 }
 
 .selectionSurface {
@@ -627,8 +593,8 @@
 }
 
 .playerBoardActive {
-  border-color: rgba(244, 196, 129, 0.58);
-  box-shadow: 0 12px 24px rgba(29, 15, 8, 0.18);
+  border-color: #93c5fd;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
 
 .playerBoardHeader,
@@ -640,7 +606,7 @@
 }
 
 .zoneGrid {
-  color: #d5b08b;
+  color: var(--pvp-muted);
   font-size: 14px;
 }
 
@@ -713,8 +679,8 @@
 }
 
 .handCardPlayable {
-  border-color: rgba(230, 178, 110, 0.52);
-  box-shadow: 0 10px 22px rgba(57, 29, 14, 0.18);
+  border-color: #93c5fd;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
 }
 
 .cardAccentSummon::before,
@@ -727,15 +693,15 @@
 }
 
 .cardAccentSummon::before {
-  background: linear-gradient(180deg, #d9a055, #7b4926);
+  background: linear-gradient(180deg, #2563eb, #0f172a);
 }
 
 .cardAccentSpell::before {
-  background: linear-gradient(180deg, #c47752, #5b2b2f);
+  background: linear-gradient(180deg, #7c3aed, #312e81);
 }
 
 .cardAccentNeutral::before {
-  background: linear-gradient(180deg, #ad8157, #573624);
+  background: linear-gradient(180deg, #94a3b8, #334155);
 }
 
 .handCardTop {
@@ -752,10 +718,10 @@
   width: 40px;
   height: 40px;
   border-radius: 14px;
-  background: radial-gradient(circle at 30% 30%, #ffd39b, #b7743d 65%, #694126 100%);
-  color: #2f170b;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.96), rgba(191, 219, 254, 0.8) 35%, rgba(37, 99, 235, 0.92) 100%);
+  color: #0f172a;
   font-weight: 800;
-  box-shadow: 0 10px 18px rgba(85, 45, 19, 0.28);
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.18);
 }
 
 .handCardBody {
@@ -764,12 +730,12 @@
   margin-top: 8px;
   border-radius: 14px;
   padding: 12px;
-  background: rgba(20, 10, 7, 0.28);
+  background: rgba(248, 250, 252, 0.86);
   border: 1px solid transparent;
 }
 
 .handCardSubtitle {
-  color: #d2ad87;
+  color: var(--pvp-soft);
   font-size: 13px;
   word-break: break-word;
 }
@@ -792,16 +758,16 @@
   align-items: center;
   border-radius: 999px;
   padding: 5px 10px;
-  background: rgba(222, 181, 129, 0.12);
-  color: #f3debf;
+  background: #e2e8f0;
+  color: #334155;
   font-size: 12px;
   font-weight: 700;
-  border: 1px solid rgba(204, 152, 98, 0.3);
+  border: 1px solid transparent;
 }
 
 .creatureCardLocal {
-  border-color: rgba(230, 179, 112, 0.55);
-  box-shadow: 0 12px 24px rgba(54, 27, 13, 0.18);
+  border-color: #93c5fd;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.08);
 }
 
 .creatureStage {
@@ -818,16 +784,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #a76d42 0%, #4d2a1a 100%);
-  color: #f9ead0;
+  background: linear-gradient(180deg, #334155 0%, #0f172a 100%);
+  color: #e2e8f0;
   font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  box-shadow: inset 0 1px 0 rgba(255, 230, 191, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .creaturePortraitLocal {
-  background: linear-gradient(180deg, #d49a56 0%, #734522 100%);
+  background: linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%);
 }
 
 .creatureStats {
@@ -933,7 +899,6 @@
     align-items: stretch;
   }
 
-  .duelStrip,
   .creatureStage,
   .creatureStats {
     grid-template-columns: 1fr;
@@ -942,10 +907,6 @@
   .creaturePortrait {
     width: 100%;
     max-width: 120px;
-  }
-
-  .duelDivider {
-    margin: 0 auto;
   }
 
   .handFanGrid {
