@@ -192,6 +192,11 @@ components/      (рендеринг компонентов)
 - Первый реальный action-flow уже выведен в интерфейс: для карт типа `summon` локальный игрок может отправить `Summon` из руки, а UI показывает disabled-состояния и server error без локальной пересборки матча.
 - PvP UI всё ещё остаётся минимальным playable-срезом: bootstrap ручной, lobby/matchmaking и полноценный target-heavy action panel остаются следующими итерациями.
 
+### Recent PvP UI Notes
+
+- `PlayPvpPage` resolves side-column player portraits from the selected `characterId` in match/deck state instead of static placeholders.
+- The opponent hand is rendered as a mirrored top fan of card backs, so the UI communicates hand size without exposing hidden card content.
+
 ### Shared Catalog Flow
 
 - Нормализация карточного каталога вынесена в `game-core/src/cards/catalog.ts` и используется как единый источник данных для frontend и server.

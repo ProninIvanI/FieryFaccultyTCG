@@ -1,12 +1,14 @@
 ﻿import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  buildCatalogCharacterSummaries,
   getCatalogCardTypeLabel,
   getCatalogSchoolLabel,
   inferTargetTypeFromCatalog,
   normalizeCatalog,
   toCatalogSchool,
   toCatalogCardUiType,
+  type CatalogCharacterSummary,
 } from '@game-core/cards/catalog';
 import { Card, HomeLinkButton, PageShell } from '@/components';
 import { ROUTES } from '@/constants';
@@ -124,6 +126,52 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 const cardCatalogById = new Map(normalizeCatalog(rawCardData).cards.map((card) => [card.id, card] as const));
+const characterCatalogById = new Map(
+  buildCatalogCharacterSummaries(rawCardData).map((character) => [character.id, character] as const)
+);
+
+const getCharacterInitials = (name: string): string => {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return '??';
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+};
+
+const getCharacterAccentClassName = (
+  faculty: CatalogCharacterSummary['faculty'] | undefined,
+  local = false
+): string => {
+  switch (faculty) {
+    case 'fire':
+      return local ? styles.playerPortraitLocalFire : styles.playerPortraitFire;
+    case 'water':
+      return local ? styles.playerPortraitLocalWater : styles.playerPortraitWater;
+    case 'earth':
+      return local ? styles.playerPortraitLocalEarth : styles.playerPortraitEarth;
+    case 'air':
+      return local ? styles.playerPortraitLocalAir : styles.playerPortraitAir;
+    default:
+      return local ? styles.playerPortraitLocalNeutral : styles.playerPortraitNeutral;
+  }
+};
+
+const getCharacterStatusLabel = (
+  character: CatalogCharacterSummary | null,
+  mana: number,
+  maxMana: number
+): string => {
+  const schoolLabel = character ? getCatalogSchoolLabel(character.faculty) : 'Персонаж не выбран';
+  return `${schoolLabel} · ${mana}/${maxMana} mana`;
+};
 
 const getMatchSummary = (state: GameStateSnapshot | null): MatchSummary | null => {
   if (!state || !isRecord(state.turn) || !isRecord(state.phase) || !isRecord(state.players)) {
@@ -480,6 +528,14 @@ export const PlayPvpPage = () => {
     [playerBoards, playerId]
   );
   const primaryEnemyBoard = enemyBoards[0] ?? null;
+  const localCharacter = useMemo(
+    () => (localPlayer?.characterId ? characterCatalogById.get(localPlayer.characterId) ?? null : null),
+    [localPlayer]
+  );
+  const enemyCharacter = useMemo(
+    () => (primaryEnemyBoard?.characterId ? characterCatalogById.get(primaryEnemyBoard.characterId) ?? null : null),
+    [primaryEnemyBoard]
+  );
   const isEnemySideActive = Boolean(matchSummary && matchSummary.activePlayerId && matchSummary.activePlayerId !== playerId);
   const isLocalSideActive = Boolean(matchSummary && matchSummary.activePlayerId === playerId);
   const canEndTurn = Boolean(
@@ -936,15 +992,24 @@ export const PlayPvpPage = () => {
                             }
                           }}
                         >
-                          <div className={styles.playerPortraitFrame}>
-                            <div className={styles.playerPortraitSilhouette}>P1</div>
+                          <div
+                            className={`${styles.playerPortraitFrame} ${getCharacterAccentClassName(enemyCharacter?.faculty)}`.trim()}
+                          >
+                            <div
+                              className={`${styles.playerPortraitSilhouette} ${getCharacterAccentClassName(enemyCharacter?.faculty)}`.trim()}
+                            >
+                              {getCharacterInitials(enemyCharacter?.name ?? 'P1')}
+                            </div>
                           </div>
-                          <strong>{primaryEnemyBoard?.playerId ?? 'Ожидание соперника'}</strong>
-                          <span>
-                            {primaryEnemyBoard
-                              ? `${primaryEnemyBoard.mana}/${primaryEnemyBoard.maxMana} mana`
-                              : 'Подключится позже'}
-                          </span>
+                          <div className={styles.playerIdentity}>
+                            <strong>{enemyCharacter?.name ?? 'Ожидание соперника'}</strong>
+                            <span>{primaryEnemyBoard?.playerId ?? 'Подключится позже'}</span>
+                            <span>
+                              {primaryEnemyBoard
+                                ? getCharacterStatusLabel(enemyCharacter, primaryEnemyBoard.mana, primaryEnemyBoard.maxMana)
+                                : 'Персонаж появится после подключения'}
+                            </span>
+                          </div>
                         </button>
                       </div>
 
@@ -992,11 +1057,24 @@ export const PlayPvpPage = () => {
                             }
                           }}
                         >
-                          <div className={styles.playerPortraitFrame}>
-                            <div className={`${styles.playerPortraitSilhouette} ${styles.playerPortraitSilhouetteLocal}`.trim()}>P2</div>
+                          <div
+                            className={`${styles.playerPortraitFrame} ${getCharacterAccentClassName(localCharacter?.faculty, true)}`.trim()}
+                          >
+                            <div
+                              className={`${styles.playerPortraitSilhouette} ${styles.playerPortraitSilhouetteLocal} ${getCharacterAccentClassName(localCharacter?.faculty, true)}`.trim()}
+                            >
+                              {getCharacterInitials(localCharacter?.name ?? 'P2')}
+                            </div>
                           </div>
-                          <strong>{playerId}</strong>
-                          <span>{localPlayer ? `${localPlayer.mana}/${localPlayer.maxMana} mana` : 'Нет state'}</span>
+                          <div className={styles.playerIdentity}>
+                            <strong>{localCharacter?.name ?? 'Твой персонаж'}</strong>
+                            <span>{playerId}</span>
+                            <span>
+                              {localPlayer
+                                ? getCharacterStatusLabel(localCharacter, localPlayer.mana, localPlayer.maxMana)
+                                : 'Нет state'}
+                            </span>
+                          </div>
                         </button>
                       </div>
                     </aside>
@@ -1006,6 +1084,27 @@ export const PlayPvpPage = () => {
                       <span className={styles.summaryLabel}>Поле</span>
                       <strong>Центральная арена</strong>
                     </div>
+
+                  <section className={`${styles.handTray} ${styles.opponentHandTray}`.trim()}>
+                    <div className={styles.battleLaneHeader}>
+                      <div>
+                        <span className={styles.summaryLabel}>Рука соперника</span>
+                        <strong>Карты оппонента</strong>
+                      </div>
+                      <span className={styles.battleCount}>{primaryEnemyBoard?.handSize ?? 0} карт</span>
+                    </div>
+                    {(primaryEnemyBoard?.handSize ?? 0) > 0 ? (
+                      <div className={styles.opponentHandFanGrid} aria-hidden="true">
+                        {Array.from({ length: primaryEnemyBoard?.handSize ?? 0 }).map((_, index) => (
+                          <div key={`enemy-hand-${index}`} className={styles.opponentHandCard}>
+                            <span className={styles.opponentHandCardBack} />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles.emptyState}>У соперника пока нет карт в руке.</div>
+                    )}
+                  </section>
 
                   <section className={`${styles.battleLane} ${isEnemySideActive ? styles.battleLaneActive : ''}`.trim()}>
                     <div className={styles.battleLaneHeader}>

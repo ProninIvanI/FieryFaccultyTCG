@@ -361,6 +361,31 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
+.playerPortraitNeutral {
+  border-color: #bfdbfe;
+  background: radial-gradient(circle at 50% 35%, #eff6ff, #dbeafe);
+}
+
+.playerPortraitFire {
+  border-color: #fdba74;
+  background: radial-gradient(circle at 50% 35%, #fff7ed, #fed7aa);
+}
+
+.playerPortraitWater {
+  border-color: #7dd3fc;
+  background: radial-gradient(circle at 50% 35%, #f0f9ff, #bae6fd);
+}
+
+.playerPortraitEarth {
+  border-color: #86efac;
+  background: radial-gradient(circle at 50% 35%, #f7fee7, #d9f99d);
+}
+
+.playerPortraitAir {
+  border-color: #c4b5fd;
+  background: radial-gradient(circle at 50% 35%, #f5f3ff, #ddd6fe);
+}
+
 .playerPortraitFrame::after {
   content: "";
   position: absolute;
@@ -387,6 +412,57 @@
 
 .playerPortraitSilhouetteLocal {
   background: linear-gradient(180deg, #0f172a, #334155);
+}
+
+.playerPortraitNeutral.playerPortraitSilhouette,
+.playerPortraitLocalNeutral.playerPortraitSilhouette {
+  background: linear-gradient(180deg, #1d4ed8, #0f172a);
+}
+
+.playerPortraitFire.playerPortraitSilhouette {
+  background: linear-gradient(180deg, #f97316, #7c2d12);
+}
+
+.playerPortraitWater.playerPortraitSilhouette {
+  background: linear-gradient(180deg, #38bdf8, #075985);
+}
+
+.playerPortraitEarth.playerPortraitSilhouette {
+  background: linear-gradient(180deg, #65a30d, #365314);
+}
+
+.playerPortraitAir.playerPortraitSilhouette {
+  background: linear-gradient(180deg, #8b5cf6, #4338ca);
+}
+
+.playerPortraitLocalNeutral.playerPortraitSilhouetteLocal {
+  background: linear-gradient(180deg, #334155, #0f172a);
+}
+
+.playerPortraitLocalFire.playerPortraitSilhouetteLocal {
+  background: linear-gradient(180deg, #ea580c, #431407);
+}
+
+.playerPortraitLocalWater.playerPortraitSilhouetteLocal {
+  background: linear-gradient(180deg, #0284c7, #082f49);
+}
+
+.playerPortraitLocalEarth.playerPortraitSilhouetteLocal {
+  background: linear-gradient(180deg, #4d7c0f, #1a2e05);
+}
+
+.playerPortraitLocalAir.playerPortraitSilhouetteLocal {
+  background: linear-gradient(180deg, #7c3aed, #312e81);
+}
+
+.playerIdentity {
+  display: grid;
+  gap: 2px;
+}
+
+.playerIdentity strong,
+.playerIdentity span {
+  overflow-wrap: anywhere;
 }
 
 .deckRail {
@@ -465,6 +541,14 @@
   padding: 16px;
   display: grid;
   gap: 14px;
+}
+
+.opponentHandTray {
+  min-height: 148px;
+  align-content: start;
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.94)),
+    radial-gradient(circle at center top, rgba(59, 130, 246, 0.08), transparent 60%);
 }
 
 .battleLane {
@@ -644,6 +728,17 @@
   overflow-y: visible;
 }
 
+.opponentHandFanGrid {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: start;
+  justify-content: flex-end;
+  gap: 0;
+  padding: 4px 4px 10px;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
 .handFanGrid > .handCard {
   width: 186px;
   flex: 0 0 186px;
@@ -662,6 +757,59 @@
 
 .handFanGrid > .handCard:nth-child(even) {
   transform: translateY(2px) rotate(2.6deg);
+}
+
+.opponentHandCard {
+  width: 186px;
+  flex: 0 0 186px;
+  margin-right: -28px;
+  transform-origin: center top;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, margin 0.18s ease;
+}
+
+.opponentHandCard:last-child {
+  margin-right: 0;
+}
+
+.opponentHandCard:nth-child(odd) {
+  transform: translateY(-8px) rotate(3deg);
+}
+
+.opponentHandCard:nth-child(even) {
+  transform: translateY(-2px) rotate(-2.6deg);
+}
+
+.opponentHandCardBack {
+  display: block;
+  width: 100%;
+  min-height: 208px;
+  border-radius: 20px;
+  border: 1px solid #bfdbfe;
+  background:
+    radial-gradient(circle at 50% 32%, rgba(255, 255, 255, 0.28), transparent 24%),
+    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.26) 0, rgba(59, 130, 246, 0.08) 18%, transparent 22%),
+    linear-gradient(160deg, #dbeafe 0%, #eff6ff 42%, #c7d2fe 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.62),
+    0 12px 24px rgba(15, 23, 42, 0.08);
+  position: relative;
+}
+
+.opponentHandCardBack::before,
+.opponentHandCardBack::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.opponentHandCardBack::after {
+  inset: auto 18px 18px 18px;
+  height: 22px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.22), transparent);
+  border: none;
 }
 
 .handFanGrid > .handCard:hover,
@@ -998,10 +1146,20 @@
     padding-right: 0;
   }
 
+  .opponentHandFanGrid {
+    justify-content: start;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
   .handFanGrid > .handCard,
   .handFanGrid > .handCard:nth-child(odd),
-  .handFanGrid > .handCard:nth-child(even) {
+  .handFanGrid > .handCard:nth-child(even),
+  .opponentHandCard,
+  .opponentHandCard:nth-child(odd),
+  .opponentHandCard:nth-child(even) {
     margin-left: 0;
+    margin-right: 0;
     transform: none;
     width: 180px;
     flex-basis: 180px;
