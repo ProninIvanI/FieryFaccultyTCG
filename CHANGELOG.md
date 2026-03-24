@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-03-24 update: `PlayPvpPage` now reads deck size from `state.decks[playerId].cards`, and frontend PvP snapshots are typed via `GameState` from `game-core` to catch contract mismatches earlier.
+
 ## 2026-03-24
 
 ### Changed

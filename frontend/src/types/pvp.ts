@@ -1,6 +1,8 @@
+import type { GameState } from '@game-core/types';
+
 export type GameActionPayload = Record<string, unknown>;
 
-export type GameStateSnapshot = Record<string, unknown>;
+export type GameStateSnapshot = Partial<GameState>;
 
 export interface JoinMatchMessage {
   type: 'join';

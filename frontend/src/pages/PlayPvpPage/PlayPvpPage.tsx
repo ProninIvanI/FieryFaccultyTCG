@@ -169,6 +169,23 @@ const getZoneSize = (zones: unknown, playerId: string): number => {
   return Array.isArray(zone) ? zone.length : 0;
 };
 
+const getDeckSize = (decks: unknown, playerId: string): number => {
+  if (!isRecord(decks)) {
+    return 0;
+  }
+
+  const deck = decks[playerId];
+  if (Array.isArray(deck)) {
+    return deck.length;
+  }
+
+  if (!isRecord(deck)) {
+    return 0;
+  }
+
+  return Array.isArray(deck.cards) ? deck.cards.length : 0;
+};
+
 const getPlayerBoardSummaries = (state: GameStateSnapshot | null): PlayerBoardSummary[] => {
   if (!state || !isRecord(state.players)) {
     return [];
@@ -186,7 +203,7 @@ const getPlayerBoardSummaries = (state: GameStateSnapshot | null): PlayerBoardSu
     return [
       {
         ...baseSummary,
-        deckSize: getZoneSize(state.decks, playerId),
+        deckSize: getDeckSize(state.decks, playerId),
         handSize: getZoneSize(state.hands, playerId),
         discardSize: getZoneSize(state.discardPiles, playerId),
         isActive: activePlayerId === playerId,

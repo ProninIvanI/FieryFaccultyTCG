@@ -193,7 +193,7 @@ describe('PlayPvpPage', () => {
             user_1: { mana: 1, maxMana: 1, actionPoints: 1, characterId: 'char_1' },
           },
           decks: {
-            user_1: ['deck_card_1', 'deck_card_2'],
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1', 'deck_card_2'] },
           },
           hands: {
             user_1: ['hand_card_1'],
@@ -273,7 +273,7 @@ describe('PlayPvpPage', () => {
           },
           creatures: {},
           decks: {
-            user_1: ['deck_card_1'],
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
           },
           hands: {
             user_1: ['summon_card_1'],
@@ -330,8 +330,8 @@ describe('PlayPvpPage', () => {
           },
           creatures: {},
           decks: {
-            user_1: ['deck_card_1'],
-            user_2: ['deck_card_2'],
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
           },
           hands: {
             user_1: ['spell_card_1'],
