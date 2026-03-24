@@ -711,6 +711,13 @@
   align-items: start;
 }
 
+.handCardBadgeStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
 .handManaGem {
   display: inline-flex;
   align-items: center;
@@ -734,10 +741,51 @@
   border: 1px solid transparent;
 }
 
+.handCardMeta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--pvp-muted);
+}
+
+.handCardStats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.handStatPill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: rgba(226, 232, 240, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.handCardEffect {
+  color: var(--pvp-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .handCardSubtitle {
   color: var(--pvp-soft);
   font-size: 13px;
   word-break: break-word;
+}
+
+.handCardEffectPanel {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--pvp-border);
+  background: rgba(248, 250, 252, 0.82);
 }
 
 .handCardFooter {

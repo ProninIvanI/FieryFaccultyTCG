@@ -350,8 +350,8 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    const spellCardId = await screen.findByText('ID: spell_card_1');
-    const spellCardButton = spellCardId.closest('button');
+    const spellCardTitle = await screen.findByText('Огненный шар');
+    const spellCardButton = spellCardTitle.closest('button');
     expect(spellCardButton).toBeTruthy();
 
     await act(async () => {

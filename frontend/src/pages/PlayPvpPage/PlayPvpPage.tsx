@@ -2,8 +2,10 @@
 import { Link } from 'react-router-dom';
 import {
   getCatalogCardTypeLabel,
+  getCatalogSchoolLabel,
   inferTargetTypeFromCatalog,
   normalizeCatalog,
+  toCatalogSchool,
   toCatalogCardUiType,
 } from '@game-core/cards/catalog';
 import { Card, HomeLinkButton, PageShell } from '@/components';
@@ -42,6 +44,11 @@ interface HandCardSummary {
   name: string;
   mana: number;
   cardType: string;
+  school?: 'fire' | 'water' | 'earth' | 'air';
+  effect?: string;
+  hp?: number;
+  attack?: number;
+  speed?: number;
 }
 
 interface CreatureSummary {
@@ -248,6 +255,11 @@ const getLocalHandCards = (state: GameStateSnapshot | null, playerId: string): H
         name: cardCatalogById.get(cardId)?.name ?? `Карта ${cardId || instanceId}`,
         mana: cardCatalogById.get(cardId)?.mana ?? 0,
         cardType: cardCatalogById.get(cardId)?.catalogType ?? 'unknown',
+        school: toCatalogSchool(cardCatalogById.get(cardId)?.school),
+        effect: cardCatalogById.get(cardId)?.effect,
+        hp: cardCatalogById.get(cardId)?.hp,
+        attack: cardCatalogById.get(cardId)?.attack,
+        speed: cardCatalogById.get(cardId)?.speed || undefined,
       },
     ];
   });
@@ -1132,16 +1144,38 @@ export const PlayPvpPage = () => {
                             >
                             <div className={styles.handCardTop}>
                               <span className={styles.handManaGem}>{card.mana}</span>
-                              <span className={styles.cardBadge}>{getCardTypeLabel(card.cardType)}</span>
+                              <div className={styles.handCardBadgeStack}>
+                                <span className={styles.cardBadge}>{getCardTypeLabel(card.cardType)}</span>
+                                {card.school ? (
+                                  <span className={styles.cardBadge}>{getCatalogSchoolLabel(card.school)}</span>
+                                ) : null}
+                              </div>
                             </div>
                             <div className={styles.handCardBody}>
                               <strong>{card.name}</strong>
-                              <span className={styles.handCardSubtitle}>ID: {card.instanceId}</span>
+                              <div className={styles.handCardMeta}>
+                                <span>{getCardTypeLabel(card.cardType)}</span>
+                                {card.speed ? <span>speed {card.speed}</span> : null}
+                              </div>
+                              {(card.hp || card.attack || card.speed) ? (
+                                <div className={styles.handCardStats}>
+                                  {card.hp ? <span className={styles.handStatPill}>HP {card.hp}</span> : null}
+                                  {card.attack ? <span className={styles.handStatPill}>ATK {card.attack}</span> : null}
+                                  {card.speed ? <span className={styles.handStatPill}>SPD {card.speed}</span> : null}
+                                </div>
+                              ) : null}
+                              {card.effect ? (
+                                <span className={styles.handCardEffect}>{card.effect}</span>
+                              ) : (
+                                <span className={styles.handCardSubtitle}>ID: {card.instanceId}</span>
+                              )}
                             </div>
                             <div className={styles.handCardFooter}>
                               <div className={styles.handMetaRow}>
-                                <span className={styles.cardBadge}>Розыгрыш</span>
                                 <span className={styles.cardBadge}>{card.mana} mana</span>
+                                <span className={styles.cardBadge}>
+                                  {card.cardType === 'summon' ? 'Призыв' : 'Розыгрыш'}
+                                </span>
                               </div>
                             </div>
                             </button>
@@ -1193,18 +1227,45 @@ export const PlayPvpPage = () => {
                     <span className={styles.summaryLabel}>Выбрана карта</span>
                     <strong>{selectedHandCard.name}</strong>
                   </div>
-                  <span className={styles.cardBadge}>{getCardTypeLabel(selectedHandCard.cardType)}</span>
+                  <div className={styles.handCardBadgeStack}>
+                    <span className={styles.cardBadge}>{getCardTypeLabel(selectedHandCard.cardType)}</span>
+                    {selectedHandCard.school ? (
+                      <span className={styles.cardBadge}>{getCatalogSchoolLabel(selectedHandCard.school)}</span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className={styles.focusStats}>
                   <div className={styles.focusStat}>
                     <span className={styles.summaryLabel}>Стоимость</span>
                     <strong>{selectedHandCard.mana} mana</strong>
                   </div>
+                  {selectedHandCard.speed ? (
+                    <div className={styles.focusStat}>
+                      <span className={styles.summaryLabel}>Скорость</span>
+                      <strong>{selectedHandCard.speed}</strong>
+                    </div>
+                  ) : null}
+                  {selectedHandCard.hp || selectedHandCard.attack ? (
+                    <div className={styles.focusStat}>
+                      <span className={styles.summaryLabel}>Характеристики</span>
+                      <strong>
+                        {selectedHandCard.hp ? `HP ${selectedHandCard.hp}` : ''}
+                        {selectedHandCard.hp && selectedHandCard.attack ? ' · ' : ''}
+                        {selectedHandCard.attack ? `ATK ${selectedHandCard.attack}` : ''}
+                      </strong>
+                    </div>
+                  ) : null}
                   <div className={styles.focusStat}>
                     <span className={styles.summaryLabel}>ID</span>
                     <strong>{selectedHandCard.instanceId}</strong>
                   </div>
                 </div>
+                {selectedHandCard.effect ? (
+                  <div className={styles.handCardEffectPanel}>
+                    <span className={styles.summaryLabel}>Эффект</span>
+                    <p className={styles.paragraph}>{selectedHandCard.effect}</p>
+                  </div>
+                ) : null}
                 <p className={styles.paragraph}>
                   Здесь позже появится target-flow: выбор цели, подсветка доступных объектов и подтверждение действия.
                 </p>
