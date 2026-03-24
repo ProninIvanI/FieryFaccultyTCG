@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-03-25 update: `PlayPvpPage` now uses a single shared side column for player/deck widgets ordered top-to-bottom as opponent, opponent deck, local deck, local player.
+
 > 2026-03-25 update: `PlayPvpPage` battlefield layout now places both deck rails on side columns and gives the lower central zone to the player hand, moving the board closer to a lane-based card-table layout.
 
 > 2026-03-25 update: `game-core` now deals a deterministic opening hand on match start, and the server sync path mirrors that behavior so PvP players immediately receive real cards in hand instead of an empty tray.

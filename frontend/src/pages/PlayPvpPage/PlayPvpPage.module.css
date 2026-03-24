@@ -220,7 +220,7 @@
 
 .boardShell {
   display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(180px, 220px);
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
   gap: 18px;
   align-items: stretch;
 }
@@ -228,7 +228,7 @@
 .boardSideColumn {
   display: grid;
   gap: 16px;
-  align-content: space-between;
+  align-content: start;
 }
 
 .matchSpotlight,
@@ -938,7 +938,7 @@
   }
 
   .boardShell {
-    grid-template-columns: minmax(160px, 200px) minmax(0, 1fr) minmax(160px, 200px);
+    grid-template-columns: minmax(160px, 200px) minmax(0, 1fr);
   }
 }
 

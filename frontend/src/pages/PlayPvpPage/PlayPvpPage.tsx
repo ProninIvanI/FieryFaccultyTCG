@@ -964,6 +964,41 @@ export const PlayPvpPage = () => {
                           ))}
                         </div>
                       </div>
+                      <div className={`${styles.deckRail} ${styles.deckRailVertical} ${isLocalSideActive ? styles.deckRailActive : ''}`.trim()}>
+                        <div className={styles.deckRailHeader}>
+                          <span className={styles.summaryLabel}>колода игрока 2</span>
+                          <span className={styles.deckRailMeta}>
+                            deck: {localBoard?.deckSize ?? 0} · hand: {localBoard?.handSize ?? 0}
+                          </span>
+                        </div>
+                        <div className={styles.deckRailCards} aria-hidden="true">
+                          {Array.from({ length: getDeckVisualCount(localBoard?.deckSize ?? 0) }).map((_, index, array) => (
+                            <span
+                              key={`local-deck-${index}`}
+                              className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className={`${styles.playerSideCard} ${isLocalSideActive ? styles.playerSideCardActive : ''}`.trim()}>
+                        <span className={styles.playerSideLabel}>Игрок 2</span>
+                        <button
+                          className={`${styles.avatarTargetButton} ${localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : ''} ${localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                          type="button"
+                          onClick={() => {
+                            if (localPlayer && isSelectableTarget(localPlayer.characterId)) {
+                              setDraftTargetId(localPlayer.characterId);
+                            }
+                          }}
+                        >
+                          <div className={styles.playerPortraitFrame}>
+                            <div className={`${styles.playerPortraitSilhouette} ${styles.playerPortraitSilhouetteLocal}`.trim()}>P2</div>
+                          </div>
+                          <strong>{playerId}</strong>
+                          <span>{localPlayer ? `${localPlayer.mana}/${localPlayer.maxMana} mana` : 'Нет state'}</span>
+                        </button>
+                      </div>
                     </aside>
 
                     <section className={styles.fieldFrame}>
@@ -1160,44 +1195,6 @@ export const PlayPvpPage = () => {
                       )}
                     </section>
                     </section>
-
-                    <aside className={styles.boardSideColumn}>
-                      <div className={`${styles.deckRail} ${styles.deckRailVertical} ${isLocalSideActive ? styles.deckRailActive : ''}`.trim()}>
-                        <div className={styles.deckRailHeader}>
-                          <span className={styles.summaryLabel}>колода игрока 2</span>
-                          <span className={styles.deckRailMeta}>
-                            deck: {localBoard?.deckSize ?? 0} · hand: {localBoard?.handSize ?? 0}
-                          </span>
-                        </div>
-                        <div className={styles.deckRailCards} aria-hidden="true">
-                          {Array.from({ length: getDeckVisualCount(localBoard?.deckSize ?? 0) }).map((_, index, array) => (
-                            <span
-                              key={`local-deck-${index}`}
-                              className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
-                            />
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className={`${styles.playerSideCard} ${isLocalSideActive ? styles.playerSideCardActive : ''}`.trim()}>
-                        <span className={styles.playerSideLabel}>Игрок 2</span>
-                        <button
-                          className={`${styles.avatarTargetButton} ${localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : ''} ${localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                          type="button"
-                          onClick={() => {
-                            if (localPlayer && isSelectableTarget(localPlayer.characterId)) {
-                              setDraftTargetId(localPlayer.characterId);
-                            }
-                          }}
-                        >
-                          <div className={styles.playerPortraitFrame}>
-                            <div className={`${styles.playerPortraitSilhouette} ${styles.playerPortraitSilhouetteLocal}`.trim()}>P2</div>
-                          </div>
-                          <strong>{playerId}</strong>
-                          <span>{localPlayer ? `${localPlayer.mana}/${localPlayer.maxMana} mana` : 'Нет state'}</span>
-                        </button>
-                      </div>
-                    </aside>
                   </section>
                 </div>
               </div>
