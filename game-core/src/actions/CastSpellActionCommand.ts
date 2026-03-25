@@ -60,6 +60,8 @@ export class CastSpellActionCommand implements ActionCommand<CastSpellAction> {
         type: effectDef.type,
         sourceId: action.actorId,
         ownerId: action.playerId,
+        sourceCardInstanceId: action.cardInstanceId,
+        definitionId: def.id,
         targetId: action.targetId,
         createdAtTurn: state.turn.number,
         duration: effectDef.duration,

@@ -1,7 +1,9 @@
 import {
   Action,
   GameState,
+  PlayerBoardModel,
   PlayerRoundDraft,
+  PublicBoardView,
   RoundActionIntent,
   RoundDraftValidationResult,
   RoundResolutionResult,
@@ -50,6 +52,18 @@ export class GameSession {
       return null;
     }
     return this.engine.getRoundDraft(playerId);
+  }
+
+  buildPlayerBoardModel(playerId: string): PlayerBoardModel | null {
+    if (!this.players.has(playerId)) {
+      return null;
+    }
+
+    return this.engine.buildPlayerBoardModel(playerId);
+  }
+
+  buildPublicBoardView(): PublicBoardView {
+    return this.engine.buildPublicBoardView();
   }
 
   processAction(action: Action): { ok: boolean; errors?: string[] } {

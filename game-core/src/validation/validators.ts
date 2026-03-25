@@ -70,7 +70,7 @@ export const validateCardLocation = (
   return [];
 };
 
-export const validateTarget = (state: GameState, targetId?: string): string[] => {
+export const validateTarget = (state: Pick<GameState, 'characters' | 'creatures'>, targetId?: string): string[] => {
   if (!targetId) {
     return ['Target is required'];
   }
@@ -83,7 +83,7 @@ export const validateTarget = (state: GameState, targetId?: string): string[] =>
 };
 
 export const validateTargetType = (
-  state: GameState,
+  state: Pick<GameState, 'characters' | 'creatures'>,
   actorId: string,
   targetId: string | undefined,
   targetType: string

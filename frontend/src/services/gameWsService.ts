@@ -284,6 +284,7 @@ class GameWsService {
         roundNumber: parsed.roundNumber,
         locked: parsed.locked,
         intents: parsed.intents,
+        boardModel: parsed.boardModel,
       });
       return;
     }

@@ -11,10 +11,11 @@ import {
 const hasAnyEffect = (definition: CardDefinition, effectTypes: EffectType[]): boolean =>
   definition.effects.some((effect) => effectTypes.includes(effect.type));
 
-const inferLayerFromCard = (
-  intent: Extract<RoundActionIntent, { kind: 'CastSpell' | 'PlayCard' }>,
-  definition: CardDefinition,
-): ResolutionLayer => {
+export const getResolutionLayerForCardDefinition = (definition: CardDefinition): ResolutionLayer => {
+  if (definition.type === 'creature') {
+    return 'summon';
+  }
+
   if (hasAnyEffect(definition, ['ShieldEffect', 'HealEffect'])) {
     return 'defensive_spells';
   }
@@ -34,7 +35,7 @@ const inferLayerFromCard = (
     return 'offensive_control_spells';
   }
 
-  if (intent.target.targetType === 'self' || intent.target.targetType === 'allyCharacter') {
+  if (definition.targetType === 'self' || definition.targetType === 'allyCharacter') {
     return 'defensive_modifiers';
   }
 
@@ -60,7 +61,7 @@ export const getResolutionLayerForIntent = (
       if (!definition) {
         return 'other_modifiers';
       }
-      return inferLayerFromCard(intent, definition);
+      return getResolutionLayerForCardDefinition(definition);
     }
   }
 };

@@ -9,6 +9,10 @@ export class SummonEffect implements EffectHandler {
 
   onResolve(effect: EffectInstance, state: GameState, ctx: GameEngineContext): void {
     const ownerId = effect.ownerId;
+    const fallbackDefinitionId =
+      typeof effect.data?.creatureDefinitionId === 'string'
+        ? effect.data.creatureDefinitionId
+        : undefined;
     if (!ownerId) {
       return;
     }
@@ -19,6 +23,8 @@ export class SummonEffect implements EffectHandler {
     state.creatures[creatureId] = {
       creatureId,
       ownerId,
+      sourceCardInstanceId: effect.sourceCardInstanceId,
+      definitionId: effect.definitionId ?? fallbackDefinitionId,
       hp,
       maxHp: hp,
       attack,

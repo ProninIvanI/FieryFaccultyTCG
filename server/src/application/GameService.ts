@@ -7,7 +7,9 @@ import {
   EndTurnAction,
   EvadeAction,
   GameState,
+  PlayerBoardModel,
   PlayCardAction,
+  PublicBoardView,
   RoundActionIntent,
   RoundDraftValidationError,
   RoundDraftValidationResult,
@@ -255,6 +257,17 @@ type JoinResult =
   | { ok: true; session: ReturnType<SessionRegistry['create']> }
   | { ok: false; error: string };
 
+export type GameStateSnapshot = GameState & {
+  boardView: PublicBoardView;
+};
+
+export interface PlayerRoundDraftSnapshot {
+  roundNumber: number;
+  locked: boolean;
+  intents: RoundActionIntent[];
+  boardModel: PlayerBoardModel | null;
+}
+
 export class GameService {
   constructor(private readonly sessions: SessionRegistry) {}
 
@@ -268,6 +281,35 @@ export class GameService {
       return null;
     }
     return session.getRoundDraft(playerId);
+  }
+
+  getStateSnapshot(sessionId: string): GameStateSnapshot | null {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    return {
+      ...session.getState(),
+      boardView: session.buildPublicBoardView(),
+    };
+  }
+
+  getRoundDraftSnapshot(sessionId: string, playerId: string): PlayerRoundDraftSnapshot | null {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.hasPlayer(playerId)) {
+      return null;
+    }
+
+    const draft = session.getRoundDraft(playerId);
+    const roundNumber = draft?.roundNumber ?? session.getState().round.number;
+
+    return {
+      roundNumber,
+      locked: draft?.locked ?? false,
+      intents: draft?.intents ?? [],
+      boardModel: session.buildPlayerBoardModel(playerId),
+    };
   }
 
   join(sessionId: string, loadout: SessionPlayerLoadout, seed?: number): JoinResult {

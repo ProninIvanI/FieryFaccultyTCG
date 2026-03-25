@@ -332,11 +332,12 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    const summonButton = await screen.findByRole('button', { name: /Добавить призыв/i });
-    expect(summonButton).toBeEnabled();
+    const summonCardTitle = await screen.findByText('Огненный элементаль');
+    const summonButton = summonCardTitle.closest('button');
+    expect(summonButton).toBeTruthy();
 
     await act(async () => {
-      fireEvent.click(summonButton);
+      fireEvent.click(summonButton!);
       await flushMicrotasks();
     });
 
@@ -404,14 +405,9 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    const targetButton = await screen.findByRole('button', { name: /Маг user_2/i });
+    const targetButton = await screen.findByRole('button', { name: /Выбрать цель: Маг user_2/i });
     await act(async () => {
       fireEvent.click(targetButton);
-      await flushMicrotasks();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Добавить в очередь/i }));
       await flushMicrotasks();
     });
 
@@ -478,14 +474,9 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    const selfTargetButton = await screen.findByRole('button', { name: /Твой маг/i });
+    const selfTargetButton = await screen.findByRole('button', { name: /Выбрать цель: Твой маг/i });
     await act(async () => {
       fireEvent.click(selfTargetButton);
-      await flushMicrotasks();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Добавить в очередь/i }));
       await flushMicrotasks();
     });
 
@@ -522,6 +513,24 @@ describe('PlayPvpPage', () => {
           players: {
             user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
             user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          characters: {
+            char_1: {
+              characterId: 'char_1',
+              ownerId: 'user_1',
+              hp: 20,
+              maxHp: 20,
+              dexterity: 3,
+              concentration: 3,
+            },
+            char_2: {
+              characterId: 'char_2',
+              ownerId: 'user_2',
+              hp: 20,
+              maxHp: 20,
+              dexterity: 3,
+              concentration: 3,
+            },
           },
           creatures: {
             ally_creature_1: {
@@ -568,7 +577,7 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    const evadeButton = await screen.findByRole('button', { name: /Добавить уклонение/i });
+    const evadeButton = await screen.findByRole('button', { name: /Добавить уклонение в ленту/i });
     expect(evadeButton).toBeEnabled();
 
     await act(async () => {
@@ -594,6 +603,101 @@ describe('PlayPvpPage', () => {
         }),
       ).toBe(true);
       expect(screen.getAllByText(/Уклонение/i).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('builds creature attack from core-derived default target without manual target pick', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_attack_default', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          characters: {
+            char_1: {
+              characterId: 'char_1',
+              ownerId: 'user_1',
+              hp: 20,
+              maxHp: 20,
+              dexterity: 3,
+              concentration: 3,
+            },
+            char_2: {
+              characterId: 'char_2',
+              ownerId: 'user_2',
+              hp: 20,
+              maxHp: 20,
+              dexterity: 3,
+              concentration: 3,
+            },
+          },
+          creatures: {
+            ally_creature_1: {
+              creatureId: 'ally_creature_1',
+              ownerId: 'user_1',
+              hp: 4,
+              maxHp: 4,
+              attack: 2,
+              speed: 3,
+              summonedAtRound: 0,
+            },
+          },
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    const creatureButton = await screen.findByRole('button', { name: /ally_creature_1/i });
+
+    await act(async () => {
+      fireEvent.click(creatureButton);
+      await flushMicrotasks();
+    });
+
+    const attackButton = await screen.findByRole('button', { name: /Добавить атаку в ленту/i });
+    expect(attackButton).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(attackButton);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as {
+            type?: string;
+            intents?: Array<Record<string, unknown>>;
+          };
+          const firstIntent = Array.isArray(message.intents) ? message.intents[0] : null;
+
+          return (
+            message.type === 'roundDraft.replace' &&
+            firstIntent?.kind === 'Attack' &&
+            firstIntent?.sourceCreatureId === 'ally_creature_1' &&
+            JSON.stringify(firstIntent?.target) === JSON.stringify({ targetType: 'enemyCharacter', targetId: 'char_2' })
+          );
+        }),
+      ).toBe(true);
     });
   });
 
@@ -652,8 +756,304 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Заклинание: Огненный шар/i)).toBeInTheDocument();
-      expect(screen.getByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i'))).toBeInTheDocument();
+      expect(screen.getAllByText(/Заклинание: Огненный шар/i).length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
+      ).toBeGreaterThan(0);
+      expect(screen.getByRole('button', { name: /Убрать из ленты/i })).toBeInTheDocument();
+      expect(screen.queryByText(/Твой черновик раунда/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders battle ribbon from boardView and personal boardModel snapshot', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_board_view', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+          boardView: {
+            players: {
+              user_1: {
+                playerId: 'user_1',
+                boardItems: [
+                  {
+                    id: 'creature:ally_creature_1',
+                    runtimeId: 'ally_creature_1',
+                    ownerId: 'user_1',
+                    controllerId: 'user_1',
+                    subtype: 'creature',
+                    lifetimeType: 'persistent',
+                    definitionId: '81',
+                    placement: { layer: 'summon', orderIndex: 0, queueIndex: 0 },
+                    state: { hp: 4, maxHp: 4, attack: 2, speed: 3 },
+                  },
+                ],
+                ribbonEntries: [
+                  {
+                    id: 'boardItem:creature:ally_creature_1',
+                    kind: 'boardItem',
+                    orderIndex: 0,
+                    layer: 'summon',
+                    boardItemId: 'creature:ally_creature_1',
+                  },
+                ],
+              },
+              user_2: {
+                playerId: 'user_2',
+                boardItems: [
+                  {
+                    id: 'effect:enemy_effect_1',
+                    runtimeId: 'enemy_effect_1',
+                    ownerId: 'user_2',
+                    controllerId: 'user_2',
+                    subtype: 'effect',
+                    lifetimeType: 'persistent',
+                    definitionId: '64',
+                    placement: { layer: 'defensive_modifiers', orderIndex: 0, queueIndex: 0 },
+                    state: { duration: 2 },
+                  },
+                ],
+                ribbonEntries: [
+                  {
+                    id: 'boardItem:effect:enemy_effect_1',
+                    kind: 'boardItem',
+                    orderIndex: 0,
+                    layer: 'defensive_modifiers',
+                    boardItemId: 'effect:enemy_effect_1',
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_board_1',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 0,
+            kind: 'Summon',
+            cardInstanceId: 'summon_card_1',
+          },
+        ],
+        boardModel: {
+          playerId: 'user_1',
+          boardItems: [
+            {
+              id: 'creature:ally_creature_1',
+              runtimeId: 'ally_creature_1',
+              ownerId: 'user_1',
+              controllerId: 'user_1',
+              subtype: 'creature',
+              lifetimeType: 'persistent',
+              definitionId: '81',
+              placement: { layer: 'summon', orderIndex: 0, queueIndex: 0 },
+              state: { hp: 4, maxHp: 4, attack: 2, speed: 3 },
+            },
+          ],
+          ribbonEntries: [
+            {
+              id: 'boardItem:creature:ally_creature_1',
+              kind: 'boardItem',
+              orderIndex: 0,
+              layer: 'summon',
+              boardItemId: 'creature:ally_creature_1',
+              attachedRoundActionIds: [],
+            },
+            {
+              id: 'roundAction:draft_board_1',
+              kind: 'roundAction',
+              orderIndex: 1,
+              layer: 'summon',
+              roundActionId: 'draft_board_1',
+            },
+          ],
+          roundActions: [
+            {
+              id: 'draft_board_1',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'char_1',
+              kind: 'Summon',
+              source: { type: 'card', cardInstanceId: 'summon_card_1', definitionId: '81' },
+              placement: { layer: 'summon', orderIndex: 0, queueIndex: 0 },
+              status: 'draft',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Твоя боевая лента/i)).toBeInTheDocument();
+      expect(screen.getByText(/Боевая лента соперника/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/ally_creature_1/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Core #1/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(new RegExp(getResolutionLayerLabel('summon'), 'i')).length).toBeGreaterThan(0);
+      expect(screen.getByText(/dur 2/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Модификаторы/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('embeds board-item round action inside the local battle ribbon card', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_board_item_action', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+          boardView: {
+            players: {
+              user_1: {
+                playerId: 'user_1',
+                boardItems: [
+                  {
+                    id: 'creature:ally_creature_1',
+                    runtimeId: 'ally_creature_1',
+                    ownerId: 'user_1',
+                    controllerId: 'user_1',
+                    subtype: 'creature',
+                    lifetimeType: 'persistent',
+                    definitionId: '81',
+                    placement: { layer: 'summon', orderIndex: 0, queueIndex: 0 },
+                    state: { hp: 4, maxHp: 4, attack: 2, speed: 3 },
+                  },
+                ],
+                ribbonEntries: [
+                  {
+                    id: 'boardItem:creature:ally_creature_1',
+                    kind: 'boardItem',
+                    orderIndex: 0,
+                    layer: 'summon',
+                    boardItemId: 'creature:ally_creature_1',
+                  },
+                ],
+              },
+              user_2: {
+                playerId: 'user_2',
+                boardItems: [],
+                ribbonEntries: [],
+              },
+            },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_attack_1',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'ally_creature_1',
+            queueIndex: 0,
+            kind: 'Attack',
+            sourceCreatureId: 'ally_creature_1',
+            target: {
+              targetType: 'enemyCharacter',
+              targetId: 'char_2',
+            },
+          },
+        ],
+        boardModel: {
+          playerId: 'user_1',
+          boardItems: [
+            {
+              id: 'creature:ally_creature_1',
+              runtimeId: 'ally_creature_1',
+              ownerId: 'user_1',
+              controllerId: 'user_1',
+              subtype: 'creature',
+              lifetimeType: 'persistent',
+              definitionId: '81',
+              placement: { layer: 'summon', orderIndex: 0, queueIndex: 0 },
+              state: { hp: 4, maxHp: 4, attack: 2, speed: 3 },
+            },
+          ],
+          ribbonEntries: [
+            {
+              id: 'boardItem:creature:ally_creature_1',
+              kind: 'boardItem',
+              orderIndex: 0,
+              layer: 'summon',
+              boardItemId: 'creature:ally_creature_1',
+              attachedRoundActionIds: ['draft_attack_1'],
+            },
+          ],
+          roundActions: [
+            {
+              id: 'draft_attack_1',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'ally_creature_1',
+              kind: 'Attack',
+              source: { type: 'boardItem', boardItemId: 'creature:ally_creature_1' },
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              placement: { layer: 'attacks', orderIndex: 0, queueIndex: 0 },
+              status: 'draft',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Твоя боевая лента/i)).toBeInTheDocument();
+      expect(screen.getByText(/Активность в раунде/i)).toBeInTheDocument();
+      expect(screen.getByText(/Активно: 1/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Атака: ally_creature_1/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(new RegExp(getResolutionLayerLabel('attacks'), 'i')).length).toBeGreaterThan(0);
     });
   });
 
@@ -703,11 +1103,6 @@ describe('PlayPvpPage', () => {
     const targetButton = await screen.findByRole('button', { name: /Маг user_2/i });
     await act(async () => {
       fireEvent.click(targetButton);
-      await flushMicrotasks();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Добавить в очередь/i }));
       await flushMicrotasks();
     });
 
@@ -825,7 +1220,9 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i'))).toBeInTheDocument();
+      expect(
+        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
+      ).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -852,7 +1249,9 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(new RegExp(getRoundDraftRejectCodeLabel('validation_failed'), 'i'))).toBeInTheDocument();
       expect(screen.getAllByText(/target_type/i).length).toBeGreaterThan(0);
       expect(screen.getByText(new RegExp(getRoundDraftValidationCodeLabel('target_type'), 'i'))).toBeInTheDocument();
-      expect(screen.getByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i'))).toBeInTheDocument();
+      expect(
+        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
+      ).toBeGreaterThan(0);
     });
   });
 
@@ -927,7 +1326,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/invalid_payload/i).length).toBeGreaterThan(0);
       expect(screen.getByText(new RegExp(getRoundDraftRejectCodeLabel('invalid_payload'), 'i'))).toBeInTheDocument();
       expect(screen.getAllByText(/Invalid roundDraft\.replace payload/i).length).toBeGreaterThan(0);
-      expect(screen.getByText(/Server reject: replace текущего черновика/i)).toBeInTheDocument();
+      expect(screen.getByText(/Server reject: replace текущей ленты/i)).toBeInTheDocument();
       expect(screen.queryByText(/раунда 0/i)).not.toBeInTheDocument();
     });
   });

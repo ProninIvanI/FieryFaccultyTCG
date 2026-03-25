@@ -101,7 +101,10 @@ export class WsGateway {
       await this.persistMatchIfReady(message.sessionId, result.session.getState());
 
       this.attachSocket(message.sessionId, identity.userId, socket);
-      this.broadcast(message.sessionId, { type: 'state', state: result.session.getState() });
+      const stateSnapshot = this.gameService.getStateSnapshot(message.sessionId);
+      if (stateSnapshot) {
+        this.broadcast(message.sessionId, { type: 'state', state: stateSnapshot });
+      }
       this.broadcastRoundStatus(message.sessionId);
       this.sendRoundDraftSnapshot(message.sessionId, identity.userId, socket);
       return;
@@ -173,7 +176,10 @@ export class WsGateway {
       if (result.resolved) {
         await this.persistReplay(binding.sessionId, result.state);
         this.broadcast(binding.sessionId, { type: 'roundResolved', result: result.resolved });
-        this.broadcast(binding.sessionId, { type: 'state', state: result.state });
+        const stateSnapshot = this.gameService.getStateSnapshot(binding.sessionId);
+        if (stateSnapshot) {
+          this.broadcast(binding.sessionId, { type: 'state', state: stateSnapshot });
+        }
         this.broadcastRoundStatus(binding.sessionId);
       }
     }
@@ -350,13 +356,13 @@ export class WsGateway {
   }
 
   private sendRoundDraftSnapshot(sessionId: string, playerId: string, socket: WebSocket): void {
-    const draft = this.gameService.getRoundDraft(sessionId, playerId);
-    const roundNumber = draft?.roundNumber ?? this.gameService.getSession(sessionId)?.getState().round.number ?? 0;
+    const snapshot = this.gameService.getRoundDraftSnapshot(sessionId, playerId);
     this.send(socket, {
       type: 'roundDraft.snapshot',
-      roundNumber,
-      locked: draft?.locked ?? false,
-      intents: draft?.intents ?? [],
+      roundNumber: snapshot?.roundNumber ?? 0,
+      locked: snapshot?.locked ?? false,
+      intents: snapshot?.intents ?? [],
+      boardModel: snapshot?.boardModel ?? undefined,
     });
   }
 

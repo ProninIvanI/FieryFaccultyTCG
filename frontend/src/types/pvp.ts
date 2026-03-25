@@ -1,6 +1,15 @@
-import type { GameState, RoundActionIntent, RoundDraftValidationError, RoundResolutionResult } from '@game-core/types';
+import type {
+  GameState,
+  PlayerBoardModel,
+  PublicBoardView,
+  RoundActionIntent,
+  RoundDraftValidationError,
+  RoundResolutionResult,
+} from '@game-core/types';
 
-export type GameStateSnapshot = Partial<GameState>;
+export type GameStateSnapshot = Partial<GameState> & {
+  boardView?: PublicBoardView;
+};
 export type RoundActionIntentDraft = RoundActionIntent;
 
 export interface JoinMatchMessage {
@@ -86,6 +95,7 @@ export interface RoundDraftSnapshotServerMessage {
   roundNumber: number;
   locked: boolean;
   intents: RoundActionIntentDraft[];
+  boardModel?: PlayerBoardModel | null;
 }
 
 export interface RoundStatusServerMessage {
@@ -136,7 +146,13 @@ export type PvpServiceEvent =
     }
   | { type: 'error'; error: string }
   | { type: 'ack' }
-  | { type: 'roundDraftSnapshot'; roundNumber: number; locked: boolean; intents: RoundActionIntentDraft[] }
+  | {
+      type: 'roundDraftSnapshot';
+      roundNumber: number;
+      locked: boolean;
+      intents: RoundActionIntentDraft[];
+      boardModel?: PlayerBoardModel | null;
+    }
   | { type: 'roundDraftAccepted'; roundNumber: number }
   | {
       type: 'roundDraftRejected';

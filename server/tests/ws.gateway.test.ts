@@ -104,8 +104,15 @@ describe('ws gateway integration', () => {
     await waitForOpen(playerOne);
 
     playerOne.send(JSON.stringify({ type: 'join', sessionId: 'match-sync', token: 'token_1', deckId: 'deck_1', seed: 123 }));
-    const firstJoinState = await playerOneMessages.waitFor((message): message is { type: 'state' } => message.type === 'state');
+    const firstJoinState = await playerOneMessages.waitFor<{ type: 'state'; state: { boardView?: { players?: Record<string, { ribbonEntries?: unknown[] }> } } }>(
+      (message): message is { type: 'state'; state: { boardView?: { players?: Record<string, { ribbonEntries?: unknown[] }> } } } =>
+        message.type === 'state' &&
+        typeof message.state === 'object' &&
+        message.state !== null,
+    );
     expect(firstJoinState.type).toBe('state');
+    expect(firstJoinState.state.boardView?.players).toBeDefined();
+    expect(Array.isArray(firstJoinState.state.boardView?.players?.player_1?.ribbonEntries)).toBe(true);
 
     const playerTwo = new WebSocket(`ws://127.0.0.1:${port}`);
     const playerTwoMessages = createMessageCollector(playerTwo);
@@ -170,7 +177,21 @@ describe('ws gateway integration', () => {
     playerOne.send(JSON.stringify({ type: 'join', sessionId: 'match-round', token: 'token_1', deckId: 'deck_1', seed: 123 }));
     expect((await playerOneMessages.waitFor((message): message is { type: 'state' } => message.type === 'state')).type).toBe('state');
     expect((await playerOneMessages.waitFor((message): message is { type: 'roundStatus' } => message.type === 'roundStatus')).type).toBe('roundStatus');
-    expect((await playerOneMessages.waitFor((message): message is { type: 'roundDraft.snapshot'; intents: unknown[] } => message.type === 'roundDraft.snapshot' && Array.isArray(message.intents))).type).toBe('roundDraft.snapshot');
+    const initialDraftSnapshot = await playerOneMessages.waitFor<{
+      type: 'roundDraft.snapshot';
+      intents: unknown[];
+      boardModel?: { playerId?: string; roundActions?: unknown[]; ribbonEntries?: unknown[] };
+    }>(
+      (message): message is {
+        type: 'roundDraft.snapshot';
+        intents: unknown[];
+        boardModel?: { playerId?: string; roundActions?: unknown[]; ribbonEntries?: unknown[] };
+      } => message.type === 'roundDraft.snapshot' && Array.isArray(message.intents),
+    );
+    expect(initialDraftSnapshot.type).toBe('roundDraft.snapshot');
+    expect(initialDraftSnapshot.boardModel?.playerId).toBe('player_1');
+    expect(Array.isArray(initialDraftSnapshot.boardModel?.roundActions)).toBe(true);
+    expect(Array.isArray(initialDraftSnapshot.boardModel?.ribbonEntries)).toBe(true);
 
     playerTwo.send(JSON.stringify({ type: 'join', sessionId: 'match-round', token: 'token_2', deckId: 'deck_2' }));
     expect((await playerOneMessages.waitFor((message): message is { type: 'state' } => message.type === 'state' && playerOneMessages.messages.indexOf(message) > 0)).type).toBe('state');
@@ -203,7 +224,23 @@ describe('ws gateway integration', () => {
       }],
     }));
     expect((await playerTwoMessages.waitFor((message): message is { type: 'roundDraft.accepted' } => message.type === 'roundDraft.accepted')).type).toBe('roundDraft.accepted');
-    expect((await playerTwoMessages.waitFor((message): message is { type: 'roundDraft.snapshot'; intents: unknown[] } => message.type === 'roundDraft.snapshot' && Array.isArray(message.intents) && playerTwoMessages.messages.indexOf(message) > 2)).type).toBe('roundDraft.snapshot');
+    const updatedDraftSnapshot = await playerTwoMessages.waitFor<{
+      type: 'roundDraft.snapshot';
+      intents: unknown[];
+      boardModel?: { roundActions?: Array<{ id?: string }>; ribbonEntries?: Array<{ kind?: string }> };
+    }>(
+      (message): message is {
+        type: 'roundDraft.snapshot';
+        intents: unknown[];
+        boardModel?: { roundActions?: Array<{ id?: string }>; ribbonEntries?: Array<{ kind?: string }> };
+      } =>
+        message.type === 'roundDraft.snapshot' &&
+        Array.isArray(message.intents) &&
+        playerTwoMessages.messages.indexOf(message) > 2,
+    );
+    expect(updatedDraftSnapshot.type).toBe('roundDraft.snapshot');
+    expect(updatedDraftSnapshot.boardModel?.roundActions?.[0]?.id).toBe('draft_fireball');
+    expect(updatedDraftSnapshot.boardModel?.ribbonEntries?.some((entry) => entry.kind === 'roundAction')).toBe(true);
     expect((await playerOneMessages.waitFor((message): message is { type: 'roundStatus' } => message.type === 'roundStatus' && playerOneMessages.messages.indexOf(message) > 4)).type).toBe('roundStatus');
     expect((await playerTwoMessages.waitFor((message): message is { type: 'roundStatus' } => message.type === 'roundStatus' && playerTwoMessages.messages.indexOf(message) > 2)).type).toBe('roundStatus');
 

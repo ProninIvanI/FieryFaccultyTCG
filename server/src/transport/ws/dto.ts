@@ -1,4 +1,4 @@
-import type { RoundDraftValidationError, RoundResolutionResult } from '../../../../game-core/src/types';
+import type { PlayerBoardModel, RoundDraftValidationError, RoundResolutionResult } from '../../../../game-core/src/types';
 
 export type ClientMessageDto =
   | { type: 'join'; sessionId: string; token: string; deckId: string; seed?: number }
@@ -24,7 +24,13 @@ export type ServerMessageDto =
         | 'invalid_payload';
       error: string;
     }
-  | { type: 'roundDraft.snapshot'; roundNumber: number; locked: boolean; intents: unknown[] }
+  | {
+      type: 'roundDraft.snapshot';
+      roundNumber: number;
+      locked: boolean;
+      intents: unknown[];
+      boardModel?: PlayerBoardModel;
+    }
   | { type: 'roundDraft.accepted'; roundNumber: number }
   | {
       type: 'roundDraft.rejected';

@@ -3,6 +3,8 @@ export * from './engine/GameEngine';
 export * from './engine/createInitialState';
 export * from './cards/CardRegistry';
 export * from './cards/catalog';
+export * from './board/buildPlayerBoardModel';
+export * from './rounds/createInitialRoundIntent';
 export * from './rounds/compileRoundActions';
 export * from './rounds/presentation';
 export * from './rounds/sortRoundActions';

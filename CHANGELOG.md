@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-03-26 update: PvP `PlayPvpPage` was moved from the old draft/sidebar flow to a core-driven battle ribbon: `game-core` now derives `BoardItem`, `RoundAction`, placement, unified `ribbonEntries`, and initial hand/creature intents; server snapshots expose `boardView` plus personal `boardModel`; frontend now inserts actions directly into the ribbon, removes manual reorder and the right-side context panel, uses inline action/target indicators with field-click targeting, and documentation/specs were synchronized to the implemented model.
+
 > 2026-03-25 update: `PlayPvpPage` PvP draft UX was polished on top of the new round-based flow: the creature panel now has a dedicated `Evade` action, the post-round area renders a reveal timeline in actual `roundResolved` order, target labels are resolved from the live snapshot instead of raw `targetId`, and frontend coverage now includes both `Evade` and self-target `PlayCard` draft scenarios.
 
 > 2026-03-25 update: synchronized architecture docs with the actual simultaneous-round PvP implementation: `frontend/ARCHITECTURE.md` no longer describes legacy `join/action`, the stack architecture now reflects the implemented round lifecycle and public WebSocket contract (`roundDraft.replace`, `roundDraft.lock`, `roundDraft.snapshot`, `roundStatus`, `roundResolved`), and the simultaneous-round spec is marked as an implemented baseline/living spec.

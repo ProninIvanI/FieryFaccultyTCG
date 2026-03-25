@@ -1,16 +1,22 @@
 ﻿import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useCallback } from 'react';
 import {
   buildCatalogCharacterSummaries,
   getCatalogCardTypeLabel,
   getCatalogSchoolLabel,
-  inferTargetTypeFromCatalog,
   normalizeCatalog,
+  toCardDefinitionFromCatalog,
   toCatalogSchool,
   toCatalogCardUiType,
   type CatalogCharacterSummary,
 } from '@game-core/cards/catalog';
-import type { ResolutionLayer, RoundResolutionResult, TargetType } from '@game-core/types';
+import { CardRegistry } from '@game-core/cards/CardRegistry';
+import {
+  createInitialCardRoundIntent,
+  createInitialCreatureRoundIntent,
+} from '@game-core/rounds/createInitialRoundIntent';
+import type { PlayerBoardModel, ResolutionLayer, RoundResolutionResult, TargetType } from '@game-core/types';
 import {
   getResolutionLayerLabel,
   getRoundDraftRejectCodeLabel,
@@ -81,6 +87,51 @@ interface CreatureSummary {
   summonedAtRound?: number;
 }
 
+interface BoardItemSummary {
+  id: string;
+  runtimeId: string;
+  ownerId: string;
+  subtype: 'creature' | 'effect';
+  lifetimeType: 'temporary' | 'persistent';
+  placementLayer: ResolutionLayer;
+  placementOrderIndex: number;
+  title: string;
+  subtitle: string;
+  hp?: number;
+  maxHp?: number;
+  attack?: number;
+  speed?: number;
+  duration?: number;
+}
+
+interface RoundRibbonActionSummary {
+  id: string;
+  title: string;
+  subtitle: string;
+  layer: ResolutionLayer;
+  status: string;
+  orderIndex: number;
+  sourceType: 'card' | 'boardItem' | 'actor';
+  sourceBoardItemId?: string;
+}
+
+type LocalBattleRibbonEntrySummary =
+  | {
+      id: string;
+      kind: 'boardItem';
+      orderIndex: number;
+      layer: ResolutionLayer;
+      item: BoardItemSummary;
+      attachedActions: RoundRibbonActionSummary[];
+    }
+  | {
+      id: string;
+      kind: 'roundAction';
+      orderIndex: number;
+      layer: ResolutionLayer;
+      action: RoundRibbonActionSummary;
+    };
+
 interface MatchEventSummary {
   id: string;
   title: string;
@@ -94,7 +145,7 @@ type BattlefieldSelection =
 
 interface TargetDraft {
   sourceInstanceId: string;
-  targetType: ReturnType<typeof inferTargetTypeFromCatalog>;
+  targetType: TargetType;
   targetId: string;
 }
 
@@ -148,6 +199,9 @@ const getRoundStatusLabel = (status: string): string => {
       return status || 'Неизвестно';
   }
 };
+
+const getTargetButtonAriaLabel = (label: string, selectable: boolean): string =>
+  selectable ? `Выбрать цель: ${label}` : label;
 
 const getJoinRejectCodeLabel = (code: JoinRejectedServerMessage['code']): string => {
   switch (code) {
@@ -205,6 +259,14 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 const cardCatalogById = new Map(normalizeCatalog(rawCardData).cards.map((card) => [card.id, card] as const));
+const roundIntentCardRegistry = new CardRegistry(
+  Array.isArray(rawCardData.cards)
+    ? rawCardData.cards.flatMap((card) => {
+        const definition = toCardDefinitionFromCatalog(card);
+        return definition ? [definition] : [];
+      })
+    : [],
+);
 const characterCatalogById = new Map(
   buildCatalogCharacterSummaries(rawCardData).map((character) => [character.id, character] as const)
 );
@@ -417,6 +479,40 @@ const getLocalHandCards = (state: GameStateSnapshot | null, playerId: string): H
 };
 
 const getCreatureSummaries = (state: GameStateSnapshot | null): CreatureSummary[] => {
+  if (state?.boardView?.players && typeof state.boardView.players === 'object') {
+    const creaturesFromBoardView = Object.values(state.boardView.players).flatMap((playerBoard) => {
+      if (!isRecord(playerBoard) || !Array.isArray(playerBoard.boardItems)) {
+        return [];
+      }
+
+      return playerBoard.boardItems.flatMap((item) => {
+        if (
+          !isRecord(item) ||
+          item.subtype !== 'creature' ||
+          typeof item.runtimeId !== 'string' ||
+          typeof item.ownerId !== 'string' ||
+          !isRecord(item.state)
+        ) {
+          return [];
+        }
+
+        return [{
+          creatureId: item.runtimeId,
+          ownerId: item.ownerId,
+          hp: typeof item.state.hp === 'number' ? item.state.hp : 0,
+          maxHp: typeof item.state.maxHp === 'number' ? item.state.maxHp : 0,
+          attack: typeof item.state.attack === 'number' ? item.state.attack : 0,
+          speed: typeof item.state.speed === 'number' ? item.state.speed : 0,
+          summonedAtRound: typeof item.createdAtRound === 'number' ? item.createdAtRound : undefined,
+        }];
+      });
+    });
+
+    if (creaturesFromBoardView.length > 0) {
+      return creaturesFromBoardView;
+    }
+  }
+
   if (!state || !isRecord(state.creatures)) {
     return [];
   }
@@ -436,6 +532,119 @@ const getCreatureSummaries = (state: GameStateSnapshot | null): CreatureSummary[
       summonedAtRound: typeof creature.summonedAtRound === 'number' ? creature.summonedAtRound : undefined,
     }];
   });
+};
+
+const getPlayerBoardItemSummaries = (
+  state: GameStateSnapshot | null,
+  playerId: string,
+): BoardItemSummary[] => {
+  const boardItems = state?.boardView?.players?.[playerId]?.boardItems;
+  if (Array.isArray(boardItems)) {
+    return boardItems
+      .flatMap((item) => {
+      if (
+        !isRecord(item) ||
+        typeof item.id !== 'string' ||
+        typeof item.runtimeId !== 'string' ||
+        typeof item.ownerId !== 'string' ||
+        (item.subtype !== 'creature' && item.subtype !== 'effect') ||
+        (item.lifetimeType !== 'temporary' && item.lifetimeType !== 'persistent')
+      ) {
+        return [];
+      }
+
+      const definitionId = typeof item.definitionId === 'string' ? item.definitionId : '';
+      const card = definitionId ? cardCatalogById.get(definitionId) : undefined;
+      const stateView = isRecord(item.state) ? item.state : null;
+      const placement = isRecord(item.placement) ? item.placement : null;
+      const fallbackTitle =
+        item.subtype === 'creature'
+          ? `Существо ${item.runtimeId}`
+          : `Эффект ${definitionId || item.runtimeId}`;
+
+      return [{
+        id: item.id,
+        runtimeId: item.runtimeId,
+        ownerId: item.ownerId,
+        subtype: item.subtype,
+        lifetimeType: item.lifetimeType,
+        placementLayer:
+          placement && typeof placement.layer === 'string'
+            ? (placement.layer as ResolutionLayer)
+            : item.subtype === 'creature'
+              ? 'summon'
+              : 'other_modifiers',
+        placementOrderIndex:
+          placement && typeof placement.orderIndex === 'number'
+            ? placement.orderIndex
+            : Number.MAX_SAFE_INTEGER,
+        title: card?.name ?? fallbackTitle,
+        subtitle:
+          item.subtype === 'creature'
+            ? item.lifetimeType === 'persistent'
+              ? 'Закреплённый объект поля'
+              : 'Временный объект поля'
+            : item.lifetimeType === 'persistent'
+              ? 'Длительный эффект'
+              : 'Раундовый эффект',
+        hp: stateView && typeof stateView.hp === 'number' ? stateView.hp : undefined,
+        maxHp: stateView && typeof stateView.maxHp === 'number' ? stateView.maxHp : undefined,
+        attack: stateView && typeof stateView.attack === 'number' ? stateView.attack : undefined,
+        speed: stateView && typeof stateView.speed === 'number' ? stateView.speed : undefined,
+        duration: stateView && typeof stateView.duration === 'number' ? stateView.duration : undefined,
+      }];
+      })
+      .sort((left, right) => {
+        const orderDelta = left.placementOrderIndex - right.placementOrderIndex;
+        if (orderDelta !== 0) {
+          return orderDelta;
+        }
+
+        return left.id.localeCompare(right.id);
+      });
+  }
+
+  return getCreatureSummaries(state)
+    .filter((creature) => creature.ownerId === playerId)
+    .map<BoardItemSummary>((creature, index) => ({
+      id: `creature:${creature.creatureId}`,
+      runtimeId: creature.creatureId,
+      ownerId: creature.ownerId,
+      subtype: 'creature',
+      lifetimeType: 'persistent',
+      placementLayer: 'summon',
+      placementOrderIndex: index,
+      title: `Существо ${creature.creatureId}`,
+      subtitle: 'Закреплённый объект поля',
+      hp: creature.hp,
+      maxHp: creature.maxHp,
+      attack: creature.attack,
+      speed: creature.speed,
+    }));
+};
+
+const getPlayerPublicRibbonBoardItems = (
+  state: GameStateSnapshot | null,
+  playerId: string,
+): BoardItemSummary[] => {
+  const boardItems = getPlayerBoardItemSummaries(state, playerId);
+  const boardItemById = new Map(boardItems.map((item) => [item.id, item] as const));
+  const ribbonEntries = state?.boardView?.players?.[playerId]?.ribbonEntries;
+
+  if (!Array.isArray(ribbonEntries)) {
+    return boardItems;
+  }
+
+  const orderedItems = ribbonEntries.flatMap((entry) => {
+    if (!isRecord(entry) || entry.kind !== 'boardItem' || typeof entry.boardItemId !== 'string') {
+      return [];
+    }
+
+    const item = boardItemById.get(entry.boardItemId);
+    return item ? [item] : [];
+  });
+
+  return orderedItems.length > 0 ? orderedItems : boardItems;
 };
 
 const getMatchEvents = (state: GameStateSnapshot | null): MatchEventSummary[] => {
@@ -527,6 +736,7 @@ const handleServiceEvent = (
   setRoundSync: (value: RoundSyncSummary | null | ((current: RoundSyncSummary | null) => RoundSyncSummary | null)) => void,
   setLastResolvedRound: (value: RoundResolutionResult | null) => void,
   setRoundDraftRejected: (value: RoundDraftRejectedSummary | null) => void,
+  setSelfBoardModel: (value: PlayerBoardModel | null) => void,
 ): void => {
   if (event.type === 'status') {
     setStatus(event.status);
@@ -588,6 +798,7 @@ const handleServiceEvent = (
     setRoundDraft(
       [...event.intents].sort((left, right) => left.queueIndex - right.queueIndex)
     );
+    setSelfBoardModel(event.boardModel ?? null);
     setRoundSync((current) => ({
       roundNumber: event.roundNumber,
       selfLocked: event.locked,
@@ -610,6 +821,7 @@ const handleServiceEvent = (
 
   if (event.type === 'roundResolved') {
     setLastResolvedRound(event.result);
+    setSelfBoardModel(null);
     setRoundDraftRejected(null);
     setError('');
     return;
@@ -643,6 +855,7 @@ export const PlayPvpPage = () => {
   const [roundSync, setRoundSync] = useState<RoundSyncSummary | null>(null);
   const [roundDraftRejected, setRoundDraftRejected] = useState<RoundDraftRejectedSummary | null>(null);
   const [lastResolvedRound, setLastResolvedRound] = useState<RoundResolutionResult | null>(null);
+  const [selfBoardModel, setSelfBoardModel] = useState<PlayerBoardModel | null>(null);
   const [lastResolvedDraft, setLastResolvedDraft] = useState<RoundActionIntentDraft[]>([]);
   const hasLiveStateRef = useRef(false);
   const pendingSessionIdRef = useRef('');
@@ -689,6 +902,7 @@ export const PlayPvpPage = () => {
         setRoundSync,
         setLastResolvedRound,
         setRoundDraftRejected,
+        setSelfBoardModel,
       );
     });
 
@@ -756,6 +970,15 @@ export const PlayPvpPage = () => {
   const matchEvents = useMemo(() => getMatchEvents(matchState), [matchState]);
   const alliedCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId === playerId), [creatures, playerId]);
   const enemyCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId !== playerId), [creatures, playerId]);
+  const localBoardItems = useMemo(() => getPlayerBoardItemSummaries(matchState, playerId), [matchState, playerId]);
+  const localBoardItemIdByRuntimeId = useMemo(
+    () => new Map(localBoardItems.map((item) => [item.runtimeId, item.id] as const)),
+    [localBoardItems],
+  );
+  const localBoardItemsById = useMemo(
+    () => new Map(localBoardItems.map((item) => [item.id, item] as const)),
+    [localBoardItems],
+  );
   const canSummonMoreCreatures = alliedCreatures.length < 2;
   const enemyBoards = useMemo(() => playerBoards.filter((playerBoard) => playerBoard.playerId !== playerId), [playerBoards, playerId]);
   const localBoard = useMemo(
@@ -763,6 +986,10 @@ export const PlayPvpPage = () => {
     [playerBoards, playerId]
   );
   const primaryEnemyBoard = enemyBoards[0] ?? null;
+  const enemyRibbonBoardItems = useMemo(
+    () => (primaryEnemyBoard?.playerId ? getPlayerPublicRibbonBoardItems(matchState, primaryEnemyBoard.playerId) : []),
+    [matchState, primaryEnemyBoard?.playerId],
+  );
   const localCharacter = useMemo(
     () => (localPlayer?.characterId ? characterCatalogById.get(localPlayer.characterId) ?? null : null),
     [localPlayer]
@@ -792,6 +1019,40 @@ export const PlayPvpPage = () => {
     () => (selection?.kind === 'hand' ? localHandCards.find((card) => card.instanceId === selection.instanceId) ?? null : null),
     [localHandCards, selection]
   );
+  const selectedHandCardIntent = useMemo(
+    () =>
+      selectedHandCard
+        ? roundDraft.find(
+            (intent) =>
+              'cardInstanceId' in intent &&
+              typeof intent.cardInstanceId === 'string' &&
+              intent.cardInstanceId === selectedHandCard.instanceId
+          ) ?? null
+        : null,
+    [roundDraft, selectedHandCard]
+  );
+  const handCardIntentIdsByInstanceId = useMemo(
+    () =>
+      new Map(
+        roundDraft.flatMap((intent) =>
+          'cardInstanceId' in intent && typeof intent.cardInstanceId === 'string'
+            ? [[intent.cardInstanceId, intent.intentId] as const]
+            : []
+        )
+      ),
+    [roundDraft]
+  );
+  const handCardIntentByInstanceId = useMemo(
+    () =>
+      new Map(
+        roundDraft.flatMap((intent) =>
+          'cardInstanceId' in intent && typeof intent.cardInstanceId === 'string'
+            ? [[intent.cardInstanceId, intent] as const]
+            : []
+        )
+      ),
+    [roundDraft]
+  );
   const selectedCreature = useMemo(
     () => (selection?.kind === 'creature' ? creatures.find((creature) => creature.creatureId === selection.creatureId) ?? null : null),
     [creatures, selection]
@@ -804,15 +1065,56 @@ export const PlayPvpPage = () => {
       localPlayer.mana >= selectedHandCard.mana &&
       canSummonMoreCreatures
   );
-  const selectedCardTargetType = useMemo(
-    () => (selectedHandCard ? inferTargetTypeFromCatalog(selectedHandCard.cardType) : null),
-    [selectedHandCard]
-  );
+  const selectedCardTargetType = useMemo(() => {
+    if (!selectedHandCard) {
+      return null;
+    }
+
+    if (selectedHandCardIntent && 'target' in selectedHandCardIntent) {
+      return selectedHandCardIntent.target.targetType ?? null;
+    }
+
+    return roundIntentCardRegistry.get(selectedHandCard.cardId)?.targetType ?? null;
+  }, [selectedHandCard, selectedHandCardIntent]);
   const isSelectedCardTargetedAction = Boolean(selectedHandCard && selectedHandCard.cardType !== 'summon' && localPlayer);
   const isSelectedCreatureOwnedByLocalPlayer = Boolean(selectedCreature && selectedCreature.ownerId === playerId);
   const selectedCreatureHasSummoningSickness = Boolean(
     selectedCreature && currentRoundNumber > 0 && selectedCreature.summonedAtRound === currentRoundNumber
   );
+  const selectedCreatureSuggestedAttackIntent = useMemo(() => {
+    if (!selectedCreature || !isSelectedCreatureOwnedByLocalPlayer || !currentRoundNumber || !playerId) {
+      return null;
+    }
+
+    return createInitialCreatureRoundIntent({
+      state: {
+        characters: matchState?.characters ?? {},
+        creatures: matchState?.creatures ?? {},
+        round: matchState?.round ?? {
+          number: currentRoundNumber,
+          status: 'draft',
+          initiativePlayerId: playerId,
+          players: {},
+        },
+      },
+      intentId: 'preview_attack',
+      roundNumber: currentRoundNumber,
+      queueIndex: 0,
+      playerId,
+      creatureId: selectedCreature.creatureId,
+      actionKind: 'Attack',
+      preferredTargetId: draftTargetId || undefined,
+    });
+  }, [
+    currentRoundNumber,
+    draftTargetId,
+    isSelectedCreatureOwnedByLocalPlayer,
+    matchState?.characters,
+    matchState?.creatures,
+    matchState?.round,
+    playerId,
+    selectedCreature,
+  ]);
   const targetDraft = useMemo<TargetDraft | null>(() => {
     if (!selectedHandCard || !isSelectedCardTargetedAction || !selectedCardTargetType || !draftTargetId) {
       return null;
@@ -825,16 +1127,23 @@ export const PlayPvpPage = () => {
     };
   }, [draftTargetId, isSelectedCardTargetedAction, selectedCardTargetType, selectedHandCard]);
   const attackTargetDraft = useMemo<TargetDraft | null>(() => {
-    if (!selectedCreature || !isSelectedCreatureOwnedByLocalPlayer || !draftTargetId) {
+    if (
+      !selectedCreature ||
+      !isSelectedCreatureOwnedByLocalPlayer ||
+      !selectedCreatureSuggestedAttackIntent ||
+      selectedCreatureSuggestedAttackIntent.kind !== 'Attack' ||
+      !selectedCreatureSuggestedAttackIntent.target.targetId ||
+      !selectedCreatureSuggestedAttackIntent.target.targetType
+    ) {
       return null;
     }
 
     return {
       sourceInstanceId: selectedCreature.creatureId,
-      targetType: enemyCreatures.some((creature) => creature.creatureId === draftTargetId) ? 'creature' : 'enemyCharacter',
-      targetId: draftTargetId,
+      targetType: selectedCreatureSuggestedAttackIntent.target.targetType,
+      targetId: selectedCreatureSuggestedAttackIntent.target.targetId,
     };
-  }, [draftTargetId, enemyCreatures, isSelectedCreatureOwnedByLocalPlayer, selectedCreature]);
+  }, [isSelectedCreatureOwnedByLocalPlayer, selectedCreature, selectedCreatureSuggestedAttackIntent]);
   const targetCandidates = useMemo<TargetCandidateSummary[]>(() => {
     const candidates: TargetCandidateSummary[] = [];
 
@@ -920,7 +1229,19 @@ export const PlayPvpPage = () => {
 
     return labelMap;
   }, [creatures, enemyBoards, localPlayer, playerId]);
-  const canSubmitTargetedAction = Boolean(targetDraft && localPlayer && status === 'connected' && canActFromHand);
+  const selectedTargetLabel = targetDraft
+    ? `${getTargetTypeLabel(targetDraft.targetType)} -> ${knownTargetLabelsById.get(targetDraft.targetId) ?? targetDraft.targetId}`
+    : 'цель ещё не выбрана';
+  const selectedAttackTargetLabel = attackTargetDraft
+    ? `${getTargetTypeLabel(attackTargetDraft.targetType)} -> ${knownTargetLabelsById.get(attackTargetDraft.targetId) ?? attackTargetDraft.targetId}`
+    : selectedCreatureHasSummoningSickness
+      ? 'атака закрыта до следующего раунда'
+      : 'цель ещё не выбрана';
+  const selectedCreatureActionStatusLabel = selectedCreatureHasSummoningSickness
+    ? 'Атака закрыта, уклонение доступно'
+    : roundSync?.selfLocked
+      ? 'Раунд зафиксирован'
+      : 'Выбери действие на карте';
   const canQueueEvade = Boolean(selectedCreature && isSelectedCreatureOwnedByLocalPlayer && canActFromHand);
   const canQueueAttack = Boolean(
     attackTargetDraft &&
@@ -932,21 +1253,29 @@ export const PlayPvpPage = () => {
 
   const isSelectableTarget = (candidateId: string): boolean => targetCandidates.some((candidate) => candidate.id === candidateId);
   const isDraftTargetActive = (candidateId: string): boolean => draftTargetId === candidateId;
+  const coreRoundActionByIntentId = useMemo(
+    () => new Map((selfBoardModel?.roundActions ?? []).map((action) => [action.id, action] as const)),
+    [selfBoardModel],
+  );
   const previewLayerByIntentId = useMemo(() => {
     const layerMap = new Map<string, ResolutionLayer>();
 
     roundDraft.forEach((intent) => {
+      const coreRoundAction = coreRoundActionByIntentId.get(intent.intentId);
       const selectedTargetType =
         intent.kind === 'CastSpell' || intent.kind === 'PlayCard' || intent.kind === 'Attack'
           ? intent.target.targetType
           : undefined;
-      layerMap.set(intent.intentId, getIntentPreviewLayer(intent, selectedTargetType));
+      layerMap.set(
+        intent.intentId,
+        coreRoundAction?.placement.layer ?? getIntentPreviewLayer(intent, selectedTargetType),
+      );
     });
 
     return layerMap;
-  }, [roundDraft]);
+  }, [coreRoundActionByIntentId, roundDraft]);
 
-  const syncRoundDraft = (nextDraft: RoundActionIntentDraft[]): void => {
+  const syncRoundDraft = useCallback((nextDraft: RoundActionIntentDraft[]): void => {
     if (!currentRoundNumber) {
       setError('Раунд ещё не синхронизирован с сервером.');
       return;
@@ -964,23 +1293,39 @@ export const PlayPvpPage = () => {
       setRoundDraft(normalizedDraft);
       setError('');
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : 'Не удалось обновить очередь раунда');
+      setError(sendError instanceof Error ? sendError.message : 'Не удалось обновить боевую ленту');
     }
-  };
+  }, [currentRoundNumber]);
 
   const buildIntentId = (kind: RoundActionIntentDraft['kind']): string => {
     intentSequenceRef.current += 1;
     return `${playerId || 'player'}_round_${currentRoundNumber}_${kind}_${intentSequenceRef.current}`;
   };
 
-  const appendRoundIntent = (intent: RoundActionIntentDraft): void => {
+  const appendRoundIntent = useCallback((intent: RoundActionIntentDraft): void => {
     if (!currentRoundNumber) {
       setError('Раунд ещё не создан сервером.');
       return;
     }
 
     syncRoundDraft([...roundDraft, intent]);
-  };
+  }, [currentRoundNumber, roundDraft, syncRoundDraft]);
+
+  const upsertRoundIntent = useCallback(
+    (
+      matcher: (intent: RoundActionIntentDraft) => boolean,
+      buildNextIntent: (existingIntent: RoundActionIntentDraft | null) => RoundActionIntentDraft
+    ): void => {
+      const existingIntent = roundDraft.find(matcher) ?? null;
+      if (existingIntent) {
+        syncRoundDraft(roundDraft.map((intent) => (intent.intentId === existingIntent.intentId ? buildNextIntent(existingIntent) : intent)));
+        return;
+      }
+
+      appendRoundIntent(buildNextIntent(null));
+    },
+    [appendRoundIntent, roundDraft, syncRoundDraft]
+  );
 
   const submitJoin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1093,91 +1438,145 @@ export const PlayPvpPage = () => {
       return;
     }
 
-    appendRoundIntent({
-      intentId: buildIntentId('Summon'),
-      roundNumber: currentRoundNumber,
-      queueIndex: roundDraft.length,
-      kind: 'Summon',
-      actorId: localPlayer.characterId,
-      playerId: localPlayer.playerId,
-      cardInstanceId: card.instanceId,
-    });
+    upsertRoundIntent(
+      (intent) => 'cardInstanceId' in intent && intent.cardInstanceId === card.instanceId,
+      (existingIntent) => ({
+        intentId: existingIntent?.intentId ?? buildIntentId('Summon'),
+        roundNumber: currentRoundNumber,
+        queueIndex: existingIntent?.queueIndex ?? roundDraft.length,
+        kind: 'Summon',
+        actorId: localPlayer.characterId,
+        playerId: localPlayer.playerId,
+        cardInstanceId: card.instanceId,
+      })
+    );
   };
 
-  const handleTargetedCardAction = () => {
-    if (!selectedHandCard || !localPlayer || !targetDraft) {
-      setError('Сначала выбери карту, тип цели и саму цель.');
+  const handleHandCardClick = (card: HandCardSummary) => {
+    setSelection({ kind: 'hand', instanceId: card.instanceId });
+    setError('');
+
+    if (!localPlayer || !currentRoundNumber || !canActFromHand) {
       return;
     }
 
-    appendRoundIntent(
-      selectedHandCard.cardType === 'spell'
-        ? {
-            intentId: buildIntentId('CastSpell'),
-            roundNumber: currentRoundNumber,
-            queueIndex: roundDraft.length,
-            kind: 'CastSpell',
-            actorId: localPlayer.characterId,
-            playerId: localPlayer.playerId,
-            cardInstanceId: selectedHandCard.instanceId,
-            target: {
-              targetType: targetDraft.targetType,
-              targetId: targetDraft.targetId,
-            },
-          }
-        : {
-            intentId: buildIntentId('PlayCard'),
-            roundNumber: currentRoundNumber,
-            queueIndex: roundDraft.length,
-            kind: 'PlayCard',
-            actorId: localPlayer.characterId,
-            playerId: localPlayer.playerId,
-            cardInstanceId: selectedHandCard.instanceId,
-            target: {
-              targetType: targetDraft.targetType,
-              targetId: targetDraft.targetId,
-            },
-          }
+    const existingIntent = roundDraft.find(
+      (intent) => 'cardInstanceId' in intent && typeof intent.cardInstanceId === 'string' && intent.cardInstanceId === card.instanceId
     );
-    setDraftTargetId('');
+
+    if (existingIntent) {
+      if ('target' in existingIntent && existingIntent.target?.targetId) {
+        setDraftTargetId(String(existingIntent.target.targetId));
+      } else {
+        setDraftTargetId('');
+      }
+      return;
+    }
+
+    if (card.cardType === 'summon') {
+      if (localPlayer.mana < card.mana) {
+        return;
+      }
+
+      handleSummon(card);
+      return;
+    }
+
+    if (!matchState) {
+      setError('Состояние матча ещё не синхронизировано.');
+      return;
+    }
+
+    const nextIntent = createInitialCardRoundIntent({
+      state: {
+        cardInstances: matchState.cardInstances ?? {},
+        characters: matchState.characters ?? {},
+        creatures: matchState.creatures ?? {},
+      },
+      cards: roundIntentCardRegistry,
+      intentId: buildIntentId(card.cardType === 'spell' ? 'CastSpell' : 'PlayCard'),
+      roundNumber: currentRoundNumber,
+      queueIndex: roundDraft.length,
+      playerId: localPlayer.playerId,
+      actorId: localPlayer.characterId,
+      cardInstanceId: card.instanceId,
+    });
+    if (!nextIntent) {
+      setError('Не удалось собрать стартовое действие из карточного контракта.');
+      return;
+    }
+
+    setDraftTargetId('target' in nextIntent && nextIntent.target.targetId ? String(nextIntent.target.targetId) : '');
+    upsertRoundIntent(
+      (intent) => 'cardInstanceId' in intent && intent.cardInstanceId === card.instanceId,
+      () => nextIntent
+    );
   };
 
   const handleQueueAttack = () => {
-    if (!selectedCreature || !attackTargetDraft) {
-      setError('Сначала выбери своё существо и цель атаки.');
-      return;
-    }
-
-    appendRoundIntent({
-      intentId: buildIntentId('Attack'),
-      roundNumber: currentRoundNumber,
-      queueIndex: roundDraft.length,
-      kind: 'Attack',
-      actorId: selectedCreature.creatureId,
-      playerId,
-      sourceCreatureId: selectedCreature.creatureId,
-      target: {
-        targetType: attackTargetDraft.targetType,
-        targetId: attackTargetDraft.targetId,
-      },
-    });
-    setDraftTargetId('');
-  };
-
-  const handleQueueEvade = () => {
-    if (!selectedCreature) {
+    if (!selectedCreature || !currentRoundNumber || !playerId) {
       setError('Сначала выбери своё существо.');
       return;
     }
 
-    appendRoundIntent({
+    const nextIntent = createInitialCreatureRoundIntent({
+      state: {
+        characters: matchState?.characters ?? {},
+        creatures: matchState?.creatures ?? {},
+        round: matchState?.round ?? {
+          number: currentRoundNumber,
+          status: 'draft',
+          initiativePlayerId: playerId,
+          players: {},
+        },
+      },
+      intentId: buildIntentId('Attack'),
+      roundNumber: currentRoundNumber,
+      queueIndex: roundDraft.length,
+      playerId,
+      creatureId: selectedCreature.creatureId,
+      actionKind: 'Attack',
+      preferredTargetId: draftTargetId || undefined,
+    });
+    if (!nextIntent) {
+      setError('Не удалось собрать стартовую атаку из правил game-core.');
+      return;
+    }
+
+    appendRoundIntent(nextIntent);
+    setDraftTargetId('');
+  };
+
+  const handleQueueEvade = () => {
+    if (!selectedCreature || !currentRoundNumber || !playerId) {
+      setError('Сначала выбери своё существо.');
+      return;
+    }
+
+    const nextIntent = createInitialCreatureRoundIntent({
+      state: {
+        characters: matchState?.characters ?? {},
+        creatures: matchState?.creatures ?? {},
+        round: matchState?.round ?? {
+          number: currentRoundNumber,
+          status: 'draft',
+          initiativePlayerId: playerId,
+          players: {},
+        },
+      },
       intentId: buildIntentId('Evade'),
       roundNumber: currentRoundNumber,
       queueIndex: roundDraft.length,
-      kind: 'Evade',
-      actorId: selectedCreature.creatureId,
       playerId,
+      creatureId: selectedCreature.creatureId,
+      actionKind: 'Evade',
     });
+    if (!nextIntent) {
+      setError('Не удалось собрать стартовое уклонение из правил game-core.');
+      return;
+    }
+
+    appendRoundIntent(nextIntent);
     setDraftTargetId('');
   };
 
@@ -1185,56 +1584,181 @@ export const PlayPvpPage = () => {
     syncRoundDraft(roundDraft.filter((intent) => intent.intentId !== intentId));
   };
 
-  const handleMoveRoundIntent = (intentId: string, direction: -1 | 1) => {
-    const currentIndex = roundDraft.findIndex((intent) => intent.intentId === intentId);
-    const nextIndex = currentIndex + direction;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= roundDraft.length) {
-      return;
-    }
+  const getIntentCardSummary = useCallback(
+    (instanceId: string): HandCardSummary | null => localHandCards.find((card) => card.instanceId === instanceId) ?? null,
+    [localHandCards],
+  );
 
-    const nextDraft = [...roundDraft];
-    const [movedIntent] = nextDraft.splice(currentIndex, 1);
-    nextDraft.splice(nextIndex, 0, movedIntent);
-    syncRoundDraft(nextDraft);
-  };
-
-  const getIntentCardSummary = (instanceId: string): HandCardSummary | null =>
-    localHandCards.find((card) => card.instanceId === instanceId) ?? null;
-
-  const getIntentLabel = (intent: RoundActionIntentDraft): string => {
-    switch (intent.kind) {
-      case 'Summon': {
-        const card = getIntentCardSummary(intent.cardInstanceId);
-        return card ? `Призыв: ${card.name}` : `Призыв ${intent.cardInstanceId}`;
+  const getIntentLabel = useCallback(
+    (intent: RoundActionIntentDraft): string => {
+      switch (intent.kind) {
+        case 'Summon': {
+          const card = getIntentCardSummary(intent.cardInstanceId);
+          return card ? `Призыв: ${card.name}` : `Призыв ${intent.cardInstanceId}`;
+        }
+        case 'CastSpell': {
+          const card = getIntentCardSummary(intent.cardInstanceId);
+          return card ? `Заклинание: ${card.name}` : `Заклинание ${intent.cardInstanceId}`;
+        }
+        case 'PlayCard': {
+          const card = getIntentCardSummary(intent.cardInstanceId);
+          return card ? `Розыгрыш: ${card.name}` : `Розыгрыш ${intent.cardInstanceId}`;
+        }
+        case 'Attack':
+          return `Атака: ${intent.sourceCreatureId}`;
+        case 'Evade':
+          return 'Уклонение';
       }
-      case 'CastSpell': {
-        const card = getIntentCardSummary(intent.cardInstanceId);
-        return card ? `Заклинание: ${card.name}` : `Заклинание ${intent.cardInstanceId}`;
+    },
+    [getIntentCardSummary],
+  );
+
+  const getIntentTargetLabel = useCallback(
+    (intent: RoundActionIntentDraft): string => {
+      if (intent.kind === 'Summon' || intent.kind === 'Evade') {
+        return 'Без цели';
       }
-      case 'PlayCard': {
-        const card = getIntentCardSummary(intent.cardInstanceId);
-        return card ? `Розыгрыш: ${card.name}` : `Розыгрыш ${intent.cardInstanceId}`;
+
+      const { targetId, targetType } = intent.target;
+      if (!targetId) {
+        return 'Цель уточняется';
       }
-      case 'Attack':
-        return `Атака: ${intent.sourceCreatureId}`;
-      case 'Evade':
-        return 'Уклонение';
-    }
-  };
 
-  const getIntentTargetLabel = (intent: RoundActionIntentDraft): string => {
-    if (intent.kind === 'Summon' || intent.kind === 'Evade') {
-      return 'Без цели';
+      const targetLabel = knownTargetLabelsById.get(targetId);
+      return `${getTargetTypeLabel(targetType ?? null)} -> ${targetLabel ?? targetId}`;
+    },
+    [knownTargetLabelsById],
+  );
+  const localRoundRibbonItems = useMemo<RoundRibbonActionSummary[]>(() => {
+    if (selfBoardModel?.roundActions?.length) {
+      return [...selfBoardModel.roundActions]
+        .sort((left, right) => left.placement.orderIndex - right.placement.orderIndex)
+        .map((action) => {
+          const matchingDraft = roundDraft.find((intent) => intent.intentId === action.id) ?? null;
+
+          return {
+            id: action.id,
+            title: matchingDraft ? getIntentLabel(matchingDraft) : `${action.kind} ${action.id}`,
+            subtitle: matchingDraft
+              ? getIntentTargetLabel(matchingDraft)
+              : action.summary ?? `Слой ${getResolutionLayerLabel(action.placement.layer)}`,
+            layer: action.placement.layer,
+            status: action.status,
+            orderIndex: action.placement.orderIndex,
+            sourceType: action.source.type,
+            sourceBoardItemId:
+              action.source.type === 'boardItem'
+                ? action.source.boardItemId
+                : action.source.type === 'actor'
+                  ? localBoardItemIdByRuntimeId.get(String(action.source.actorId))
+                  : undefined,
+          };
+        });
     }
 
-    const { targetId, targetType } = intent.target;
-    if (!targetId) {
-      return 'Цель уточняется';
+    return roundDraft.map((intent, index) => {
+      const fallbackSourceBoardItemId =
+        intent.kind === 'Attack'
+          ? `creature:${intent.sourceCreatureId}`
+          : intent.kind === 'Evade'
+            ? localBoardItemIdByRuntimeId.get(String(intent.actorId))
+            : undefined;
+
+      return {
+        id: intent.intentId,
+        title: getIntentLabel(intent),
+        subtitle: getIntentTargetLabel(intent),
+        layer: previewLayerByIntentId.get(intent.intentId) ?? 'other_modifiers',
+        status: roundSync?.selfLocked ? 'locked' : 'draft',
+        orderIndex: index,
+        sourceType:
+          intent.kind === 'Attack'
+            ? 'boardItem'
+            : intent.kind === 'Evade'
+              ? fallbackSourceBoardItemId
+                ? 'boardItem'
+                : 'actor'
+              : 'card',
+        sourceBoardItemId: fallbackSourceBoardItemId,
+      };
+    });
+  }, [getIntentLabel, getIntentTargetLabel, localBoardItemIdByRuntimeId, previewLayerByIntentId, roundDraft, roundSync?.selfLocked, selfBoardModel]);
+  const localBattleRibbonEntries = useMemo<LocalBattleRibbonEntrySummary[]>(() => {
+    const actionById = new Map(localRoundRibbonItems.map((action) => [action.id, action] as const));
+
+    if (selfBoardModel?.ribbonEntries?.length) {
+      const orderedEntries = selfBoardModel.ribbonEntries.flatMap<LocalBattleRibbonEntrySummary>((entry) => {
+        if (entry.kind === 'boardItem') {
+          const item = localBoardItemsById.get(entry.boardItemId);
+          if (!item) {
+            return [];
+          }
+
+          return [{
+            id: entry.id,
+            kind: 'boardItem',
+            orderIndex: entry.orderIndex,
+            layer: entry.layer,
+            item,
+            attachedActions: entry.attachedRoundActionIds.flatMap((actionId) => {
+              const action = actionById.get(actionId);
+              return action ? [action] : [];
+            }),
+          }];
+        }
+
+        const action = actionById.get(entry.roundActionId);
+        if (!action) {
+          return [];
+        }
+
+        return [{
+          id: entry.id,
+          kind: 'roundAction',
+          orderIndex: entry.orderIndex,
+          layer: entry.layer,
+          action,
+        }];
+      });
+
+      if (orderedEntries.length > 0) {
+        return orderedEntries;
+      }
     }
 
-    const targetLabel = knownTargetLabelsById.get(targetId);
-    return `${getTargetTypeLabel(targetType ?? null)} -> ${targetLabel ?? targetId}`;
-  };
+    const attachedActionMap = new Map<string, RoundRibbonActionSummary[]>();
+    const detachedActions: RoundRibbonActionSummary[] = [];
+
+    localRoundRibbonItems.forEach((action) => {
+      if (action.sourceBoardItemId && localBoardItemsById.has(action.sourceBoardItemId)) {
+        const existing = attachedActionMap.get(action.sourceBoardItemId) ?? [];
+        existing.push(action);
+        attachedActionMap.set(action.sourceBoardItemId, existing);
+        return;
+      }
+
+      detachedActions.push(action);
+    });
+
+    return [
+      ...localBoardItems.map((item) => ({
+        id: `boardItem:${item.id}`,
+        kind: 'boardItem' as const,
+        orderIndex: item.placementOrderIndex,
+        layer: item.placementLayer,
+        item,
+        attachedActions: attachedActionMap.get(item.id) ?? [],
+      })),
+      ...detachedActions.map((action) => ({
+        id: `roundAction:${action.id}`,
+        kind: 'roundAction' as const,
+        orderIndex: localBoardItems.length + action.orderIndex,
+        layer: action.layer,
+        action,
+      })),
+    ];
+  }, [localBoardItems, localBoardItemsById, localRoundRibbonItems, selfBoardModel]);
+  const hasLocalBattleRibbonEntries = localBattleRibbonEntries.length > 0;
   const lastResolvedDraftByIntentId = new Map(lastResolvedDraft.map((intent) => [intent.intentId, intent] as const));
 
   const resolvedTimelineEntries = !lastResolvedRound
@@ -1284,6 +1808,13 @@ export const PlayPvpPage = () => {
     () => roundDraftRejected?.errors.filter((entry) => !entry.intentId) ?? [],
     [roundDraftRejected],
   );
+  const renderIntentValidationErrors = (intentId: string) =>
+    draftRejectionErrorsByIntentId.get(intentId)?.map((entry) => (
+      <div key={`${intentId}_${entry.code}_${entry.message}`} className={styles.roundQueueError}>
+        <span className={styles.cardBadge}>{entry.code}</span>
+        <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
+      </div>
+    )) ?? null;
 
   useEffect(() => {
     if (!selection) {
@@ -1314,6 +1845,49 @@ export const PlayPvpPage = () => {
       setDraftTargetId('');
     }
   }, [draftTargetId, targetCandidates]);
+
+  useEffect(() => {
+    if (
+      !selectedHandCard ||
+      !selectedHandCardIntent ||
+      selectedHandCardIntent.kind === 'Summon' ||
+      !('target' in selectedHandCardIntent) ||
+      !selectedCardTargetType ||
+      !draftTargetId ||
+      Boolean(roundSync?.selfLocked)
+    ) {
+      return;
+    }
+
+    if (
+      selectedHandCardIntent.target.targetId === draftTargetId &&
+      selectedHandCardIntent.target.targetType === selectedCardTargetType
+    ) {
+      return;
+    }
+
+    syncRoundDraft(
+      roundDraft.map((intent) =>
+        intent.intentId === selectedHandCardIntent.intentId
+          ? {
+              ...intent,
+              target: {
+                targetType: selectedCardTargetType,
+                targetId: draftTargetId,
+              },
+            }
+          : intent
+      )
+    );
+  }, [
+    draftTargetId,
+    roundDraft,
+    roundSync?.selfLocked,
+    selectedCardTargetType,
+    selectedHandCard,
+    selectedHandCardIntent,
+    syncRoundDraft,
+  ]);
 
   if (!session) {
     return (
@@ -1493,7 +2067,7 @@ export const PlayPvpPage = () => {
                     <div>
                       <span className={styles.summaryLabel}>Скрытый раунд</span>
                       <strong className={styles.spotlightValue}>
-                        {roundSync?.selfLocked ? 'Твой выбор зафиксирован' : 'Собери очередь действий'}
+                        {roundSync?.selfLocked ? 'Твой выбор зафиксирован' : 'Собери боевую ленту'}
                       </strong>
                     </div>
                     <button
@@ -1520,11 +2094,11 @@ export const PlayPvpPage = () => {
                     </div>
                     <div className={styles.summaryTile}>
                       <span className={styles.summaryLabel}>Ты</span>
-                      <strong>{roundSync?.selfLocked ? 'Locked' : 'Drafting'}</strong>
+                        <strong>{roundSync?.selfLocked ? 'Готово' : 'Собираешь ленту'}</strong>
                     </div>
                     <div className={styles.summaryTile}>
                       <span className={styles.summaryLabel}>Соперник</span>
-                      <strong>{roundSync?.opponentLocked ? 'Locked' : 'Drafting'}</strong>
+                        <strong>{roundSync?.opponentLocked ? 'Готово' : 'Выбирает'}</strong>
                     </div>
                   </div>
                 </div>
@@ -1536,6 +2110,7 @@ export const PlayPvpPage = () => {
                         <span className={styles.playerSideLabel}>Игрок 1</span>
                         <button
                           className={`${styles.avatarTargetButton} ${primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetable : ''} ${primaryEnemyBoard?.characterId && isDraftTargetActive(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                          aria-label={getTargetButtonAriaLabel(`Маг ${primaryEnemyBoard?.playerId ?? 'соперника'}`, Boolean(primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId)))}
                           type="button"
                           onClick={() => {
                             const enemyCharacterId = primaryEnemyBoard?.characterId;
@@ -1602,6 +2177,7 @@ export const PlayPvpPage = () => {
                         <span className={styles.playerSideLabel}>Игрок 2</span>
                         <button
                           className={`${styles.avatarTargetButton} ${localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : ''} ${localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                          aria-label={getTargetButtonAriaLabel('Твой маг', Boolean(localPlayer && isSelectableTarget(localPlayer.characterId)))}
                           type="button"
                           onClick={() => {
                             if (localPlayer && isSelectableTarget(localPlayer.characterId)) {
@@ -1664,51 +2240,63 @@ export const PlayPvpPage = () => {
                         <strong>{enemyBoards[0]?.playerId ?? 'Ожидание соперника'}</strong>
                       </div>
                     </div>
-                    {enemyCreatures.length > 0 ? (
-                      <div className={styles.creatureGrid}>
-                        {enemyCreatures.map((creature) => (
-                          <div key={creature.creatureId} className={styles.creatureCard}>
-                            <button
-                              className={`${styles.selectionSurface} ${selection?.kind === 'creature' && selection.creatureId === creature.creatureId ? styles.selectionSurfaceActive : ''} ${isSelectableTarget(creature.creatureId) ? styles.selectionSurfaceTargetable : ''} ${isDraftTargetActive(creature.creatureId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                              type="button"
-                              onClick={() =>
-                                isSelectableTarget(creature.creatureId)
-                                  ? setDraftTargetId(creature.creatureId)
-                                  : setSelection({ kind: 'creature', creatureId: creature.creatureId })
-                              }
-                            >
-                            <div className={styles.creatureBanner}>
-                              <div>
-                                <span className={styles.summaryLabel}>Существо соперника</span>
-                                <strong>{creature.creatureId}</strong>
+                    {enemyRibbonBoardItems.length > 0 ? (
+                      <div className={styles.ribbonSection}>
+                        <span className={styles.summaryLabel}>Боевая лента соперника</span>
+                        <div className={styles.ribbonGrid}>
+                          {enemyRibbonBoardItems.map((item) =>
+                            item.subtype === 'creature' ? (
+                              <div key={item.id} className={styles.ribbonCard}>
+                                <button
+                                  className={`${styles.selectionSurface} ${selection?.kind === 'creature' && selection.creatureId === item.runtimeId ? styles.selectionSurfaceActive : ''} ${isSelectableTarget(item.runtimeId) ? styles.selectionSurfaceTargetable : ''} ${isDraftTargetActive(item.runtimeId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                                  aria-label={getTargetButtonAriaLabel(`Существо ${item.runtimeId}`, isSelectableTarget(item.runtimeId))}
+                                  type="button"
+                                  onClick={() =>
+                                    isSelectableTarget(item.runtimeId)
+                                      ? setDraftTargetId(item.runtimeId)
+                                      : setSelection({ kind: 'creature', creatureId: item.runtimeId })
+                                  }
+                                >
+                                  <div className={styles.ribbonHeader}>
+                                    <div>
+                                      <span className={styles.summaryLabel}>Существо соперника</span>
+                                      <strong>{item.title}</strong>
+                                    </div>
+                                    <div className={styles.ribbonBadgeRow}>
+                                      <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
+                                      <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
+                                      <span className={styles.cardBadge}>Игрок {item.ownerId}</span>
+                                    </div>
+                                  </div>
+                                  <span className={styles.hint}>{item.runtimeId}</span>
+                                  <div className={styles.ribbonStats}>
+                                    <span>HP {item.hp ?? 0}/{item.maxHp ?? 0}</span>
+                                    <span>ATK {item.attack ?? 0}</span>
+                                    <span>SPD {item.speed ?? 0}</span>
+                                  </div>
+                                </button>
                               </div>
-                              <span className={styles.creatureOwnerTag}>Игрок {creature.ownerId}</span>
-                            </div>
-                            <div className={styles.creatureStage}>
-                              <div className={styles.creaturePortrait}>EN</div>
-                              <div className={styles.creatureStats}>
-                                <div className={styles.creatureStat}>
-                                  <span className={styles.creatureStatLabel}>HP</span>
-                                  <strong>
-                                    {creature.hp}/{creature.maxHp}
-                                  </strong>
+                            ) : (
+                              <div key={item.id} className={`${styles.ribbonCard} ${styles.ribbonCardEffect}`.trim()}>
+                                <div className={styles.ribbonHeader}>
+                                  <div>
+                                    <span className={styles.summaryLabel}>Эффект соперника</span>
+                                    <strong>{item.title}</strong>
+                                  </div>
+                                  <div className={styles.ribbonBadgeRow}>
+                                    <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
+                                    <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
+                                    {item.duration !== undefined ? <span className={styles.cardBadge}>dur {item.duration}</span> : null}
+                                  </div>
                                 </div>
-                                <div className={styles.creatureStat}>
-                                  <span className={styles.creatureStatLabel}>ATK</span>
-                                  <strong>{creature.attack}</strong>
-                                </div>
-                                <div className={styles.creatureStat}>
-                                  <span className={styles.creatureStatLabel}>SPD</span>
-                                  <strong>{creature.speed}</strong>
-                                </div>
+                                <span className={styles.hint}>{item.subtitle}</span>
                               </div>
-                            </div>
-                            </button>
-                          </div>
-                        ))}
+                            )
+                          )}
+                        </div>
                       </div>
                     ) : (
-                      <div className={styles.emptyState}>Пока пусто. Здесь будут существа соперника.</div>
+                      <div className={styles.emptyState}>Пока пусто. Здесь появятся закреплённые сущности и эффекты соперника.</div>
                     )}
                   </section>
 
@@ -1718,141 +2306,251 @@ export const PlayPvpPage = () => {
                         <strong>{playerId}</strong>
                       </div>
                     </div>
-                    {alliedCreatures.length > 0 ? (
-                      <div className={styles.creatureGrid}>
-                        {alliedCreatures.map((creature) => (
-                          <div key={creature.creatureId} className={`${styles.creatureCard} ${styles.creatureCardLocal}`.trim()}>
-                            <button
-                              className={`${styles.selectionSurface} ${selection?.kind === 'creature' && selection.creatureId === creature.creatureId ? styles.selectionSurfaceActive : ''} ${isSelectableTarget(creature.creatureId) ? styles.selectionSurfaceTargetable : ''} ${isDraftTargetActive(creature.creatureId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                              type="button"
-                              onClick={() =>
-                                isSelectableTarget(creature.creatureId)
-                                  ? setDraftTargetId(creature.creatureId)
-                                  : setSelection({ kind: 'creature', creatureId: creature.creatureId })
-                              }
-                            >
-                            <div className={styles.creatureBanner}>
-                              <div>
-                                <span className={styles.summaryLabel}>Твое существо</span>
-                                <strong>{creature.creatureId}</strong>
+                    {hasLocalBattleRibbonEntries ? (
+                      <div className={styles.ribbonSection}>
+                        <span className={styles.summaryLabel}>Твоя боевая лента</span>
+                        <div className={styles.ribbonGrid}>
+                          {localBattleRibbonEntries.map((entry) => {
+                            if (entry.kind === 'boardItem') {
+                              const { item, attachedActions } = entry;
+                              const isSelectedBoardCreature =
+                                item.subtype === 'creature' &&
+                                selection?.kind === 'creature' &&
+                                selection.creatureId === item.runtimeId;
+                              const localCardClassName = [
+                                styles.ribbonCard,
+                                item.subtype === 'effect' ? styles.ribbonCardEffect : styles.ribbonCardLocal,
+                                attachedActions.length > 0 ? styles.ribbonCardActive : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' ');
+
+                              return item.subtype === 'creature' ? (
+                                <div key={entry.id} className={localCardClassName}>
+                                  <button
+                                    className={`${styles.selectionSurface} ${selection?.kind === 'creature' && selection.creatureId === item.runtimeId ? styles.selectionSurfaceActive : ''} ${isSelectableTarget(item.runtimeId) ? styles.selectionSurfaceTargetable : ''} ${isDraftTargetActive(item.runtimeId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                                    aria-label={getTargetButtonAriaLabel(`Существо ${item.runtimeId}`, isSelectableTarget(item.runtimeId))}
+                                    type="button"
+                                    onClick={() =>
+                                      isSelectableTarget(item.runtimeId)
+                                        ? setDraftTargetId(item.runtimeId)
+                                        : setSelection({ kind: 'creature', creatureId: item.runtimeId })
+                                    }
+                                  >
+                                    <div className={styles.ribbonHeader}>
+                                      <div>
+                                        <span className={styles.summaryLabel}>Объект поля</span>
+                                        <strong>{item.title}</strong>
+                                      </div>
+                                      <div className={styles.ribbonBadgeRow}>
+                                        <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
+                                        <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
+                                        <span className={styles.cardBadge}>Под контролем</span>
+                                        {attachedActions.length > 0 ? (
+                                          <span className={styles.cardBadge}>Активно: {attachedActions.length}</span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                    <span className={styles.hint}>{item.runtimeId}</span>
+                                    <div className={styles.ribbonStats}>
+                                      <span>HP {item.hp ?? 0}/{item.maxHp ?? 0}</span>
+                                      <span>ATK {item.attack ?? 0}</span>
+                                      <span>SPD {item.speed ?? 0}</span>
+                                    </div>
+                                  </button>
+                                  {attachedActions.length > 0 ? (
+                                    <div className={styles.ribbonActionStack}>
+                                      <span className={styles.summaryLabel}>Активность в раунде</span>
+                                      {attachedActions.map((action) => (
+                                        <div key={`${item.id}_${action.id}`} className={styles.ribbonInlineAction}>
+                                          <div className={styles.ribbonBadgeRow}>
+                                            <span className={styles.cardBadge}>Core #{action.orderIndex + 1}</span>
+                                            <span className={styles.cardBadge}>{action.status}</span>
+                                            <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
+                                          </div>
+                                          <div className={styles.ribbonActionText}>
+                                            <strong>{action.title}</strong>
+                                            <span>{action.subtitle}</span>
+                                          </div>
+                                          {renderIntentValidationErrors(action.id)}
+                                          <div className={styles.inlineActions}>
+                                            <button
+                                              className={styles.secondaryButton}
+                                              type="button"
+                                              onClick={() => handleRemoveRoundIntent(action.id)}
+                                              disabled={Boolean(roundSync?.selfLocked)}
+                                            >
+                                              Убрать из ленты
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                  {isSelectedBoardCreature && item.ownerId === playerId ? (
+                                    <div className={styles.inlineConfigurator}>
+                                      <div className={styles.indicatorRail}>
+                                        <div className={styles.indicatorPill}>
+                                          <span className={styles.indicatorKicker}>Статус</span>
+                                          <strong className={styles.indicatorValue}>{selectedCreatureActionStatusLabel}</strong>
+                                        </div>
+                                        <div className={styles.indicatorPill}>
+                                          <span className={styles.indicatorKicker}>Текущая цель</span>
+                                          <strong className={styles.indicatorValue}>{selectedAttackTargetLabel}</strong>
+                                        </div>
+                                      </div>
+                                      <div className={styles.indicatorRail}>
+                                        <button
+                                          aria-label="Добавить уклонение в ленту"
+                                          className={`${styles.indicatorButton} ${styles.indicatorButtonDefensive}`.trim()}
+                                          type="button"
+                                          onClick={handleQueueEvade}
+                                          disabled={!canQueueEvade || Boolean(roundSync?.selfLocked)}
+                                        >
+                                          <span className={styles.indicatorKicker}>Действие</span>
+                                          <strong className={styles.indicatorValue}>Уклонение</strong>
+                                        </button>
+                                        <button
+                                          aria-label="Добавить атаку в ленту"
+                                          className={`${styles.indicatorButton} ${styles.indicatorButtonOffensive}`.trim()}
+                                          type="button"
+                                          onClick={handleQueueAttack}
+                                          disabled={!canQueueAttack || Boolean(roundSync?.selfLocked)}
+                                        >
+                                          <span className={styles.indicatorKicker}>Действие</span>
+                                          <strong className={styles.indicatorValue}>Атака</strong>
+                                          <span className={styles.indicatorSubvalue}>{selectedAttackTargetLabel}</span>
+                                        </button>
+                                        <button
+                                          className={styles.secondaryButton}
+                                          type="button"
+                                          onClick={() => setDraftTargetId('')}
+                                          disabled={!draftTargetId}
+                                        >
+                                          Сбросить цель
+                                        </button>
+                                      </div>
+                                      <div className={styles.hint}>
+                                        Сменить цель можно только кликом по подсвеченной сущности прямо на поле.
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <div key={entry.id} className={localCardClassName}>
+                                  <div className={styles.ribbonHeader}>
+                                    <div>
+                                      <span className={styles.summaryLabel}>Объект поля</span>
+                                      <strong>{item.title}</strong>
+                                    </div>
+                                    <div className={styles.ribbonBadgeRow}>
+                                      <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
+                                      <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
+                                      {item.duration !== undefined ? <span className={styles.cardBadge}>dur {item.duration}</span> : null}
+                                      {attachedActions.length > 0 ? (
+                                        <span className={styles.cardBadge}>Активно: {attachedActions.length}</span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                  <span className={styles.hint}>{item.subtitle}</span>
+                                  {attachedActions.length > 0 ? (
+                                    <div className={styles.ribbonActionStack}>
+                                      <span className={styles.summaryLabel}>Активность в раунде</span>
+                                      {attachedActions.map((action) => (
+                                        <div key={`${item.id}_${action.id}`} className={styles.ribbonInlineAction}>
+                                          <div className={styles.ribbonBadgeRow}>
+                                            <span className={styles.cardBadge}>Core #{action.orderIndex + 1}</span>
+                                            <span className={styles.cardBadge}>{action.status}</span>
+                                            <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
+                                          </div>
+                                          <div className={styles.ribbonActionText}>
+                                            <strong>{action.title}</strong>
+                                            <span>{action.subtitle}</span>
+                                          </div>
+                                          {renderIntentValidationErrors(action.id)}
+                                          <div className={styles.inlineActions}>
+                                            <button
+                                              className={styles.secondaryButton}
+                                              type="button"
+                                              onClick={() => handleRemoveRoundIntent(action.id)}
+                                              disabled={Boolean(roundSync?.selfLocked)}
+                                            >
+                                              Убрать из ленты
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            }
+
+                            const action = entry.action;
+
+                            return (
+                              <div key={entry.id} className={`${styles.ribbonCard} ${styles.ribbonCardAction}`.trim()}>
+                                <div className={styles.ribbonHeader}>
+                                  <div>
+                                    <span className={styles.summaryLabel}>
+                                      {action.sourceType === 'card' ? 'Действие из руки' : 'Действие раунда'}
+                                    </span>
+                                    <strong>{action.title}</strong>
+                                  </div>
+                                  <div className={styles.ribbonBadgeRow}>
+                                    <span className={styles.cardBadge}>Core #{action.orderIndex + 1}</span>
+                                    <span className={styles.cardBadge}>{action.status}</span>
+                                  </div>
+                                </div>
+                                <span>{action.subtitle}</span>
+                                {renderIntentValidationErrors(action.id)}
+                                <div className={styles.ribbonBadgeRow}>
+                                  <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
+                                </div>
+                                <div className={styles.inlineActions}>
+                                  <button
+                                    className={styles.secondaryButton}
+                                    type="button"
+                                    onClick={() => handleRemoveRoundIntent(action.id)}
+                                    disabled={Boolean(roundSync?.selfLocked)}
+                                  >
+                                    Убрать из ленты
+                                  </button>
+                                </div>
                               </div>
-                              <span className={styles.creatureOwnerTag}>Под контролем</span>
-                            </div>
-                            <div className={styles.creatureStage}>
-                              <div className={`${styles.creaturePortrait} ${styles.creaturePortraitLocal}`.trim()}>AL</div>
-                              <div className={styles.creatureStats}>
-                                <div className={styles.creatureStat}>
-                                  <span className={styles.creatureStatLabel}>HP</span>
-                                  <strong>
-                                    {creature.hp}/{creature.maxHp}
-                                  </strong>
-                                </div>
-                                <div className={styles.creatureStat}>
-                                  <span className={styles.creatureStatLabel}>ATK</span>
-                                  <strong>{creature.attack}</strong>
-                                </div>
-                                <div className={styles.creatureStat}>
-                                  <span className={styles.creatureStatLabel}>SPD</span>
-                                  <strong>{creature.speed}</strong>
-                                </div>
-                              </div>
-                            </div>
-                            </button>
-                          </div>
-                        ))}
+                            );
+                          })}
+                        </div>
                       </div>
                     ) : (
-                      <div className={styles.emptyState}>Пока пусто. Призови первое существо из руки.</div>
+                      <div className={styles.emptyState}>Пока пусто. Разыграй карту из руки или активируй объект поля.</div>
                     )}
                   </section>
 
-                  <section className={styles.roundQueuePanel}>
-                    <div className={styles.battleLaneHeader}>
-                      <div>
-                        <span className={styles.summaryLabel}>Action queue</span>
-                        <strong>Твой черновик раунда</strong>
+                  {roundDraftRejected ? (
+                    <div className={styles.roundRejectBox}>
+                      <strong>
+                        Server reject: {roundDraftRejected.operation === 'lock' ? 'lock-in' : 'replace'}{' '}
+                        {roundDraftRejected.roundNumber > 0
+                          ? `раунда ${roundDraftRejected.roundNumber}`
+                          : 'текущей ленты'}
+                      </strong>
+                      <div className={styles.roundQueueError}>
+                        <span className={styles.cardBadge}>{roundDraftRejected.code}</span>
+                        <span>{getRoundDraftRejectCodeLabel(roundDraftRejected.code)}</span>
                       </div>
-                      <span className={styles.battleCount}>{roundDraft.length} действий</span>
-                    </div>
-                    {roundDraft.length > 0 ? (
-                      <div className={styles.roundQueueList}>
-                        {roundDraft.map((intent, index) => (
-                          <div key={intent.intentId} className={styles.roundQueueItem}>
-                            <div className={styles.roundQueueMain}>
-                              <span className={styles.roundQueueIndex}>{index + 1}</span>
-                              <div className={styles.roundQueueText}>
-                                <strong>{getIntentLabel(intent)}</strong>
-                                <span>{getIntentTargetLabel(intent)}</span>
-                              </div>
-                            </div>
-                            <div className={styles.roundQueueMeta}>
-                              <span className={styles.cardBadge}>
-                                {getResolutionLayerLabel(previewLayerByIntentId.get(intent.intentId) ?? 'other_modifiers')}
-                              </span>
-                              {draftRejectionErrorsByIntentId.get(intent.intentId)?.map((entry) => (
-                                <div key={`${intent.intentId}_${entry.code}_${entry.message}`} className={styles.roundQueueError}>
-                                  <span className={styles.cardBadge}>{entry.code}</span>
-                                  <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
-                                </div>
-                              ))}
-                              <div className={styles.roundQueueActions}>
-                                <button
-                                  className={styles.secondaryButton}
-                                  type="button"
-                                  onClick={() => handleMoveRoundIntent(intent.intentId, -1)}
-                                  disabled={Boolean(roundSync?.selfLocked) || index === 0}
-                                >
-                                  Влево
-                                </button>
-                                <button
-                                  className={styles.secondaryButton}
-                                  type="button"
-                                  onClick={() => handleMoveRoundIntent(intent.intentId, 1)}
-                                  disabled={Boolean(roundSync?.selfLocked) || index === roundDraft.length - 1}
-                                >
-                                  Вправо
-                                </button>
-                                <button
-                                  className={styles.secondaryButton}
-                                  type="button"
-                                  onClick={() => handleRemoveRoundIntent(intent.intentId)}
-                                  disabled={Boolean(roundSync?.selfLocked)}
-                                >
-                                  Убрать
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className={styles.emptyState}>Очередь пуста. Выбери карты или существо и собери свой раунд слева направо.</div>
-                    )}
-                    {roundDraftRejected ? (
-                      <div className={styles.roundRejectBox}>
-                        <strong>
-                          Server reject: {roundDraftRejected.operation === 'lock' ? 'lock-in' : 'replace'}{' '}
-                          {roundDraftRejected.roundNumber > 0
-                            ? `раунда ${roundDraftRejected.roundNumber}`
-                            : 'текущего черновика'}
-                        </strong>
-                        <div className={styles.roundQueueError}>
-                          <span className={styles.cardBadge}>{roundDraftRejected.code}</span>
-                          <span>{getRoundDraftRejectCodeLabel(roundDraftRejected.code)}</span>
+                      <span>{roundDraftRejected.error}</span>
+                      {draftRejectionCommonErrors.map((entry) => (
+                        <div key={`${entry.code}_${entry.message}`} className={styles.roundQueueError}>
+                          <span className={styles.cardBadge}>{entry.code}</span>
+                          <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
                         </div>
-                        <span>{roundDraftRejected.error}</span>
-                        {draftRejectionCommonErrors.map((entry) => (
-                          <div key={`${entry.code}_${entry.message}`} className={styles.roundQueueError}>
-                            <span className={styles.cardBadge}>{entry.code}</span>
-                            <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                    <div className={styles.hint}>
-                      Порядок на экране показывает намерение выбора. Фактический резолв идёт по слоям, а не по FIFO.
+                      ))}
                     </div>
-                  </section>
+                  ) : null}
+                  <div className={styles.hint}>
+                    Порядок в боевой ленте показывает текущее намерение. Итоговый резолв всё равно идёт по слоям из `game-core`.
+                  </div>
 
                   <section className={styles.handTray}>
                       <div className={styles.battleLaneHeader}>
@@ -1872,10 +2570,7 @@ export const PlayPvpPage = () => {
                               <button
                                 className={`${styles.selectionSurface} ${selection?.kind === 'hand' && selection.instanceId === card.instanceId ? styles.selectionSurfaceActive : ''}`.trim()}
                                 type="button"
-                                onClick={() => {
-                                  setSelection({ kind: 'hand', instanceId: card.instanceId });
-                                  setDraftTargetId('');
-                                }}
+                                onClick={() => handleHandCardClick(card)}
                               >
                               <div className={styles.handCardTop}>
                                 <span className={styles.handManaGem}>{card.mana}</span>
@@ -1911,27 +2606,93 @@ export const PlayPvpPage = () => {
                                   <span className={styles.cardBadge}>
                                     {card.cardType === 'summon' ? 'Призыв' : 'Розыгрыш'}
                                   </span>
+                                  {handCardIntentIdsByInstanceId.has(card.instanceId) ? (
+                                    <span className={styles.cardBadge}>В ленте</span>
+                                  ) : null}
                                 </div>
                               </div>
                               </button>
-                              {card.cardType === 'summon' ? (
-                                <button
-                                  className={styles.primaryButton}
-                                  type="button"
-                                  onClick={() => handleSummon(card)}
-                                  disabled={
-                                    !canActFromHand ||
-                                    !localPlayer ||
-                                    localPlayer.mana < card.mana ||
-                                    !canSummonMoreCreatures ||
-                                    Boolean(roundSync?.selfLocked)
-                                  }
-                                >
-                                  Добавить призыв
-                                </button>
-                              ) : (
-                                <div className={styles.hint}>Выбери карту, затем цель справа и добавь её в очередь раунда.</div>
-                              )}
+                              <div className={styles.hint}>
+                                {card.cardType === 'summon'
+                                  ? 'Клик по карте сразу добавляет призыв в боевую ленту.'
+                                  : 'Клик по карте сразу добавляет действие в ленту и включает выбор цели.'}
+                              </div>
+                              {selection?.kind === 'hand' && selection.instanceId === card.instanceId ? (
+                                <div className={styles.inlineConfigurator}>
+                                  {card.effect ? (
+                                    <div className={styles.handCardEffectPanel}>
+                                      <span className={styles.summaryLabel}>Эффект</span>
+                                      <p className={styles.paragraph}>{card.effect}</p>
+                                    </div>
+                                  ) : null}
+                                  {card.cardType === 'summon' ? (
+                                    <>
+                                      <div className={styles.indicatorRail}>
+                                        <div className={styles.indicatorPill}>
+                                          <span className={styles.indicatorKicker}>Состояние</span>
+                                          <strong className={styles.indicatorValue}>
+                                            {selectedHandCardIntent
+                                              ? 'Призыв уже в ленте'
+                                              : canPlaySelectedCard
+                                                ? 'Готов к призыву'
+                                                : 'Сейчас недоступно'}
+                                          </strong>
+                                        </div>
+                                      </div>
+                                      {selectedHandCardIntent ? (
+                                        <div className={styles.inlineActions}>
+                                          <button
+                                            className={styles.secondaryButton}
+                                            type="button"
+                                            onClick={() => handleRemoveRoundIntent(selectedHandCardIntent.intentId)}
+                                            disabled={Boolean(roundSync?.selfLocked)}
+                                          >
+                                            Убрать из ленты
+                                          </button>
+                                        </div>
+                                      ) : null}
+                                    </>
+                                  ) : handCardIntentByInstanceId.get(card.instanceId) ? (
+                                    <>
+                                      <div className={styles.indicatorRail}>
+                                        <div className={styles.indicatorPill}>
+                                          <span className={styles.indicatorKicker}>Тип цели</span>
+                                          <strong className={styles.indicatorValue}>{getTargetTypeLabel(selectedCardTargetType ?? 'any')}</strong>
+                                        </div>
+                                        <div className={styles.indicatorPill}>
+                                          <span className={styles.indicatorKicker}>Текущая цель</span>
+                                          <strong className={styles.indicatorValue}>{selectedTargetLabel}</strong>
+                                        </div>
+                                      </div>
+                                      <div className={styles.inlineActions}>
+                                        <button
+                                          className={styles.secondaryButton}
+                                          type="button"
+                                          onClick={() => handleRemoveRoundIntent(handCardIntentByInstanceId.get(card.instanceId)!.intentId)}
+                                          disabled={Boolean(roundSync?.selfLocked)}
+                                        >
+                                          Убрать из ленты
+                                        </button>
+                                        <button
+                                          className={styles.secondaryButton}
+                                          type="button"
+                                          onClick={() => setDraftTargetId('')}
+                                          disabled={!draftTargetId}
+                                        >
+                                          Сбросить цель
+                                        </button>
+                                      </div>
+                                      <div className={styles.hint}>
+                                        Разрешённые цели подсвечены прямо на поле. Выбери одну из них кликом по магу или существу.
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className={styles.hint}>
+                                      Клик по карте в руке сразу добавляет её в боевую ленту и выставляет стартовую цель по правилам game-core.
+                                    </div>
+                                  )}
+                                </div>
+                              ) : null}
                             </div>
                           ))}
                         </div>
@@ -1958,217 +2719,6 @@ export const PlayPvpPage = () => {
         </div>
 
         <div className={styles.contextColumn}>
-          <Card
-            title="Модификаторы"
-            className={styles.themedCard}
-            contentClassName={styles.modifiersCardContent}
-          >
-            {selectedHandCard ? (
-              <div className={styles.focusPanel}>
-                <div className={styles.focusHeader}>
-                  <div>
-                    <span className={styles.summaryLabel}>Выбрана карта</span>
-                    <strong>{selectedHandCard.name}</strong>
-                  </div>
-                  <div className={styles.handCardBadgeStack}>
-                    <span className={styles.cardBadge}>{getCardTypeLabel(selectedHandCard.cardType)}</span>
-                    {selectedHandCard.school ? (
-                      <span className={styles.cardBadge}>{getCatalogSchoolLabel(selectedHandCard.school)}</span>
-                    ) : null}
-                  </div>
-                </div>
-                <div className={styles.focusStats}>
-                  <div className={styles.focusStat}>
-                    <span className={styles.summaryLabel}>Стоимость</span>
-                    <strong>{selectedHandCard.mana} mana</strong>
-                  </div>
-                  {selectedHandCard.speed ? (
-                    <div className={styles.focusStat}>
-                      <span className={styles.summaryLabel}>Скорость</span>
-                      <strong>{selectedHandCard.speed}</strong>
-                    </div>
-                  ) : null}
-                  {selectedHandCard.hp || selectedHandCard.attack ? (
-                    <div className={styles.focusStat}>
-                      <span className={styles.summaryLabel}>Характеристики</span>
-                      <strong>
-                        {selectedHandCard.hp ? `HP ${selectedHandCard.hp}` : ''}
-                        {selectedHandCard.hp && selectedHandCard.attack ? ' · ' : ''}
-                        {selectedHandCard.attack ? `ATK ${selectedHandCard.attack}` : ''}
-                      </strong>
-                    </div>
-                  ) : null}
-                  <div className={styles.focusStat}>
-                    <span className={styles.summaryLabel}>ID</span>
-                    <strong>{selectedHandCard.instanceId}</strong>
-                  </div>
-                </div>
-                {selectedHandCard.effect ? (
-                  <div className={styles.handCardEffectPanel}>
-                    <span className={styles.summaryLabel}>Эффект</span>
-                    <p className={styles.paragraph}>{selectedHandCard.effect}</p>
-                  </div>
-                ) : null}
-                <p className={styles.paragraph}>
-                  Карта добавляется в локальную очередь как намерение. Порядок слева направо задаёшь ты, но сервер потом разложит резолв по слоям.
-                </p>
-                {selectedHandCard.cardType === 'summon' ? (
-                  <button
-                    className={styles.primaryButton}
-                    type="button"
-                    onClick={() => handleSummon(selectedHandCard)}
-                    disabled={!canPlaySelectedCard || Boolean(roundSync?.selfLocked)}
-                  >
-                    {canPlaySelectedCard ? 'Добавить призыв в очередь' : 'Недостаточно ресурсов или раунд уже locked'}
-                  </button>
-                ) : (
-                  <div className={styles.focusControls}>
-                    <div className={styles.focusStat}>
-                      <span className={styles.summaryLabel}>Авто-тип цели</span>
-                      <strong>{getTargetTypeLabel(selectedCardTargetType)}</strong>
-                    </div>
-                    <div className={styles.hint}>
-                      Тип цели теперь определяется автоматически из карточного контракта сервера. Выбери одну из подсвеченных целей на поле или в списке ниже.
-                    </div>
-                    <div className={styles.targetDraftList}>
-                      {targetCandidates.map((candidate) => (
-                        <button
-                          key={candidate.id}
-                          className={`${styles.targetDraftItem} ${draftTargetId === candidate.id ? styles.targetDraftItemActive : ''}`.trim()}
-                          type="button"
-                          onClick={() => setDraftTargetId(candidate.id)}
-                        >
-                          <strong>{candidate.label}</strong>
-                          <span>{candidate.kind === 'character' ? 'Маг' : 'Существо'}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <div className={styles.inlineActions}>
-                      <button
-                        className={styles.primaryButton}
-                        type="button"
-                        onClick={handleTargetedCardAction}
-                        disabled={!canSubmitTargetedAction || Boolean(roundSync?.selfLocked)}
-                      >
-                        Добавить в очередь
-                      </button>
-                      <button
-                        className={styles.secondaryButton}
-                        type="button"
-                        onClick={() => setDraftTargetId('')}
-                        disabled={!draftTargetId}
-                      >
-                        Сбросить цель
-                      </button>
-                    </div>
-                    <div className={styles.hint}>
-                      Черновик:{' '}
-                      {targetDraft
-                        ? `${getTargetTypeLabel(targetDraft.targetType)} -> ${knownTargetLabelsById.get(targetDraft.targetId) ?? targetDraft.targetId}`
-                        : 'цель ещё не выбрана'}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : selectedCreature ? (
-              <div className={styles.focusPanel}>
-                <div className={styles.focusHeader}>
-                  <div>
-                    <span className={styles.summaryLabel}>Выбрано существо</span>
-                    <strong>{selectedCreature.creatureId}</strong>
-                  </div>
-                  <span className={styles.cardBadge}>
-                    {selectedCreature.ownerId === playerId ? 'Твоё' : 'Соперник'}
-                  </span>
-                </div>
-                <div className={styles.focusStats}>
-                  <div className={styles.focusStat}>
-                    <span className={styles.summaryLabel}>HP</span>
-                    <strong>
-                      {selectedCreature.hp}/{selectedCreature.maxHp}
-                    </strong>
-                  </div>
-                  <div className={styles.focusStat}>
-                    <span className={styles.summaryLabel}>ATK</span>
-                    <strong>{selectedCreature.attack}</strong>
-                  </div>
-                  <div className={styles.focusStat}>
-                    <span className={styles.summaryLabel}>SPD</span>
-                    <strong>{selectedCreature.speed}</strong>
-                  </div>
-                </div>
-                {selectedCreature.ownerId === playerId ? (
-                  <div className={styles.focusControls}>
-                    <div className={styles.focusStat}>
-                      <span className={styles.summaryLabel}>Статус действия</span>
-                      <strong>
-                        {selectedCreatureHasSummoningSickness
-                          ? 'Атака закрыта, уклонение доступно'
-                          : roundSync?.selfLocked
-                            ? 'Раунд locked'
-                            : 'Можно добавить атаку или уклонение'}
-                      </strong>
-                    </div>
-                    <div className={styles.hint}>
-                      Уклонение не требует цели. Для атаки выбери цель на поле или в списке ниже. Призванное в этом раунде существо не может атаковать до следующего раунда.
-                    </div>
-                    <div className={styles.targetDraftList}>
-                      {targetCandidates.map((candidate) => (
-                        <button
-                          key={candidate.id}
-                          className={`${styles.targetDraftItem} ${draftTargetId === candidate.id ? styles.targetDraftItemActive : ''}`.trim()}
-                          type="button"
-                          onClick={() => setDraftTargetId(candidate.id)}
-                        >
-                          <strong>{candidate.label}</strong>
-                          <span>{candidate.kind === 'character' ? 'Маг' : 'Существо'}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <div className={styles.inlineActions}>
-                      <button
-                        className={styles.secondaryButton}
-                        type="button"
-                        onClick={handleQueueEvade}
-                        disabled={!canQueueEvade || Boolean(roundSync?.selfLocked)}
-                      >
-                        Добавить уклонение
-                      </button>
-                      <button
-                        className={styles.primaryButton}
-                        type="button"
-                        onClick={handleQueueAttack}
-                        disabled={!canQueueAttack || Boolean(roundSync?.selfLocked)}
-                      >
-                        Добавить атаку
-                      </button>
-                      <button
-                        className={styles.secondaryButton}
-                        type="button"
-                        onClick={() => setDraftTargetId('')}
-                        disabled={!draftTargetId}
-                      >
-                        Сбросить цель
-                      </button>
-                    </div>
-                    <div className={styles.hint}>
-                      Черновик атаки:{' '}
-                      {attackTargetDraft
-                        ? `${getTargetTypeLabel(attackTargetDraft.targetType)} -> ${knownTargetLabelsById.get(attackTargetDraft.targetId) ?? attackTargetDraft.targetId}`
-                        : 'цель ещё не выбрана'}
-                    </div>
-                  </div>
-                ) : (
-                  <div className={styles.hint}>Существо соперника можно выбрать как цель, но не редактировать с него действия.</div>
-                )}
-              </div>
-            ) : (
-              <div className={styles.emptyState}>
-                Выбери карту в руке или своё существо на столе. Справа откроется панель сборки действий на раунд.
-              </div>
-            )}
-          </Card>
-
           <Card title="Статус мага" className={styles.themedCard}>
             {localPlayer ? (
               <div className={styles.heroPanel}>
@@ -2177,7 +2727,7 @@ export const PlayPvpPage = () => {
                     <span className={styles.summaryLabel}>Твой маг</span>
                     <strong>{localPlayer.playerId}</strong>
                   </div>
-                  <span className={styles.heroChip}>{roundSync?.selfLocked ? 'Locked' : 'Drafting'}</span>
+                  <span className={styles.heroChip}>{roundSync?.selfLocked ? 'Готово' : 'Настройка'}</span>
                 </div>
                 <div className={styles.detailsList}>
                   <div className={styles.detailRow}>
@@ -2222,7 +2772,7 @@ export const PlayPvpPage = () => {
                   >
                     <div className={styles.playerBoardHeader}>
                       <strong>{playerBoard.playerId}</strong>
-                      <span>{playerBoard.locked ? 'Locked' : 'Drafting'}</span>
+                      <span>{playerBoard.locked ? 'Готово' : 'Выбор'}</span>
                     </div>
                     <div className={styles.zoneGrid}>
                       <span>deck: {playerBoard.deckSize}</span>

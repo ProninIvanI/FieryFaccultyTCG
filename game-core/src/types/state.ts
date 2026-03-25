@@ -36,6 +36,8 @@ export interface CharacterState {
 export interface CreatureState {
   creatureId: CreatureId;
   ownerId: PlayerId;
+  sourceCardInstanceId?: CardInstanceId;
+  definitionId?: string;
   hp: number;
   maxHp: number;
   attack: number;

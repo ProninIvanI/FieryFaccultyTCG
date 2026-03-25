@@ -45,6 +45,9 @@ reports/
 # Runtime / local data
 postgres-data/
 
+# Personal local notes
+NOTES.md
+
 
 
 

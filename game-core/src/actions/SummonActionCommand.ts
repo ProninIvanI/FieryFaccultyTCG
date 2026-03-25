@@ -57,6 +57,8 @@ export class SummonActionCommand implements ActionCommand<SummonAction> {
       type: 'SummonEffect',
       sourceId: action.actorId,
       ownerId: action.playerId,
+      sourceCardInstanceId: action.cardInstanceId,
+      definitionId: def.id,
       createdAtTurn: state.turn.number,
       data: {
         hp: def.manaCost + 2,

@@ -31,6 +31,8 @@ const buildEngine = () => ({
       rngState: 1,
     }) as GameState,
   processAction: (_action: Action) => ({ ok: true as const }),
+  buildPlayerBoardModel: () => null,
+  buildPublicBoardView: () => ({ players: {} }),
   submitRoundDraft: (_playerId: string, _roundNumber: number, _intents: RoundActionIntent[]) => ({ ok: true as const }),
   lockRoundDraft: (_playerId: string, _roundNumber: number) => ({ ok: true as const }),
   resolveRoundIfReady: () => null,

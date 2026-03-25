@@ -13,6 +13,8 @@ import {
   RoundActionReasonCode,
   RoundDraftValidationResult,
   RoundResolutionResult,
+  PlayerBoardModel,
+  PublicBoardView,
   SummonAction,
 } from '../types';
 import { EventBus } from '../events/EventBus';
@@ -41,6 +43,11 @@ import { compileRoundActions } from '../rounds/compileRoundActions';
 import { sortRoundActions } from '../rounds/sortRoundActions';
 import { validateRoundDraft } from '../rounds/validateRoundDraft';
 import { validateTargetType } from '../validation/validators';
+import {
+  buildBoardItems,
+  buildPlayerBoardModel as buildPlayerBoardModelView,
+  buildPublicRibbonEntries,
+} from '../board/buildPlayerBoardModel';
 
 export class GameEngine {
   private readonly ctx: GameEngineContext;
@@ -85,6 +92,44 @@ export class GameEngine {
   getRoundDraft(playerId: string): PlayerRoundDraft | null {
     const draft = this.roundDrafts.get(playerId);
     return draft ? this.cloneDraft(draft) : null;
+  }
+
+  buildPlayerBoardModel(playerId: string): PlayerBoardModel | null {
+    if (!this.state.players[playerId]) {
+      return null;
+    }
+
+    const currentDraft = this.roundDrafts.get(playerId);
+    const fallbackDraft: PlayerRoundDraft = {
+      playerId,
+      roundNumber: this.state.round.number,
+      locked: this.state.round.players[playerId]?.locked ?? false,
+      intents: [],
+    };
+
+    return buildPlayerBoardModelView(
+      this.state,
+      this.ctx.cards,
+      currentDraft ? this.cloneDraft(currentDraft) : fallbackDraft,
+      this.state.round.lastResolution,
+    );
+  }
+
+  buildPublicBoardView(): PublicBoardView {
+    const players = Object.keys(this.state.players).reduce<PublicBoardView['players']>(
+      (acc, playerId) => {
+        const boardItems = buildBoardItems(this.state, this.ctx.cards, playerId);
+        acc[playerId] = {
+          playerId,
+          boardItems,
+          ribbonEntries: buildPublicRibbonEntries(boardItems),
+        };
+        return acc;
+      },
+      {},
+    );
+
+    return { players };
   }
 
   submitRoundDraft(

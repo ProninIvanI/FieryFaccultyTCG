@@ -1,4 +1,4 @@
-import { CharacterId, CreatureId, EffectId, PlayerId } from './ids';
+import { CardInstanceId, CharacterId, CreatureId, EffectId, PlayerId } from './ids';
 import { AttackType } from './enums';
 
 export type EffectType =
@@ -22,6 +22,8 @@ export interface EffectInstance {
   type: EffectType;
   sourceId?: CharacterId | CreatureId;
   ownerId?: PlayerId;
+  sourceCardInstanceId?: CardInstanceId;
+  definitionId?: string;
   targetId?: CharacterId | CreatureId;
   createdAtTurn: number;
   duration?: number;
