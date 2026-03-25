@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseClientMessage } from '../src/transport/ws/dto';
 import { GameService } from '../src/application/GameService';
 import { SessionRegistry } from '../src/domain/game/SessionRegistry';
-import { Action, GameState } from '../../game-core/src/types';
+import { Action, GameState, RoundActionIntent } from '../../game-core/src/types';
 import { createEngine } from '../src/engine/createEngine';
 
 const buildEngine = () => ({
@@ -20,11 +20,20 @@ const buildEngine = () => ({
       actionLog: [],
       log: [],
       turn: { number: 1, activePlayerId: 'player_1' },
+      round: {
+        number: 1,
+        status: 'draft',
+        initiativePlayerId: 'player_1',
+        players: {},
+      },
       phase: { current: 'RecoveryPhase' },
       rngSeed: 1,
       rngState: 1,
     }) as GameState,
   processAction: (_action: Action) => ({ ok: true as const }),
+  submitRoundDraft: (_playerId: string, _roundNumber: number, _intents: RoundActionIntent[]) => ({ ok: true as const }),
+  lockRoundDraft: (_playerId: string, _roundNumber: number) => ({ ok: true as const }),
+  resolveRoundIfReady: () => null,
   syncPlayerLoadout: () => undefined,
 });
 
@@ -32,6 +41,16 @@ describe('ws dto parsing', () => {
   it('rejects invalid json', () => {
     const result = parseClientMessage('{');
     expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.error).toBe('Invalid JSON');
+    expect(result.rejection).toEqual({
+      type: 'transport.rejected',
+      code: 'invalid_json',
+      error: 'Invalid JSON',
+      requestType: '',
+    });
   });
 
   it('accepts join message with deckId', () => {
@@ -39,6 +58,54 @@ describe('ws dto parsing', () => {
       JSON.stringify({ type: 'join', sessionId: 's1', token: 'token_1', deckId: 'deck_1', seed: 42 }),
     );
     expect(result.ok).toBe(true);
+  });
+
+  it('returns structured join rejection for invalid join payload', () => {
+    const result = parseClientMessage(
+      JSON.stringify({ type: 'join', sessionId: 's1', token: 'token_1' }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.error).toBe('Invalid join payload');
+    expect(result.rejection).toEqual({
+      type: 'join.rejected',
+      sessionId: 's1',
+      code: 'invalid_payload',
+      error: 'Invalid join payload',
+    });
+  });
+
+  it('accepts roundDraft.replace message', () => {
+    const result = parseClientMessage(
+      JSON.stringify({ type: 'roundDraft.replace', roundNumber: 1, intents: [] }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts roundDraft.lock message', () => {
+    const result = parseClientMessage(
+      JSON.stringify({ type: 'roundDraft.lock', roundNumber: 1 }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects legacy action message in round-only transport', () => {
+    const result = parseClientMessage(
+      JSON.stringify({ type: 'action', action: { type: 'EndTurn' } }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.error).toBe('Unknown message type');
+    expect(result.rejection).toEqual({
+      type: 'transport.rejected',
+      code: 'unknown_message_type',
+      error: 'Unknown message type',
+      requestType: 'action',
+    });
   });
 });
 
@@ -99,6 +166,29 @@ describe('game service validation', () => {
     }
     expect(thirdJoin.error).toBe('Session is full');
   });
+
+  it('rejects round draft intent with foreign playerId relative to socket', () => {
+    const registry = new SessionRegistry(() => buildEngine());
+    const service = new GameService(registry);
+    expect(service.join('s1', { playerId: 'p1', characterId: 'char_1', deck: [] }, 1).ok).toBe(true);
+
+    const result = service.replaceRoundDraft('s1', 'p1', 1, [
+      {
+        intentId: 'draft_1',
+        roundNumber: 1,
+        playerId: 'p2',
+        actorId: 'char_1',
+        queueIndex: 0,
+        kind: 'Evade',
+      },
+    ]);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.error).toBe('Round intent playerId does not match socket player');
+  });
 });
 
 describe('game service end-to-end PvP flow', () => {
@@ -131,6 +221,10 @@ describe('game service end-to-end PvP flow', () => {
     expect(sessionA.session.getState().hands.player_2).toHaveLength(2);
     expect(sessionA.session.getState().decks.player_1.cards).toHaveLength(0);
     expect(sessionA.session.getState().decks.player_2.cards).toHaveLength(0);
+    expect(sessionA.session.getState().players.player_1.mana).toBe(10);
+    expect(sessionA.session.getState().players.player_2.mana).toBe(10);
+    expect(sessionA.session.getState().players.player_1.actionPoints).toBe(3);
+    expect(sessionA.session.getState().players.player_2.actionPoints).toBe(3);
 
     const endTurnPlayer1 = service.applyAction('match-1', 'player_1', {
       type: 'EndTurn',
@@ -158,5 +252,57 @@ describe('game service end-to-end PvP flow', () => {
     expect(endTurnPlayer2.state.turn.activePlayerId).toBe('player_1');
     expect(endTurnPlayer2.state.turn.number).toBe(3);
     expect(endTurnPlayer2.state.actionLog).toHaveLength(2);
+  });
+
+  it('lets two players submit drafts, lock round, and resolve into next round', () => {
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
+    const service = new GameService(registry);
+
+    expect(service.join('round-1', {
+      playerId: 'player_1',
+      characterId: 'char_1',
+      deck: [{ cardId: '1', quantity: 1 }],
+    }, 123).ok).toBe(true);
+    expect(service.join('round-1', {
+      playerId: 'player_2',
+      characterId: 'char_2',
+      deck: [{ cardId: '1', quantity: 1 }],
+    }, 123).ok).toBe(true);
+
+    const replaceA = service.replaceRoundDraft('round-1', 'player_1', 1, []);
+    const replaceB = service.replaceRoundDraft('round-1', 'player_2', 1, [
+      {
+        intentId: 'draft_fireball',
+        roundNumber: 1,
+        playerId: 'player_2',
+        actorId: 'char_2',
+        queueIndex: 0,
+        kind: 'CastSpell',
+        cardInstanceId: 'card_player_2_1',
+        target: {
+          targetId: 'char_1',
+          targetType: 'enemyCharacter',
+        },
+      },
+    ]);
+
+    expect(replaceA.ok).toBe(true);
+    expect(replaceB.ok).toBe(true);
+
+    const lockA = service.lockRoundDraft('round-1', 'player_1', 1);
+    expect(lockA.ok).toBe(true);
+    if (!lockA.ok) {
+      return;
+    }
+    expect(lockA.resolved).toBeNull();
+
+    const lockB = service.lockRoundDraft('round-1', 'player_2', 1);
+    expect(lockB.ok).toBe(true);
+    if (!lockB.ok) {
+      return;
+    }
+    expect(lockB.resolved).not.toBeNull();
+    expect(lockB.state.round.number).toBe(2);
+    expect(lockB.state.round.status).toBe('draft');
   });
 });

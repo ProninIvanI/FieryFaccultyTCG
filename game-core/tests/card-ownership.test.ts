@@ -97,4 +97,58 @@ describe('game-core card ownership and location validation', () => {
     expect(result.ok).toBe(false);
     expect(result.errors).toContain('Invalid card location: deck');
   });
+
+  it('rejects summoning when player already controls two creatures', () => {
+    const registry = new CardRegistry(cards);
+    const state = createInitialState(123, [
+      {
+        playerId: 'player_1',
+        characterId: 'char_1',
+        deck: [
+          { instanceId: 'card_1', ownerId: 'player_1', definitionId: 'sprite', location: 'deck' },
+          { instanceId: 'card_2', ownerId: 'player_1', definitionId: 'sprite', location: 'deck' },
+          { instanceId: 'card_3', ownerId: 'player_1', definitionId: 'sprite', location: 'deck' },
+        ],
+      },
+      {
+        playerId: 'player_2',
+        characterId: 'char_2',
+        deck: [{ instanceId: 'enemy_1', ownerId: 'player_2', definitionId: 'sprite', location: 'deck' }],
+      },
+    ]);
+
+    state.players.player_1.mana = 5;
+    state.creatures.creature_1 = {
+      creatureId: 'creature_1',
+      ownerId: 'player_1',
+      hp: 3,
+      maxHp: 3,
+      attack: 1,
+      speed: 1,
+    };
+    state.creatures.creature_2 = {
+      creatureId: 'creature_2',
+      ownerId: 'player_1',
+      hp: 3,
+      maxHp: 3,
+      attack: 1,
+      speed: 1,
+    };
+
+    const engine = new GameEngine(state, registry);
+
+    const action: SummonAction = {
+      type: 'Summon',
+      actorId: 'char_1',
+      playerId: 'player_1',
+      cardInstanceId: 'card_1',
+    };
+
+    const result = engine.processAction(action);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('Creature limit reached (2)');
+    expect(state.hands.player_1).toContain('card_1');
+    expect(Object.keys(state.creatures)).toHaveLength(2);
+  });
 });

@@ -1,11 +1,13 @@
 import { WS_URL } from '@/constants';
 import {
-  GameActionPayload,
   GameStateSnapshot,
   JoinMatchMessage,
+  LockRoundDraftMessage,
   PvpConnectionStatus,
   PvpServiceEvent,
   PvpServerMessage,
+  ReplaceRoundDraftMessage,
+  RoundActionIntentDraft,
 } from '@/types';
 
 type EventListener = (event: PvpServiceEvent) => void;
@@ -16,11 +18,78 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isStateMessage = (value: unknown): value is Extract<PvpServerMessage, { type: 'state' }> =>
   isRecord(value) && value.type === 'state' && isRecord(value.state);
 
+const isTransportRejectedMessage = (
+  value: unknown
+): value is Extract<PvpServerMessage, { type: 'transport.rejected' }> =>
+  isRecord(value) &&
+  value.type === 'transport.rejected' &&
+  typeof value.code === 'string' &&
+  typeof value.error === 'string' &&
+  typeof value.requestType === 'string';
+
+const isJoinRejectedMessage = (
+  value: unknown
+): value is Extract<PvpServerMessage, { type: 'join.rejected' }> =>
+  isRecord(value) &&
+  value.type === 'join.rejected' &&
+  typeof value.sessionId === 'string' &&
+  typeof value.code === 'string' &&
+  typeof value.error === 'string';
+
 const isErrorMessage = (value: unknown): value is Extract<PvpServerMessage, { type: 'error' }> =>
   isRecord(value) && value.type === 'error' && typeof value.error === 'string';
 
 const isAckMessage = (value: unknown): value is Extract<PvpServerMessage, { type: 'ack' }> =>
   isRecord(value) && value.type === 'ack';
+
+const isRoundDraftAcceptedMessage = (
+  value: unknown
+): value is Extract<PvpServerMessage, { type: 'roundDraft.accepted' }> =>
+  isRecord(value) && value.type === 'roundDraft.accepted' && typeof value.roundNumber === 'number';
+
+const isRoundDraftRejectedMessage = (
+  value: unknown
+): value is Extract<PvpServerMessage, { type: 'roundDraft.rejected' }> =>
+  isRecord(value) &&
+  value.type === 'roundDraft.rejected' &&
+  (value.operation === 'replace' || value.operation === 'lock') &&
+  typeof value.roundNumber === 'number' &&
+  typeof value.code === 'string' &&
+  typeof value.error === 'string' &&
+  Array.isArray(value.errors);
+
+const isRoundDraftSnapshotMessage = (
+  value: unknown
+): value is Extract<PvpServerMessage, { type: 'roundDraft.snapshot' }> =>
+  isRecord(value) &&
+  value.type === 'roundDraft.snapshot' &&
+  typeof value.roundNumber === 'number' &&
+  typeof value.locked === 'boolean' &&
+  Array.isArray(value.intents);
+
+const isRoundStatusMessage = (value: unknown): value is Extract<PvpServerMessage, { type: 'roundStatus' }> =>
+  isRecord(value) &&
+  value.type === 'roundStatus' &&
+  typeof value.roundNumber === 'number' &&
+  typeof value.selfLocked === 'boolean' &&
+  typeof value.opponentLocked === 'boolean';
+
+const isRoundResolvedMessage = (value: unknown): value is Extract<PvpServerMessage, { type: 'roundResolved' }> =>
+  isRecord(value) &&
+  value.type === 'roundResolved' &&
+  isRecord(value.result) &&
+  typeof value.result.roundNumber === 'number' &&
+  Array.isArray(value.result.orderedActions) &&
+  value.result.orderedActions.every(
+    (action) =>
+      isRecord(action) &&
+      typeof action.intentId === 'string' &&
+      typeof action.playerId === 'string' &&
+      typeof action.layer === 'string' &&
+      typeof action.status === 'string' &&
+      typeof action.reasonCode === 'string' &&
+      typeof action.summary === 'string',
+  );
 
 const parseServerMessage = (raw: string): PvpServerMessage | null => {
   try {
@@ -28,10 +97,31 @@ const parseServerMessage = (raw: string): PvpServerMessage | null => {
     if (isStateMessage(parsed)) {
       return parsed;
     }
+    if (isTransportRejectedMessage(parsed)) {
+      return parsed;
+    }
+    if (isJoinRejectedMessage(parsed)) {
+      return parsed;
+    }
     if (isErrorMessage(parsed)) {
       return parsed;
     }
     if (isAckMessage(parsed)) {
+      return parsed;
+    }
+    if (isRoundDraftAcceptedMessage(parsed)) {
+      return parsed;
+    }
+    if (isRoundDraftRejectedMessage(parsed)) {
+      return parsed;
+    }
+    if (isRoundDraftSnapshotMessage(parsed)) {
+      return parsed;
+    }
+    if (isRoundStatusMessage(parsed)) {
+      return parsed;
+    }
+    if (isRoundResolvedMessage(parsed)) {
       return parsed;
     }
     return null;
@@ -105,14 +195,24 @@ class GameWsService {
     this.send(payload);
   }
 
-  sendAction(action: GameActionPayload): void {
-    this.send({
-      type: 'action',
-      action,
-    });
+  replaceRoundDraft(roundNumber: number, intents: RoundActionIntentDraft[]): void {
+    const message: ReplaceRoundDraftMessage = {
+      type: 'roundDraft.replace',
+      roundNumber,
+      intents,
+    };
+    this.send(message);
   }
 
-  private send(message: { type: 'join'; sessionId: string; token: string; deckId: string; seed?: number } | { type: 'action'; action: GameActionPayload }): void {
+  lockRound(roundNumber: number): void {
+    const message: LockRoundDraftMessage = {
+      type: 'roundDraft.lock',
+      roundNumber,
+    };
+    this.send(message);
+  }
+
+  private send(message: JoinMatchMessage | ReplaceRoundDraftMessage | LockRoundDraftMessage): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket is not connected');
     }
@@ -136,8 +236,70 @@ class GameWsService {
       return;
     }
 
+    if (parsed.type === 'transport.rejected') {
+      this.emit({
+        type: 'transportRejected',
+        code: parsed.code,
+        error: parsed.error,
+        requestType: parsed.requestType,
+      });
+      return;
+    }
+
+    if (parsed.type === 'join.rejected') {
+      this.emit({
+        type: 'joinRejected',
+        sessionId: parsed.sessionId,
+        code: parsed.code,
+        error: parsed.error,
+      });
+      return;
+    }
+
     if (parsed.type === 'error') {
       this.emit({ type: 'error', error: parsed.error });
+      return;
+    }
+
+    if (parsed.type === 'roundDraft.accepted') {
+      this.emit({ type: 'roundDraftAccepted', roundNumber: parsed.roundNumber });
+      return;
+    }
+
+    if (parsed.type === 'roundDraft.rejected') {
+      this.emit({
+        type: 'roundDraftRejected',
+        operation: parsed.operation,
+        roundNumber: parsed.roundNumber,
+        code: parsed.code,
+        error: parsed.error,
+        errors: parsed.errors,
+      });
+      return;
+    }
+
+    if (parsed.type === 'roundDraft.snapshot') {
+      this.emit({
+        type: 'roundDraftSnapshot',
+        roundNumber: parsed.roundNumber,
+        locked: parsed.locked,
+        intents: parsed.intents,
+      });
+      return;
+    }
+
+    if (parsed.type === 'roundStatus') {
+      this.emit({
+        type: 'roundStatus',
+        roundNumber: parsed.roundNumber,
+        selfLocked: parsed.selfLocked,
+        opponentLocked: parsed.opponentLocked,
+      });
+      return;
+    }
+
+    if (parsed.type === 'roundResolved') {
+      this.emit({ type: 'roundResolved', result: parsed.result });
       return;
     }
 

@@ -1,5 +1,7 @@
 import { Action, CardLocation, GameState, PhaseType } from '../types';
 
+export const MAX_CREATURES_PER_PLAYER = 2;
+
 export const validatePhase = (state: GameState, allowed: PhaseType[]): string[] => {
   if (!allowed.includes(state.phase.current)) {
     return [`Invalid phase: ${state.phase.current}`];
@@ -111,6 +113,14 @@ export const validateTargetType = (
     default:
       return ['Unknown target type'];
   }
+};
+
+export const validateCreatureBoardLimit = (state: GameState, playerId: string): string[] => {
+  const creatureCount = Object.values(state.creatures).filter((creature) => creature.ownerId === playerId).length;
+  if (creatureCount >= MAX_CREATURES_PER_PLAYER) {
+    return [`Creature limit reached (${MAX_CREATURES_PER_PLAYER})`];
+  }
+  return [];
 };
 
 export const validateActionBase = (action: Action, state: GameState): string[] => {

@@ -10,16 +10,34 @@ import {
   toCatalogCardUiType,
   type CatalogCharacterSummary,
 } from '@game-core/cards/catalog';
+import type { ResolutionLayer, RoundResolutionResult, TargetType } from '@game-core/types';
+import {
+  getResolutionLayerLabel,
+  getRoundDraftRejectCodeLabel,
+  getRoundDraftValidationCodeLabel,
+  getRoundActionReasonLabel,
+  getTargetTypeLabel,
+} from '@game-core/rounds/presentation';
 import { Card, HomeLinkButton, PageShell } from '@/components';
 import { ROUTES } from '@/constants';
 import rawCardData from '@/data/cards.json';
 import { authService, deckService, gameWsService } from '@/services';
-import { GameStateSnapshot, PvpConnectionStatus, PvpServiceEvent, UserDeck } from '@/types';
+import {
+  GameStateSnapshot,
+  JoinRejectedServerMessage,
+  PvpConnectionStatus,
+  PvpServiceEvent,
+  RoundActionIntentDraft,
+  RoundDraftRejectedServerMessage,
+  TransportRejectedServerMessage,
+  UserDeck,
+} from '@/types';
 import styles from './PlayPvpPage.module.css';
 
 interface MatchSummary {
-  activePlayerId: string;
-  turnNumber: number;
+  roundNumber: number;
+  roundStatus: string;
+  initiativePlayerId: string;
   phase: string;
   playerCount: number;
   actionLogCount: number;
@@ -37,7 +55,7 @@ interface PlayerBoardSummary extends LocalPlayerSummary {
   deckSize: number;
   handSize: number;
   discardSize: number;
-  isActive: boolean;
+  locked: boolean;
 }
 
 interface HandCardSummary {
@@ -60,6 +78,7 @@ interface CreatureSummary {
   maxHp: number;
   attack: number;
   speed: number;
+  summonedAtRound?: number;
 }
 
 interface MatchEventSummary {
@@ -85,6 +104,16 @@ interface TargetCandidateSummary {
   kind: 'character' | 'creature';
 }
 
+interface RoundSyncSummary {
+  roundNumber: number;
+  selfLocked: boolean;
+  opponentLocked: boolean;
+}
+
+type RoundDraftRejectedSummary = Omit<RoundDraftRejectedServerMessage, 'type'>;
+type JoinRejectedSummary = Omit<JoinRejectedServerMessage, 'type'>;
+type TransportRejectedSummary = Omit<TransportRejectedServerMessage, 'type'>;
+
 const getCardTypeLabel = (cardType: string): string => {
   const catalogType = toCatalogCardUiType(cardType);
   if (catalogType) {
@@ -105,20 +134,70 @@ const getCardAccentClassName = (cardType: string): string => {
   return styles.cardAccentNeutral;
 };
 
-const getTargetTypeLabel = (targetType: ReturnType<typeof inferTargetTypeFromCatalog> | null): string => {
-  switch (targetType) {
-    case 'enemyCharacter':
-      return 'Вражеский маг';
-    case 'allyCharacter':
-      return 'Союзный маг';
-    case 'creature':
-      return 'Существо';
-    case 'self':
-      return 'Себя';
-    case 'any':
-      return 'Любая цель';
+const getRoundStatusLabel = (status: string): string => {
+  switch (status) {
+    case 'draft':
+      return 'Набор действий';
+    case 'locked_waiting':
+      return 'Ожидание соперника';
+    case 'resolving':
+      return 'Резолв';
+    case 'resolved':
+      return 'Завершён';
     default:
-      return 'Цель не определена';
+      return status || 'Неизвестно';
+  }
+};
+
+const getJoinRejectCodeLabel = (code: JoinRejectedServerMessage['code']): string => {
+  switch (code) {
+    case 'unauthorized':
+      return 'Сессия входа недействительна или истекла';
+    case 'deck_unavailable':
+      return 'Выбранная колода недоступна для этого игрока';
+    case 'session_full':
+      return 'В матче уже заняты оба PvP-слота';
+    case 'seed_mismatch':
+      return 'Seed не совпадает с уже созданной сессией';
+    case 'invalid_payload':
+      return 'Запрос на подключение содержит некорректные данные';
+    default:
+      return 'Подключение к матчу отклонено сервером';
+  }
+};
+
+const getTransportRejectCodeLabel = (code: TransportRejectedServerMessage['code']): string => {
+  switch (code) {
+    case 'invalid_json':
+      return 'Сообщение не удалось разобрать как JSON';
+    case 'invalid_payload':
+      return 'Сообщение пришло в некорректном формате';
+    case 'unknown_message_type':
+      return 'Тип WS-сообщения не поддерживается сервером';
+    default:
+      return 'Транспортный запрос отклонён сервером';
+  }
+};
+
+const getIntentPreviewLayer = (
+  intent: RoundActionIntentDraft,
+  selectedTargetType?: TargetType
+): ResolutionLayer => {
+  switch (intent.kind) {
+    case 'Summon':
+      return 'summon';
+    case 'Evade':
+      return 'defensive_modifiers';
+    case 'Attack':
+      return 'attacks';
+    case 'CastSpell':
+      return selectedTargetType === 'self' || selectedTargetType === 'allyCharacter'
+        ? 'defensive_spells'
+        : 'offensive_control_spells';
+    case 'PlayCard':
+      return selectedTargetType === 'self' || selectedTargetType === 'allyCharacter'
+        ? 'defensive_modifiers'
+        : 'other_modifiers';
   }
 };
 
@@ -174,22 +253,44 @@ const getCharacterStatusLabel = (
 };
 
 const getMatchSummary = (state: GameStateSnapshot | null): MatchSummary | null => {
-  if (!state || !isRecord(state.turn) || !isRecord(state.phase) || !isRecord(state.players)) {
+  if (!state || !isRecord(state.round) || !isRecord(state.players)) {
     return null;
   }
 
-  const activePlayerId = typeof state.turn.activePlayerId === 'string' ? state.turn.activePlayerId : '';
-  const turnNumber = typeof state.turn.number === 'number' ? state.turn.number : 0;
-  const phase = typeof state.phase.current === 'string' ? state.phase.current : 'Unknown';
+  const roundNumber = typeof state.round.number === 'number' ? state.round.number : 0;
+  const roundStatus = typeof state.round.status === 'string' ? state.round.status : 'draft';
+  const initiativePlayerId =
+    typeof state.round.initiativePlayerId === 'string' ? state.round.initiativePlayerId : '';
+  const phase = isRecord(state.phase) && typeof state.phase.current === 'string' ? state.phase.current : 'RoundPhase';
   const playerCount = Object.keys(state.players).length;
   const actionLogCount = Array.isArray(state.actionLog) ? state.actionLog.length : 0;
 
   return {
-    activePlayerId,
-    turnNumber,
+    roundNumber,
+    roundStatus,
+    initiativePlayerId,
     phase,
     playerCount,
     actionLogCount,
+  };
+};
+
+const getRoundSyncFromState = (state: GameStateSnapshot | null, playerId: string): RoundSyncSummary | null => {
+  if (!state || !isRecord(state.round) || !isRecord(state.round.players) || !playerId) {
+    return null;
+  }
+
+  const roundNumber = typeof state.round.number === 'number' ? state.round.number : 0;
+  const selfRoundPlayer = state.round.players[playerId];
+  const opponentRoundPlayer = Object.entries(state.round.players).find(([id]) => id !== playerId)?.[1];
+
+  return {
+    roundNumber,
+    selfLocked: isRecord(selfRoundPlayer) && typeof selfRoundPlayer.locked === 'boolean' ? selfRoundPlayer.locked : false,
+    opponentLocked:
+      isRecord(opponentRoundPlayer) && typeof opponentRoundPlayer.locked === 'boolean'
+        ? opponentRoundPlayer.locked
+        : false,
   };
 };
 
@@ -246,8 +347,7 @@ const getPlayerBoardSummaries = (state: GameStateSnapshot | null): PlayerBoardSu
     return [];
   }
 
-  const activePlayerId =
-    isRecord(state.turn) && typeof state.turn.activePlayerId === 'string' ? state.turn.activePlayerId : '';
+  const roundPlayers = isRecord(state.round) && isRecord(state.round.players) ? state.round.players : null;
 
   return Object.keys(state.players).flatMap((playerId) => {
     const baseSummary = getLocalPlayerSummary(state, playerId);
@@ -255,13 +355,16 @@ const getPlayerBoardSummaries = (state: GameStateSnapshot | null): PlayerBoardSu
       return [];
     }
 
+    const roundPlayer = roundPlayers?.[playerId];
+    const locked = isRecord(roundPlayer) && typeof roundPlayer.locked === 'boolean' ? roundPlayer.locked : false;
+
     return [
       {
         ...baseSummary,
         deckSize: getDeckSize(state.decks, playerId),
         handSize: getZoneSize(state.hands, playerId),
         discardSize: getZoneSize(state.discardPiles, playerId),
-        isActive: activePlayerId === playerId,
+        locked,
       },
     ];
   });
@@ -330,6 +433,7 @@ const getCreatureSummaries = (state: GameStateSnapshot | null): CreatureSummary[
       maxHp: typeof creature.maxHp === 'number' ? creature.maxHp : 0,
       attack: typeof creature.attack === 'number' ? creature.attack : 0,
       speed: typeof creature.speed === 'number' ? creature.speed : 0,
+      summonedAtRound: typeof creature.summonedAtRound === 'number' ? creature.summonedAtRound : undefined,
     }];
   });
 };
@@ -416,7 +520,13 @@ const handleServiceEvent = (
   event: PvpServiceEvent,
   setStatus: (status: PvpConnectionStatus) => void,
   setMatchState: (state: GameStateSnapshot | null) => void,
-  setError: (value: string) => void
+  setError: (value: string) => void,
+  setTransportRejected: (value: TransportRejectedSummary | null) => void,
+  setJoinRejected: (value: JoinRejectedSummary | null) => void,
+  setRoundDraft: (value: RoundActionIntentDraft[] | ((current: RoundActionIntentDraft[]) => RoundActionIntentDraft[])) => void,
+  setRoundSync: (value: RoundSyncSummary | null | ((current: RoundSyncSummary | null) => RoundSyncSummary | null)) => void,
+  setLastResolvedRound: (value: RoundResolutionResult | null) => void,
+  setRoundDraftRejected: (value: RoundDraftRejectedSummary | null) => void,
 ): void => {
   if (event.type === 'status') {
     setStatus(event.status);
@@ -428,6 +538,79 @@ const handleServiceEvent = (
 
   if (event.type === 'state') {
     setMatchState(event.state);
+    setTransportRejected(null);
+    setJoinRejected(null);
+    setError('');
+    return;
+  }
+
+  if (event.type === 'transportRejected') {
+    setJoinRejected(null);
+    setTransportRejected({
+      code: event.code,
+      error: event.error,
+      requestType: event.requestType,
+    });
+    setError(event.error);
+    return;
+  }
+
+  if (event.type === 'joinRejected') {
+    setTransportRejected(null);
+    setJoinRejected({
+      sessionId: event.sessionId,
+      code: event.code,
+      error: event.error,
+    });
+    setError(event.error);
+    return;
+  }
+
+  if (event.type === 'roundDraftAccepted') {
+    setRoundDraftRejected(null);
+    setError('');
+    return;
+  }
+
+  if (event.type === 'roundDraftRejected') {
+    setRoundDraftRejected({
+      operation: event.operation,
+      roundNumber: event.roundNumber,
+      code: event.code,
+      error: event.error,
+      errors: [...event.errors],
+    });
+    setError(event.error);
+    return;
+  }
+
+  if (event.type === 'roundDraftSnapshot') {
+    setRoundDraft(
+      [...event.intents].sort((left, right) => left.queueIndex - right.queueIndex)
+    );
+    setRoundSync((current) => ({
+      roundNumber: event.roundNumber,
+      selfLocked: event.locked,
+      opponentLocked: current?.roundNumber === event.roundNumber ? current.opponentLocked : false,
+    }));
+    setRoundDraftRejected(null);
+    setError('');
+    return;
+  }
+
+  if (event.type === 'roundStatus') {
+    setRoundSync({
+      roundNumber: event.roundNumber,
+      selfLocked: event.selfLocked,
+      opponentLocked: event.opponentLocked,
+    });
+    setError('');
+    return;
+  }
+
+  if (event.type === 'roundResolved') {
+    setLastResolvedRound(event.result);
+    setRoundDraftRejected(null);
     setError('');
     return;
   }
@@ -452,10 +635,24 @@ export const PlayPvpPage = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [joinedSessionId, setJoinedSessionId] = useState('');
+  const [transportRejected, setTransportRejected] = useState<TransportRejectedSummary | null>(null);
+  const [joinRejected, setJoinRejected] = useState<JoinRejectedSummary | null>(null);
   const [selection, setSelection] = useState<BattlefieldSelection>(null);
   const [draftTargetId, setDraftTargetId] = useState('');
+  const [roundDraft, setRoundDraft] = useState<RoundActionIntentDraft[]>([]);
+  const [roundSync, setRoundSync] = useState<RoundSyncSummary | null>(null);
+  const [roundDraftRejected, setRoundDraftRejected] = useState<RoundDraftRejectedSummary | null>(null);
+  const [lastResolvedRound, setLastResolvedRound] = useState<RoundResolutionResult | null>(null);
+  const [lastResolvedDraft, setLastResolvedDraft] = useState<RoundActionIntentDraft[]>([]);
   const hasLiveStateRef = useRef(false);
   const pendingSessionIdRef = useRef('');
+  const intentSequenceRef = useRef(0);
+  const currentRoundRef = useRef<number | null>(null);
+  const currentRoundDraftRef = useRef<RoundActionIntentDraft[]>([]);
+
+  useEffect(() => {
+    currentRoundDraftRef.current = roundDraft;
+  }, [roundDraft]);
 
   useEffect(() => {
     const unsubscribe = gameWsService.subscribe((event) => {
@@ -465,17 +662,34 @@ export const PlayPvpPage = () => {
           setJoinedSessionId(pendingSessionIdRef.current);
         }
         setMatchState(event.state);
+        setTransportRejected(null);
+        setJoinRejected(null);
         setError('');
         return;
       }
 
-      if (event.type === 'error' && !hasLiveStateRef.current) {
+      if ((event.type === 'error' || event.type === 'joinRejected' || event.type === 'transportRejected') && !hasLiveStateRef.current) {
         pendingSessionIdRef.current = '';
         setJoinedSessionId('');
         setMatchState(null);
       }
 
-      handleServiceEvent(event, setStatus, setMatchState, setError);
+      if (event.type === 'roundResolved') {
+        setLastResolvedDraft(currentRoundDraftRef.current.map((intent) => ({ ...intent })));
+      }
+
+      handleServiceEvent(
+        event,
+        setStatus,
+        setMatchState,
+        setError,
+        setTransportRejected,
+        setJoinRejected,
+        setRoundDraft,
+        setRoundSync,
+        setLastResolvedRound,
+        setRoundDraftRejected,
+      );
     });
 
     return () => {
@@ -514,6 +728,26 @@ export const PlayPvpPage = () => {
     };
   }, [authToken, deckId]);
 
+  useEffect(() => {
+    const nextRoundSync = getRoundSyncFromState(matchState, playerId);
+    if (!nextRoundSync) {
+      return;
+    }
+
+    if (currentRoundRef.current !== nextRoundSync.roundNumber) {
+      currentRoundRef.current = nextRoundSync.roundNumber;
+      setRoundDraft((currentDraft) =>
+        currentDraft.some((intent) => intent.roundNumber === nextRoundSync.roundNumber) ? currentDraft : []
+      );
+      setRoundDraftRejected(null);
+      setDraftTargetId('');
+      setRoundSync(nextRoundSync);
+      return;
+    }
+
+    setRoundSync((current) => current ?? nextRoundSync);
+  }, [matchState, playerId]);
+
   const matchSummary = useMemo(() => getMatchSummary(matchState), [matchState]);
   const localPlayer = useMemo(() => getLocalPlayerSummary(matchState, playerId), [matchState, playerId]);
   const playerBoards = useMemo(() => getPlayerBoardSummaries(matchState), [matchState]);
@@ -522,6 +756,7 @@ export const PlayPvpPage = () => {
   const matchEvents = useMemo(() => getMatchEvents(matchState), [matchState]);
   const alliedCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId === playerId), [creatures, playerId]);
   const enemyCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId !== playerId), [creatures, playerId]);
+  const canSummonMoreCreatures = alliedCreatures.length < 2;
   const enemyBoards = useMemo(() => playerBoards.filter((playerBoard) => playerBoard.playerId !== playerId), [playerBoards, playerId]);
   const localBoard = useMemo(
     () => playerBoards.find((playerBoard) => playerBoard.playerId === playerId) ?? null,
@@ -536,21 +771,22 @@ export const PlayPvpPage = () => {
     () => (primaryEnemyBoard?.characterId ? characterCatalogById.get(primaryEnemyBoard.characterId) ?? null : null),
     [primaryEnemyBoard]
   );
-  const isEnemySideActive = Boolean(matchSummary && matchSummary.activePlayerId && matchSummary.activePlayerId !== playerId);
-  const isLocalSideActive = Boolean(matchSummary && matchSummary.activePlayerId === playerId);
-  const canEndTurn = Boolean(
-    matchSummary &&
+  const currentRoundNumber = roundSync?.roundNumber ?? matchSummary?.roundNumber ?? 0;
+  const isEnemySideActive = Boolean(roundSync?.opponentLocked);
+  const isLocalSideActive = Boolean(roundSync?.selfLocked);
+  const canLockRound = Boolean(
+    currentRoundNumber > 0 &&
       localPlayer &&
       localPlayer.characterId &&
-      matchSummary.activePlayerId === playerId &&
-      status === 'connected'
+      status === 'connected' &&
+      !roundSync?.selfLocked
   );
-
   const canActFromHand = Boolean(
-    localPlayer &&
+    currentRoundNumber > 0 &&
+      localPlayer &&
       localPlayer.characterId &&
       status === 'connected' &&
-      matchSummary?.activePlayerId === playerId
+      !roundSync?.selfLocked
   );
   const selectedHandCard = useMemo(
     () => (selection?.kind === 'hand' ? localHandCards.find((card) => card.instanceId === selection.instanceId) ?? null : null),
@@ -565,13 +801,18 @@ export const PlayPvpPage = () => {
       selectedHandCard.cardType === 'summon' &&
       canActFromHand &&
       localPlayer &&
-      localPlayer.mana >= selectedHandCard.mana
+      localPlayer.mana >= selectedHandCard.mana &&
+      canSummonMoreCreatures
   );
   const selectedCardTargetType = useMemo(
     () => (selectedHandCard ? inferTargetTypeFromCatalog(selectedHandCard.cardType) : null),
     [selectedHandCard]
   );
   const isSelectedCardTargetedAction = Boolean(selectedHandCard && selectedHandCard.cardType !== 'summon' && localPlayer);
+  const isSelectedCreatureOwnedByLocalPlayer = Boolean(selectedCreature && selectedCreature.ownerId === playerId);
+  const selectedCreatureHasSummoningSickness = Boolean(
+    selectedCreature && currentRoundNumber > 0 && selectedCreature.summonedAtRound === currentRoundNumber
+  );
   const targetDraft = useMemo<TargetDraft | null>(() => {
     if (!selectedHandCard || !isSelectedCardTargetedAction || !selectedCardTargetType || !draftTargetId) {
       return null;
@@ -583,22 +824,59 @@ export const PlayPvpPage = () => {
       targetId: draftTargetId,
     };
   }, [draftTargetId, isSelectedCardTargetedAction, selectedCardTargetType, selectedHandCard]);
+  const attackTargetDraft = useMemo<TargetDraft | null>(() => {
+    if (!selectedCreature || !isSelectedCreatureOwnedByLocalPlayer || !draftTargetId) {
+      return null;
+    }
+
+    return {
+      sourceInstanceId: selectedCreature.creatureId,
+      targetType: enemyCreatures.some((creature) => creature.creatureId === draftTargetId) ? 'creature' : 'enemyCharacter',
+      targetId: draftTargetId,
+    };
+  }, [draftTargetId, enemyCreatures, isSelectedCreatureOwnedByLocalPlayer, selectedCreature]);
   const targetCandidates = useMemo<TargetCandidateSummary[]>(() => {
     const candidates: TargetCandidateSummary[] = [];
 
-    if (!localPlayer || !selectedCardTargetType) {
+    if (!localPlayer) {
       return candidates;
     }
 
-    if (selectedCardTargetType === 'allyCharacter' || selectedCardTargetType === 'self' || selectedCardTargetType === 'any') {
-      candidates.push({
-        id: localPlayer.characterId,
-        label: 'Твой маг',
-        kind: 'character',
-      });
+    if (selectedCardTargetType) {
+      if (selectedCardTargetType === 'allyCharacter' || selectedCardTargetType === 'self' || selectedCardTargetType === 'any') {
+        candidates.push({
+          id: localPlayer.characterId,
+          label: 'Твой маг',
+          kind: 'character',
+        });
+      }
+
+      if (selectedCardTargetType === 'enemyCharacter' || selectedCardTargetType === 'any') {
+        enemyBoards.forEach((board) => {
+          if (board.characterId) {
+            candidates.push({
+              id: board.characterId,
+              label: `Маг ${board.playerId}`,
+              kind: 'character',
+            });
+          }
+        });
+      }
+
+      if (selectedCardTargetType === 'creature' || selectedCardTargetType === 'any') {
+        creatures.forEach((creature) => {
+          candidates.push({
+            id: creature.creatureId,
+            label: creature.ownerId === playerId ? `Твое существо ${creature.creatureId}` : `Существо ${creature.creatureId}`,
+            kind: 'creature',
+          });
+        });
+      }
+
+      return candidates;
     }
 
-    if (selectedCardTargetType === 'enemyCharacter' || selectedCardTargetType === 'any') {
+    if (isSelectedCreatureOwnedByLocalPlayer) {
       enemyBoards.forEach((board) => {
         if (board.characterId) {
           candidates.push({
@@ -608,24 +886,101 @@ export const PlayPvpPage = () => {
           });
         }
       });
-    }
 
-    if (selectedCardTargetType === 'creature' || selectedCardTargetType === 'any') {
-      creatures.forEach((creature) => {
+      enemyCreatures.forEach((creature) => {
         candidates.push({
           id: creature.creatureId,
-          label: creature.ownerId === playerId ? `Твое существо ${creature.creatureId}` : `Существо ${creature.creatureId}`,
+          label: `Существо ${creature.creatureId}`,
           kind: 'creature',
         });
       });
     }
 
     return candidates;
-  }, [creatures, enemyBoards, localPlayer, playerId, selectedCardTargetType]);
+  }, [creatures, enemyBoards, enemyCreatures, isSelectedCreatureOwnedByLocalPlayer, localPlayer, playerId, selectedCardTargetType]);
+  const knownTargetLabelsById = useMemo(() => {
+    const labelMap = new Map<string, string>();
+
+    if (localPlayer?.characterId) {
+      labelMap.set(localPlayer.characterId, 'Твой маг');
+    }
+
+    enemyBoards.forEach((board) => {
+      if (board.characterId) {
+        labelMap.set(board.characterId, `Маг ${board.playerId}`);
+      }
+    });
+
+    creatures.forEach((creature) => {
+      labelMap.set(
+        creature.creatureId,
+        creature.ownerId === playerId ? `Твое существо ${creature.creatureId}` : `Существо ${creature.creatureId}`,
+      );
+    });
+
+    return labelMap;
+  }, [creatures, enemyBoards, localPlayer, playerId]);
   const canSubmitTargetedAction = Boolean(targetDraft && localPlayer && status === 'connected' && canActFromHand);
+  const canQueueEvade = Boolean(selectedCreature && isSelectedCreatureOwnedByLocalPlayer && canActFromHand);
+  const canQueueAttack = Boolean(
+    attackTargetDraft &&
+      selectedCreature &&
+      isSelectedCreatureOwnedByLocalPlayer &&
+      canActFromHand &&
+      !selectedCreatureHasSummoningSickness
+  );
 
   const isSelectableTarget = (candidateId: string): boolean => targetCandidates.some((candidate) => candidate.id === candidateId);
   const isDraftTargetActive = (candidateId: string): boolean => draftTargetId === candidateId;
+  const previewLayerByIntentId = useMemo(() => {
+    const layerMap = new Map<string, ResolutionLayer>();
+
+    roundDraft.forEach((intent) => {
+      const selectedTargetType =
+        intent.kind === 'CastSpell' || intent.kind === 'PlayCard' || intent.kind === 'Attack'
+          ? intent.target.targetType
+          : undefined;
+      layerMap.set(intent.intentId, getIntentPreviewLayer(intent, selectedTargetType));
+    });
+
+    return layerMap;
+  }, [roundDraft]);
+
+  const syncRoundDraft = (nextDraft: RoundActionIntentDraft[]): void => {
+    if (!currentRoundNumber) {
+      setError('Раунд ещё не синхронизирован с сервером.');
+      return;
+    }
+
+    const normalizedDraft = nextDraft.map((intent, index) => ({
+      ...intent,
+      roundNumber: currentRoundNumber,
+      queueIndex: index,
+    }));
+
+    try {
+      gameWsService.replaceRoundDraft(currentRoundNumber, normalizedDraft);
+      setRoundDraftRejected(null);
+      setRoundDraft(normalizedDraft);
+      setError('');
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : 'Не удалось обновить очередь раунда');
+    }
+  };
+
+  const buildIntentId = (kind: RoundActionIntentDraft['kind']): string => {
+    intentSequenceRef.current += 1;
+    return `${playerId || 'player'}_round_${currentRoundNumber}_${kind}_${intentSequenceRef.current}`;
+  };
+
+  const appendRoundIntent = (intent: RoundActionIntentDraft): void => {
+    if (!currentRoundNumber) {
+      setError('Раунд ещё не создан сервером.');
+      return;
+    }
+
+    syncRoundDraft([...roundDraft, intent]);
+  };
 
   const submitJoin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -672,8 +1027,16 @@ export const PlayPvpPage = () => {
     setJoinedSessionId('');
     setSelection(null);
     setDraftTargetId('');
+    setRoundDraft([]);
+    setTransportRejected(null);
+    setJoinRejected(null);
+    setRoundDraftRejected(null);
+    setRoundSync(null);
+    setLastResolvedRound(null);
+    setLastResolvedDraft([]);
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = normalizedSessionId;
+    currentRoundRef.current = null;
 
     try {
       await gameWsService.joinSession(joinPayload);
@@ -692,24 +1055,30 @@ export const PlayPvpPage = () => {
     setMatchState(null);
     setSelection(null);
     setDraftTargetId('');
+    setRoundDraft([]);
+    setTransportRejected(null);
+    setJoinRejected(null);
+    setRoundDraftRejected(null);
+    setRoundSync(null);
+    setLastResolvedRound(null);
+    setLastResolvedDraft([]);
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = '';
+    currentRoundRef.current = null;
   };
 
-  const handleEndTurn = () => {
-    if (!localPlayer) {
-      setError('Локальный игрок ещё не синхронизирован с матчем.');
+  const handleLockRound = () => {
+    if (!localPlayer || !currentRoundNumber) {
+      setError('Локальный игрок или раунд ещё не синхронизированы.');
       return;
     }
 
     try {
-      gameWsService.sendAction({
-        type: 'EndTurn',
-        actorId: localPlayer.characterId,
-        playerId: localPlayer.playerId,
-      });
+      gameWsService.lockRound(currentRoundNumber);
+      setRoundDraftRejected(null);
+      setError('');
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : 'Не удалось отправить действие');
+      setError(sendError instanceof Error ? sendError.message : 'Не удалось зафиксировать раунд');
     }
   };
 
@@ -724,16 +1093,15 @@ export const PlayPvpPage = () => {
       return;
     }
 
-    try {
-      gameWsService.sendAction({
-        type: 'Summon',
-        actorId: localPlayer.characterId,
-        playerId: localPlayer.playerId,
-        cardInstanceId: card.instanceId,
-      });
-    } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : 'Не удалось отправить действие');
-    }
+    appendRoundIntent({
+      intentId: buildIntentId('Summon'),
+      roundNumber: currentRoundNumber,
+      queueIndex: roundDraft.length,
+      kind: 'Summon',
+      actorId: localPlayer.characterId,
+      playerId: localPlayer.playerId,
+      cardInstanceId: card.instanceId,
+    });
   };
 
   const handleTargetedCardAction = () => {
@@ -742,21 +1110,180 @@ export const PlayPvpPage = () => {
       return;
     }
 
-    const actionType = selectedHandCard.cardType === 'spell' ? 'CastSpell' : 'PlayCard';
+    appendRoundIntent(
+      selectedHandCard.cardType === 'spell'
+        ? {
+            intentId: buildIntentId('CastSpell'),
+            roundNumber: currentRoundNumber,
+            queueIndex: roundDraft.length,
+            kind: 'CastSpell',
+            actorId: localPlayer.characterId,
+            playerId: localPlayer.playerId,
+            cardInstanceId: selectedHandCard.instanceId,
+            target: {
+              targetType: targetDraft.targetType,
+              targetId: targetDraft.targetId,
+            },
+          }
+        : {
+            intentId: buildIntentId('PlayCard'),
+            roundNumber: currentRoundNumber,
+            queueIndex: roundDraft.length,
+            kind: 'PlayCard',
+            actorId: localPlayer.characterId,
+            playerId: localPlayer.playerId,
+            cardInstanceId: selectedHandCard.instanceId,
+            target: {
+              targetType: targetDraft.targetType,
+              targetId: targetDraft.targetId,
+            },
+          }
+    );
+    setDraftTargetId('');
+  };
 
-    try {
-      gameWsService.sendAction({
-        type: actionType,
-        actorId: localPlayer.characterId,
-        playerId: localPlayer.playerId,
-        cardInstanceId: selectedHandCard.instanceId,
-        targetType: targetDraft.targetType,
-        targetId: targetDraft.targetId,
-      });
-    } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : 'Не удалось отправить действие');
+  const handleQueueAttack = () => {
+    if (!selectedCreature || !attackTargetDraft) {
+      setError('Сначала выбери своё существо и цель атаки.');
+      return;
+    }
+
+    appendRoundIntent({
+      intentId: buildIntentId('Attack'),
+      roundNumber: currentRoundNumber,
+      queueIndex: roundDraft.length,
+      kind: 'Attack',
+      actorId: selectedCreature.creatureId,
+      playerId,
+      sourceCreatureId: selectedCreature.creatureId,
+      target: {
+        targetType: attackTargetDraft.targetType,
+        targetId: attackTargetDraft.targetId,
+      },
+    });
+    setDraftTargetId('');
+  };
+
+  const handleQueueEvade = () => {
+    if (!selectedCreature) {
+      setError('Сначала выбери своё существо.');
+      return;
+    }
+
+    appendRoundIntent({
+      intentId: buildIntentId('Evade'),
+      roundNumber: currentRoundNumber,
+      queueIndex: roundDraft.length,
+      kind: 'Evade',
+      actorId: selectedCreature.creatureId,
+      playerId,
+    });
+    setDraftTargetId('');
+  };
+
+  const handleRemoveRoundIntent = (intentId: string) => {
+    syncRoundDraft(roundDraft.filter((intent) => intent.intentId !== intentId));
+  };
+
+  const handleMoveRoundIntent = (intentId: string, direction: -1 | 1) => {
+    const currentIndex = roundDraft.findIndex((intent) => intent.intentId === intentId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= roundDraft.length) {
+      return;
+    }
+
+    const nextDraft = [...roundDraft];
+    const [movedIntent] = nextDraft.splice(currentIndex, 1);
+    nextDraft.splice(nextIndex, 0, movedIntent);
+    syncRoundDraft(nextDraft);
+  };
+
+  const getIntentCardSummary = (instanceId: string): HandCardSummary | null =>
+    localHandCards.find((card) => card.instanceId === instanceId) ?? null;
+
+  const getIntentLabel = (intent: RoundActionIntentDraft): string => {
+    switch (intent.kind) {
+      case 'Summon': {
+        const card = getIntentCardSummary(intent.cardInstanceId);
+        return card ? `Призыв: ${card.name}` : `Призыв ${intent.cardInstanceId}`;
+      }
+      case 'CastSpell': {
+        const card = getIntentCardSummary(intent.cardInstanceId);
+        return card ? `Заклинание: ${card.name}` : `Заклинание ${intent.cardInstanceId}`;
+      }
+      case 'PlayCard': {
+        const card = getIntentCardSummary(intent.cardInstanceId);
+        return card ? `Розыгрыш: ${card.name}` : `Розыгрыш ${intent.cardInstanceId}`;
+      }
+      case 'Attack':
+        return `Атака: ${intent.sourceCreatureId}`;
+      case 'Evade':
+        return 'Уклонение';
     }
   };
+
+  const getIntentTargetLabel = (intent: RoundActionIntentDraft): string => {
+    if (intent.kind === 'Summon' || intent.kind === 'Evade') {
+      return 'Без цели';
+    }
+
+    const { targetId, targetType } = intent.target;
+    if (!targetId) {
+      return 'Цель уточняется';
+    }
+
+    const targetLabel = knownTargetLabelsById.get(targetId);
+    return `${getTargetTypeLabel(targetType ?? null)} -> ${targetLabel ?? targetId}`;
+  };
+  const lastResolvedDraftByIntentId = new Map(lastResolvedDraft.map((intent) => [intent.intentId, intent] as const));
+
+  const resolvedTimelineEntries = !lastResolvedRound
+    ? []
+    : lastResolvedRound.orderedActions.map((action, index) => {
+        const draft = lastResolvedDraftByIntentId.get(action.intentId) ?? null;
+        const isLocalAction = action.playerId === playerId;
+
+        return {
+          order: index + 1,
+          action,
+          draft,
+          ownerLabel: isLocalAction ? 'Ты' : `Соперник · ${action.playerId}`,
+          title: draft
+            ? getIntentLabel(draft)
+            : isLocalAction
+              ? `Твой intent ${action.intentId}`
+              : 'Скрытое действие соперника',
+          subtitle: draft
+            ? getIntentTargetLabel(draft)
+            : isLocalAction
+              ? 'Детали intent не восстановлены локально'
+              : `Игрок ${action.playerId}`,
+        };
+      });
+
+  const draftRejectionErrorsByIntentId = useMemo(() => {
+    const errorMap = new Map<string, RoundDraftRejectedSummary['errors']>();
+    if (!roundDraftRejected) {
+      return errorMap;
+    }
+
+    roundDraftRejected.errors.forEach((entry) => {
+      if (!entry.intentId) {
+        return;
+      }
+
+      const existing = errorMap.get(entry.intentId) ?? [];
+      existing.push(entry);
+      errorMap.set(entry.intentId, existing);
+    });
+
+    return errorMap;
+  }, [roundDraftRejected]);
+
+  const draftRejectionCommonErrors = useMemo(
+    () => roundDraftRejected?.errors.filter((entry) => !entry.intentId) ?? [],
+    [roundDraftRejected],
+  );
 
   useEffect(() => {
     if (!selection) {
@@ -924,6 +1451,30 @@ export const PlayPvpPage = () => {
                 ) : null}
               </div>
 
+              {transportRejected ? (
+                <div className={styles.roundRejectBox}>
+                  <strong>
+                    Server reject: transport {transportRejected.requestType ? `для ${transportRejected.requestType}` : 'без типа сообщения'}
+                  </strong>
+                  <div className={styles.roundQueueError}>
+                    <span className={styles.cardBadge}>{transportRejected.code}</span>
+                    <span>{getTransportRejectCodeLabel(transportRejected.code)}</span>
+                  </div>
+                  <span>{transportRejected.error}</span>
+                </div>
+              ) : null}
+              {joinRejected ? (
+                <div className={styles.roundRejectBox}>
+                  <strong>
+                    Server reject: join {joinRejected.sessionId ? `сессии ${joinRejected.sessionId}` : 'подключения к матчу'}
+                  </strong>
+                  <div className={styles.roundQueueError}>
+                    <span className={styles.cardBadge}>{joinRejected.code}</span>
+                    <span>{getJoinRejectCodeLabel(joinRejected.code)}</span>
+                  </div>
+                  <span>{joinRejected.error}</span>
+                </div>
+              ) : null}
               {error ? <div className={styles.errorBox}>{error}</div> : null}
             </form>
           </Card>
@@ -940,39 +1491,40 @@ export const PlayPvpPage = () => {
                 <div className={styles.matchSpotlight}>
                   <div className={styles.matchSpotlightHeader}>
                     <div>
-                      <span className={styles.summaryLabel}>Текущий ритм матча</span>
+                      <span className={styles.summaryLabel}>Скрытый раунд</span>
                       <strong className={styles.spotlightValue}>
-                        {matchSummary.activePlayerId === playerId ? 'Твой темп' : 'Темп соперника'}
+                        {roundSync?.selfLocked ? 'Твой выбор зафиксирован' : 'Собери очередь действий'}
                       </strong>
                     </div>
                     <button
                       className={styles.primaryButton}
                       type="button"
-                      onClick={handleEndTurn}
-                      disabled={!canEndTurn}
+                      onClick={handleLockRound}
+                      disabled={!canLockRound}
                     >
-                      Завершить ход
+                      {roundSync?.selfLocked ? 'Ожидание lock-in соперника' : 'Lock-in раунда'}
                     </button>
                   </div>
                   <p className={styles.paragraph}>
-                    Ход {matchSummary.turnNumber}, фаза {matchSummary.phase}. Сейчас активен {matchSummary.activePlayerId}.
+                    Раунд {matchSummary.roundNumber}, статус {getRoundStatusLabel(matchSummary.roundStatus)}. Инициатива у{' '}
+                    {matchSummary.initiativePlayerId || 'не определена'}.
                   </p>
                   <div className={styles.summaryGrid}>
                     <div className={styles.summaryTile}>
-                      <span className={styles.summaryLabel}>Ход</span>
-                      <strong>{matchSummary.turnNumber}</strong>
+                      <span className={styles.summaryLabel}>Раунд</span>
+                      <strong>{matchSummary.roundNumber}</strong>
                     </div>
                     <div className={styles.summaryTile}>
-                      <span className={styles.summaryLabel}>Фаза</span>
-                      <strong>{matchSummary.phase}</strong>
+                      <span className={styles.summaryLabel}>Статус</span>
+                      <strong>{getRoundStatusLabel(matchSummary.roundStatus)}</strong>
                     </div>
                     <div className={styles.summaryTile}>
-                      <span className={styles.summaryLabel}>Игроков</span>
-                      <strong>{matchSummary.playerCount}</strong>
+                      <span className={styles.summaryLabel}>Ты</span>
+                      <strong>{roundSync?.selfLocked ? 'Locked' : 'Drafting'}</strong>
                     </div>
                     <div className={styles.summaryTile}>
-                      <span className={styles.summaryLabel}>Action log</span>
-                      <strong>{matchSummary.actionLogCount}</strong>
+                      <span className={styles.summaryLabel}>Соперник</span>
+                      <strong>{roundSync?.opponentLocked ? 'Locked' : 'Drafting'}</strong>
                     </div>
                   </div>
                 </div>
@@ -1214,11 +1766,99 @@ export const PlayPvpPage = () => {
                     )}
                   </section>
 
-                    <section className={styles.handTray}>
+                  <section className={styles.roundQueuePanel}>
+                    <div className={styles.battleLaneHeader}>
+                      <div>
+                        <span className={styles.summaryLabel}>Action queue</span>
+                        <strong>Твой черновик раунда</strong>
+                      </div>
+                      <span className={styles.battleCount}>{roundDraft.length} действий</span>
+                    </div>
+                    {roundDraft.length > 0 ? (
+                      <div className={styles.roundQueueList}>
+                        {roundDraft.map((intent, index) => (
+                          <div key={intent.intentId} className={styles.roundQueueItem}>
+                            <div className={styles.roundQueueMain}>
+                              <span className={styles.roundQueueIndex}>{index + 1}</span>
+                              <div className={styles.roundQueueText}>
+                                <strong>{getIntentLabel(intent)}</strong>
+                                <span>{getIntentTargetLabel(intent)}</span>
+                              </div>
+                            </div>
+                            <div className={styles.roundQueueMeta}>
+                              <span className={styles.cardBadge}>
+                                {getResolutionLayerLabel(previewLayerByIntentId.get(intent.intentId) ?? 'other_modifiers')}
+                              </span>
+                              {draftRejectionErrorsByIntentId.get(intent.intentId)?.map((entry) => (
+                                <div key={`${intent.intentId}_${entry.code}_${entry.message}`} className={styles.roundQueueError}>
+                                  <span className={styles.cardBadge}>{entry.code}</span>
+                                  <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
+                                </div>
+                              ))}
+                              <div className={styles.roundQueueActions}>
+                                <button
+                                  className={styles.secondaryButton}
+                                  type="button"
+                                  onClick={() => handleMoveRoundIntent(intent.intentId, -1)}
+                                  disabled={Boolean(roundSync?.selfLocked) || index === 0}
+                                >
+                                  Влево
+                                </button>
+                                <button
+                                  className={styles.secondaryButton}
+                                  type="button"
+                                  onClick={() => handleMoveRoundIntent(intent.intentId, 1)}
+                                  disabled={Boolean(roundSync?.selfLocked) || index === roundDraft.length - 1}
+                                >
+                                  Вправо
+                                </button>
+                                <button
+                                  className={styles.secondaryButton}
+                                  type="button"
+                                  onClick={() => handleRemoveRoundIntent(intent.intentId)}
+                                  disabled={Boolean(roundSync?.selfLocked)}
+                                >
+                                  Убрать
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles.emptyState}>Очередь пуста. Выбери карты или существо и собери свой раунд слева направо.</div>
+                    )}
+                    {roundDraftRejected ? (
+                      <div className={styles.roundRejectBox}>
+                        <strong>
+                          Server reject: {roundDraftRejected.operation === 'lock' ? 'lock-in' : 'replace'}{' '}
+                          {roundDraftRejected.roundNumber > 0
+                            ? `раунда ${roundDraftRejected.roundNumber}`
+                            : 'текущего черновика'}
+                        </strong>
+                        <div className={styles.roundQueueError}>
+                          <span className={styles.cardBadge}>{roundDraftRejected.code}</span>
+                          <span>{getRoundDraftRejectCodeLabel(roundDraftRejected.code)}</span>
+                        </div>
+                        <span>{roundDraftRejected.error}</span>
+                        {draftRejectionCommonErrors.map((entry) => (
+                          <div key={`${entry.code}_${entry.message}`} className={styles.roundQueueError}>
+                            <span className={styles.cardBadge}>{entry.code}</span>
+                            <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className={styles.hint}>
+                      Порядок на экране показывает намерение выбора. Фактический резолв идёт по слоям, а не по FIFO.
+                    </div>
+                  </section>
+
+                  <section className={styles.handTray}>
                       <div className={styles.battleLaneHeader}>
                         <div>
                           <span className={styles.summaryLabel}>Твоя рука</span>
-                          <strong>Карты для текущего хода</strong>
+                          <strong>Карты для текущего раунда</strong>
                         </div>
                         <span className={styles.battleCount}>{localHandCards.length} карт</span>
                       </div>
@@ -1279,12 +1919,18 @@ export const PlayPvpPage = () => {
                                   className={styles.primaryButton}
                                   type="button"
                                   onClick={() => handleSummon(card)}
-                                  disabled={!canActFromHand || !localPlayer || localPlayer.mana < card.mana}
+                                  disabled={
+                                    !canActFromHand ||
+                                    !localPlayer ||
+                                    localPlayer.mana < card.mana ||
+                                    !canSummonMoreCreatures ||
+                                    Boolean(roundSync?.selfLocked)
+                                  }
                                 >
-                                  Призвать
+                                  Добавить призыв
                                 </button>
                               ) : (
-                                <div className={styles.hint}>Для этой карты таргетный UI появится следующим этапом.</div>
+                                <div className={styles.hint}>Выбери карту, затем цель справа и добавь её в очередь раунда.</div>
                               )}
                             </div>
                           ))}
@@ -1364,16 +2010,16 @@ export const PlayPvpPage = () => {
                   </div>
                 ) : null}
                 <p className={styles.paragraph}>
-                  Здесь позже появится target-flow: выбор цели, подсветка доступных объектов и подтверждение действия.
+                  Карта добавляется в локальную очередь как намерение. Порядок слева направо задаёшь ты, но сервер потом разложит резолв по слоям.
                 </p>
                 {selectedHandCard.cardType === 'summon' ? (
                   <button
                     className={styles.primaryButton}
                     type="button"
                     onClick={() => handleSummon(selectedHandCard)}
-                    disabled={!canPlaySelectedCard}
+                    disabled={!canPlaySelectedCard || Boolean(roundSync?.selfLocked)}
                   >
-                    {canPlaySelectedCard ? 'Призвать выбранную карту' : 'Недостаточно ресурсов или не твой ход'}
+                    {canPlaySelectedCard ? 'Добавить призыв в очередь' : 'Недостаточно ресурсов или раунд уже locked'}
                   </button>
                 ) : (
                   <div className={styles.focusControls}>
@@ -1402,9 +2048,9 @@ export const PlayPvpPage = () => {
                         className={styles.primaryButton}
                         type="button"
                         onClick={handleTargetedCardAction}
-                        disabled={!canSubmitTargetedAction}
+                        disabled={!canSubmitTargetedAction || Boolean(roundSync?.selfLocked)}
                       >
-                        Отправить действие
+                        Добавить в очередь
                       </button>
                       <button
                         className={styles.secondaryButton}
@@ -1416,7 +2062,10 @@ export const PlayPvpPage = () => {
                       </button>
                     </div>
                     <div className={styles.hint}>
-                      Черновик: {targetDraft ? `${getTargetTypeLabel(targetDraft.targetType)} -> ${targetDraft.targetId}` : 'цель ещё не выбрана'}
+                      Черновик:{' '}
+                      {targetDraft
+                        ? `${getTargetTypeLabel(targetDraft.targetType)} -> ${knownTargetLabelsById.get(targetDraft.targetId) ?? targetDraft.targetId}`
+                        : 'цель ещё не выбрана'}
                     </div>
                   </div>
                 )}
@@ -1448,11 +2097,74 @@ export const PlayPvpPage = () => {
                     <strong>{selectedCreature.speed}</strong>
                   </div>
                 </div>
-                <div className={styles.hint}>Подготовлено место под способности, атаки и выбор целей.</div>
+                {selectedCreature.ownerId === playerId ? (
+                  <div className={styles.focusControls}>
+                    <div className={styles.focusStat}>
+                      <span className={styles.summaryLabel}>Статус действия</span>
+                      <strong>
+                        {selectedCreatureHasSummoningSickness
+                          ? 'Атака закрыта, уклонение доступно'
+                          : roundSync?.selfLocked
+                            ? 'Раунд locked'
+                            : 'Можно добавить атаку или уклонение'}
+                      </strong>
+                    </div>
+                    <div className={styles.hint}>
+                      Уклонение не требует цели. Для атаки выбери цель на поле или в списке ниже. Призванное в этом раунде существо не может атаковать до следующего раунда.
+                    </div>
+                    <div className={styles.targetDraftList}>
+                      {targetCandidates.map((candidate) => (
+                        <button
+                          key={candidate.id}
+                          className={`${styles.targetDraftItem} ${draftTargetId === candidate.id ? styles.targetDraftItemActive : ''}`.trim()}
+                          type="button"
+                          onClick={() => setDraftTargetId(candidate.id)}
+                        >
+                          <strong>{candidate.label}</strong>
+                          <span>{candidate.kind === 'character' ? 'Маг' : 'Существо'}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className={styles.inlineActions}>
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        onClick={handleQueueEvade}
+                        disabled={!canQueueEvade || Boolean(roundSync?.selfLocked)}
+                      >
+                        Добавить уклонение
+                      </button>
+                      <button
+                        className={styles.primaryButton}
+                        type="button"
+                        onClick={handleQueueAttack}
+                        disabled={!canQueueAttack || Boolean(roundSync?.selfLocked)}
+                      >
+                        Добавить атаку
+                      </button>
+                      <button
+                        className={styles.secondaryButton}
+                        type="button"
+                        onClick={() => setDraftTargetId('')}
+                        disabled={!draftTargetId}
+                      >
+                        Сбросить цель
+                      </button>
+                    </div>
+                    <div className={styles.hint}>
+                      Черновик атаки:{' '}
+                      {attackTargetDraft
+                        ? `${getTargetTypeLabel(attackTargetDraft.targetType)} -> ${knownTargetLabelsById.get(attackTargetDraft.targetId) ?? attackTargetDraft.targetId}`
+                        : 'цель ещё не выбрана'}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.hint}>Существо соперника можно выбрать как цель, но не редактировать с него действия.</div>
+                )}
               </div>
             ) : (
               <div className={styles.emptyState}>
-                Выбери карту в руке или существо на столе. Справа откроется contextual action panel.
+                Выбери карту в руке или своё существо на столе. Справа откроется панель сборки действий на раунд.
               </div>
             )}
           </Card>
@@ -1465,7 +2177,7 @@ export const PlayPvpPage = () => {
                     <span className={styles.summaryLabel}>Твой маг</span>
                     <strong>{localPlayer.playerId}</strong>
                   </div>
-                  <span className={styles.heroChip}>{canEndTurn ? 'Твой ход' : 'Ожидание'}</span>
+                  <span className={styles.heroChip}>{roundSync?.selfLocked ? 'Locked' : 'Drafting'}</span>
                 </div>
                 <div className={styles.detailsList}>
                   <div className={styles.detailRow}>
@@ -1486,7 +2198,14 @@ export const PlayPvpPage = () => {
                     <span>actionPoints</span>
                     <strong>{localPlayer.actionPoints}</strong>
                   </div>
+                  <div className={styles.detailRow}>
+                    <span>creatures</span>
+                    <strong>{alliedCreatures.length} / 2</strong>
+                  </div>
                 </div>
+                {!canSummonMoreCreatures ? (
+                  <p className={styles.hint}>На столе уже максимум 2 твоих существа, поэтому призыв временно недоступен.</p>
+                ) : null}
               </div>
             ) : (
               <div className={styles.emptyState}>Локальный игрок появится после первого server `state`.</div>
@@ -1499,11 +2218,11 @@ export const PlayPvpPage = () => {
                 {playerBoards.map((playerBoard) => (
                   <div
                     key={playerBoard.playerId}
-                    className={`${styles.playerBoard} ${playerBoard.isActive ? styles.playerBoardActive : ''}`.trim()}
+                    className={`${styles.playerBoard} ${playerBoard.locked ? styles.playerBoardActive : ''}`.trim()}
                   >
                     <div className={styles.playerBoardHeader}>
                       <strong>{playerBoard.playerId}</strong>
-                      <span>{playerBoard.isActive ? 'Активный ход' : 'Ожидание'}</span>
+                      <span>{playerBoard.locked ? 'Locked' : 'Drafting'}</span>
                     </div>
                     <div className={styles.zoneGrid}>
                       <span>deck: {playerBoard.deckSize}</span>
@@ -1518,6 +2237,45 @@ export const PlayPvpPage = () => {
               </div>
             ) : (
               <div className={styles.emptyState}>Зоны игроков появятся после первого server `state`.</div>
+            )}
+          </Card>
+
+          <Card title="Последний резолв" className={styles.themedCard}>
+            {lastResolvedRound ? (
+              <div className={styles.focusPanel}>
+                {resolvedTimelineEntries.length > 0 ? (
+                  <div className={styles.roundQueueList}>
+                    {resolvedTimelineEntries.map(({ order, action, title, subtitle, ownerLabel }) => (
+                      <div key={action.intentId} className={styles.roundQueueItem}>
+                        <div className={styles.roundQueueMain}>
+                          <span className={styles.roundQueueIndex}>{order}</span>
+                          <div className={styles.roundQueueText}>
+                            <strong>{title}</strong>
+                            <span>{subtitle}</span>
+                          </div>
+                        </div>
+                        <div className={styles.roundQueueMeta}>
+                          <span className={styles.cardBadge}>{ownerLabel}</span>
+                          <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
+                          <span className={styles.cardBadge}>{action.status}</span>
+                          <span className={styles.cardBadge}>{action.reasonCode}</span>
+                          <span>{getRoundActionReasonLabel(action.reasonCode)}</span>
+                          <span>{action.summary}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.emptyState}>Раунд {lastResolvedRound.roundNumber} завершился без результативных действий.</div>
+                )}
+                {resolvedTimelineEntries.length > 0 ? (
+                  <div className={styles.hint}>
+                    Шаги показаны в фактическом порядке server-side резолва. Для твоих intent дополнительно восстановлены локальные label/target по `intentId`.
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className={styles.emptyState}>После первого `roundResolved` здесь появится порядок фактического резолва.</div>
             )}
           </Card>
 

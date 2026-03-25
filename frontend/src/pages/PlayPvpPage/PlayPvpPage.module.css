@@ -234,6 +234,7 @@
 .matchSpotlight,
 .battleLane,
 .handTray,
+.roundQueuePanel,
 .deckRail,
 .playerSideCard,
 .heroPanel,
@@ -253,6 +254,76 @@
   padding: 20px;
   display: grid;
   gap: 14px;
+}
+
+.roundQueuePanel {
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.roundQueueList {
+  display: grid;
+  gap: 10px;
+}
+
+.roundQueueItem {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--pvp-border);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.roundQueueMain,
+.roundQueueMeta {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.roundQueueIndex {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.roundQueueText {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.roundQueueActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.roundQueueError,
+.roundRejectBox {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+.roundQueueError {
+  padding: 6px 10px;
 }
 
 .matchSpotlightHeader,

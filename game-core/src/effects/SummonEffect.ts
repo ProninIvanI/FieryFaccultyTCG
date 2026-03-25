@@ -23,6 +23,7 @@ export class SummonEffect implements EffectHandler {
       maxHp: hp,
       attack,
       speed,
+      summonedAtRound: state.round.number,
     };
     ctx.events.emit('onSummon', { creatureId });
   }

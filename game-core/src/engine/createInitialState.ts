@@ -6,6 +6,8 @@ import {
 } from '../types';
 
 const STARTING_HAND_SIZE = 3;
+export const STARTING_MANA = 10;
+export const STARTING_ACTION_POINTS = 3;
 
 export interface InitialPlayerConfig {
   playerId: PlayerId;
@@ -60,6 +62,12 @@ export const createInitialState = (
       number: 1,
       activePlayerId: players[0].playerId,
     },
+    round: {
+      number: 1,
+      status: 'draft',
+      initiativePlayerId: players[0].playerId,
+      players: {},
+    },
     phase: {
       current: 'ActionPhase',
     },
@@ -71,9 +79,9 @@ export const createInitialState = (
     state.players[player.playerId] = {
       playerId: player.playerId,
       characterId: player.characterId,
-      mana: 0,
+      mana: STARTING_MANA,
       maxMana: 10,
-      actionPoints: 2,
+      actionPoints: STARTING_ACTION_POINTS,
     };
     state.characters[player.characterId] = {
       characterId: player.characterId,
@@ -88,6 +96,11 @@ export const createInitialState = (
     state.decks[player.playerId] = {
       ownerId: player.playerId,
       cards: player.deck.map((card) => card.instanceId),
+    };
+    state.round.players[player.playerId] = {
+      playerId: player.playerId,
+      locked: false,
+      draftCount: 0,
     };
     player.deck.forEach((card) => {
       state.cardInstances[card.instanceId] = card;

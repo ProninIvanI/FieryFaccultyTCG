@@ -6,6 +6,7 @@ import {
   validateActionLimit,
   validateCardLocation,
   validateCardOwnership,
+  validateCreatureBoardLimit,
   validateMana,
   validatePhase,
 } from '../validation/validators';
@@ -31,6 +32,7 @@ export class SummonActionCommand implements ActionCommand<SummonAction> {
     errors.push(...validateCardOwnership(state, action.playerId, action.cardInstanceId));
     errors.push(...validateCardLocation(state, action.cardInstanceId, ['hand']));
     errors.push(...validateMana(state, action.playerId, def.manaCost));
+    errors.push(...validateCreatureBoardLimit(state, action.playerId));
     return errors;
   }
 

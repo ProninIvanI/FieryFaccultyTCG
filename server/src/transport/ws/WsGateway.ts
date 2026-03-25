@@ -30,6 +30,8 @@ type RuntimeSessionMeta = {
   players: Map<string, RuntimePlayerMeta>;
 };
 
+type JoinRejectedMessage = Extract<ServerMessageDto, { type: 'join.rejected' }>;
+
 export class WsGateway {
   private wss?: WebSocketServer;
   private readonly sessionSockets = new Map<string, Set<WebSocket>>();
@@ -61,7 +63,11 @@ export class WsGateway {
   private async handleIncomingMessage(socket: WebSocket, raw: string): Promise<void> {
     const parsed = parseClientMessage(raw);
     if (!parsed.ok) {
-      this.send(socket, { type: 'error', error: parsed.error });
+      if (parsed.rejection) {
+        this.send(socket, parsed.rejection);
+      } else {
+        this.send(socket, { type: 'error', error: parsed.error });
+      }
       return;
     }
     await this.routeMessage(socket, parsed.value);
@@ -71,13 +77,13 @@ export class WsGateway {
     if (message.type === 'join') {
       const identity = await this.identityResolver(message.token);
       if (!identity) {
-        this.send(socket, { type: 'error', error: 'Unauthorized' });
+        this.send(socket, this.toJoinRejected(message.sessionId, 'unauthorized', 'Unauthorized'));
         return;
       }
 
       const deck = await resolvePlayerDeck(message.token, message.deckId);
       if (!deck) {
-        this.send(socket, { type: 'error', error: 'Deck not found or unavailable' });
+        this.send(socket, this.toJoinRejected(message.sessionId, 'deck_unavailable', 'Deck not found or unavailable'));
         return;
       }
 
@@ -87,7 +93,7 @@ export class WsGateway {
         deck: deck.cards,
       }, message.seed);
       if (!result.ok) {
-        this.send(socket, { type: 'error', error: result.error });
+        this.send(socket, this.toJoinRejected(message.sessionId, this.toJoinRejectCode(result.error), result.error));
         return;
       }
 
@@ -96,21 +102,104 @@ export class WsGateway {
 
       this.attachSocket(message.sessionId, identity.userId, socket);
       this.broadcast(message.sessionId, { type: 'state', state: result.session.getState() });
+      this.broadcastRoundStatus(message.sessionId);
+      this.sendRoundDraftSnapshot(message.sessionId, identity.userId, socket);
       return;
     }
-    if (message.type === 'action') {
+    if (message.type === 'roundDraft.replace') {
       const binding = this.socketBindings.get(socket);
       if (!binding) {
-        this.send(socket, { type: 'error', error: 'Join session first' });
+        this.send(socket, {
+          type: 'roundDraft.rejected',
+          operation: 'replace',
+          roundNumber: message.roundNumber,
+          code: 'join_required',
+          error: 'Join session first',
+          errors: [],
+        });
         return;
       }
-      const result = this.gameService.applyAction(binding.sessionId, binding.playerId, message.action);
+
+      const result = this.gameService.replaceRoundDraft(
+        binding.sessionId,
+        binding.playerId,
+        message.roundNumber,
+        message.intents,
+      );
       if (!result.ok) {
-        this.send(socket, { type: 'error', error: result.error });
+        if (result.rejection) {
+          this.send(socket, { type: 'roundDraft.rejected', ...result.rejection });
+        } else {
+          this.send(socket, { type: 'error', error: result.error });
+        }
         return;
       }
-      await this.persistReplay(binding.sessionId, result.state);
-      this.broadcast(binding.sessionId, { type: 'state', state: result.state });
+
+      this.send(socket, { type: 'roundDraft.accepted', roundNumber: message.roundNumber });
+      this.sendRoundDraftSnapshot(binding.sessionId, binding.playerId, socket);
+      this.broadcastRoundStatus(binding.sessionId);
+      return;
+    }
+    if (message.type === 'roundDraft.lock') {
+      const binding = this.socketBindings.get(socket);
+      if (!binding) {
+        this.send(socket, {
+          type: 'roundDraft.rejected',
+          operation: 'lock',
+          roundNumber: message.roundNumber,
+          code: 'join_required',
+          error: 'Join session first',
+          errors: [],
+        });
+        return;
+      }
+
+      const result = this.gameService.lockRoundDraft(
+        binding.sessionId,
+        binding.playerId,
+        message.roundNumber,
+      );
+      if (!result.ok) {
+        if (result.rejection) {
+          this.send(socket, { type: 'roundDraft.rejected', ...result.rejection });
+        } else {
+          this.send(socket, { type: 'error', error: result.error });
+        }
+        return;
+      }
+
+      this.sendRoundDraftSnapshot(binding.sessionId, binding.playerId, socket);
+      this.broadcastRoundStatus(binding.sessionId);
+      if (result.resolved) {
+        await this.persistReplay(binding.sessionId, result.state);
+        this.broadcast(binding.sessionId, { type: 'roundResolved', result: result.resolved });
+        this.broadcast(binding.sessionId, { type: 'state', state: result.state });
+        this.broadcastRoundStatus(binding.sessionId);
+      }
+    }
+  }
+
+  private toJoinRejected(
+    sessionId: string,
+    code: JoinRejectedMessage['code'],
+    error: string,
+  ): JoinRejectedMessage {
+    return {
+      type: 'join.rejected',
+      sessionId,
+      code,
+      error,
+    };
+  }
+
+  private toJoinRejectCode(error: string): JoinRejectedMessage['code'] {
+    switch (error) {
+      case 'Session is full':
+        return 'session_full';
+      case 'Session already exists with a different seed':
+        return 'seed_mismatch';
+      default:
+        return 'invalid_payload';
     }
   }
 
@@ -258,5 +347,47 @@ export class WsGateway {
 
   private send(socket: WebSocket, message: ServerMessageDto): void {
     socket.send(JSON.stringify(message));
+  }
+
+  private sendRoundDraftSnapshot(sessionId: string, playerId: string, socket: WebSocket): void {
+    const draft = this.gameService.getRoundDraft(sessionId, playerId);
+    const roundNumber = draft?.roundNumber ?? this.gameService.getSession(sessionId)?.getState().round.number ?? 0;
+    this.send(socket, {
+      type: 'roundDraft.snapshot',
+      roundNumber,
+      locked: draft?.locked ?? false,
+      intents: draft?.intents ?? [],
+    });
+  }
+
+  private broadcastRoundStatus(sessionId: string): void {
+    const sockets = this.sessionSockets.get(sessionId);
+    if (!sockets) {
+      return;
+    }
+
+    const session = this.gameService.getSession(sessionId);
+    if (!session) {
+      return;
+    }
+
+    const roundState = session.getState().round;
+    sockets.forEach((socket) => {
+      const binding = this.socketBindings.get(socket);
+      if (!binding) {
+        return;
+      }
+      const selfLocked = roundState.players[binding.playerId]?.locked ?? false;
+      const opponentLocked = Object.values(roundState.players).some(
+        (playerRoundState) => playerRoundState.playerId !== binding.playerId && playerRoundState.locked,
+      );
+
+      this.send(socket, {
+        type: 'roundStatus',
+        roundNumber: roundState.number,
+        selfLocked,
+        opponentLocked,
+      });
+    });
   }
 }

@@ -25,5 +25,14 @@ describe('createInitialState opening hand', () => {
     expect(state.cardInstances.card_player_1_1.location).toBe('hand');
     expect(state.cardInstances.card_player_1_4.location).toBe('deck');
     expect(state.cardInstances.card_player_2_1.location).toBe('hand');
+    expect(state.players.player_1.mana).toBe(10);
+    expect(state.players.player_2.mana).toBe(10);
+    expect(state.players.player_1.actionPoints).toBe(3);
+    expect(state.players.player_2.actionPoints).toBe(3);
+    expect(state.round.number).toBe(1);
+    expect(state.round.status).toBe('draft');
+    expect(state.round.initiativePlayerId).toBe('player_1');
+    expect(state.round.players.player_1.locked).toBe(false);
+    expect(state.round.players.player_2.locked).toBe(false);
   });
 });

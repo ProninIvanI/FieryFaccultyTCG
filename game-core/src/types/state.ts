@@ -2,6 +2,7 @@ import { Action } from './actions';
 import { CardInstance } from './cards';
 import { PhaseType } from './enums';
 import { EffectInstance } from './effects';
+import { RoundState } from './round';
 import {
   CardInstanceId,
   CharacterId,
@@ -39,6 +40,7 @@ export interface CreatureState {
   maxHp: number;
   attack: number;
   speed: number;
+  summonedAtRound?: number;
 }
 
 export interface DeckState {
@@ -74,6 +76,7 @@ export interface GameState {
   actionLog: Action[];
   log: GameLogEntry[];
   turn: TurnState;
+  round: RoundState;
   phase: PhaseState;
   rngSeed: number;
   rngState: number;

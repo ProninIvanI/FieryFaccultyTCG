@@ -1,5 +1,12 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+﻿import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import {
+  getRoundActionReasonLabel,
+  getResolutionLayerLabel,
+  getRoundDraftRejectCodeLabel,
+  getRoundDraftValidationCodeLabel,
+  getTargetTypeLabel,
+} from '@game-core/rounds/presentation';
 import axiosInstance from '@/services/api/axiosInstance';
 import { gameWsService } from '@/services';
 import { PlayPvpPage } from './PlayPvpPage';
@@ -153,6 +160,22 @@ const submitJoin = async (sessionId: string, buttonName: RegExp | string): Promi
   return socket;
 };
 
+const createRoundState = (overrides: Record<string, unknown> = {}) => ({
+  round: {
+    number: 1,
+    status: 'draft',
+    initiativePlayerId: 'user_1',
+    players: {
+      user_1: { playerId: 'user_1', locked: false, draftCount: 0 },
+      user_2: { playerId: 'user_2', locked: false, draftCount: 0 },
+    },
+  },
+  turn: { number: 1, activePlayerId: 'user_1' },
+  phase: { current: 'RoundPhase' },
+  actionLog: [],
+  ...overrides,
+});
+
 describe('PlayPvpPage', () => {
   const originalWebSocket = globalThis.WebSocket;
 
@@ -172,10 +195,10 @@ describe('PlayPvpPage', () => {
     vi.restoreAllMocks();
   });
 
-  it('creates match, receives state and sends EndTurn from UI', async () => {
+  it('creates match, locks round and renders roundResolved outcome', async () => {
     await renderPage('char_1', 'user_1');
 
-    const socket = await submitJoin('session_alpha', /Создать и подключиться/i);
+    const socket = await submitJoin('session_alpha', /Создать/i);
 
     await waitFor(() => {
       expect(socket.sent).toContain(
@@ -186,55 +209,73 @@ describe('PlayPvpPage', () => {
     await act(async () => {
       socket.emitMessage({
         type: 'state',
-        state: {
-          turn: { number: 1, activePlayerId: 'user_1' },
-          phase: { current: 'ActionPhase' },
+        state: createRoundState({
           players: {
             user_1: { mana: 1, maxMana: 1, actionPoints: 1, characterId: 'char_1' },
+            user_2: { mana: 1, maxMana: 1, actionPoints: 1, characterId: 'char_2' },
           },
           decks: {
             user_1: { ownerId: 'user_1', cards: ['deck_card_1', 'deck_card_2'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_3', 'deck_card_4'] },
           },
           hands: {
             user_1: ['hand_card_1'],
+            user_2: [],
           },
           discardPiles: {
             user_1: [],
+            user_2: [],
           },
           cardInstances: {
             hand_card_1: { id: 'hand_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
           },
-          actionLog: [],
-        },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundStatus',
+        roundNumber: 1,
+        selfLocked: false,
+        opponentLocked: false,
       });
       await flushMicrotasks();
     });
 
     await waitFor(() => {
       expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('session_alpha');
-      expect(screen.getByRole('button', { name: /Завершить ход/i })).toBeEnabled();
+      expect(screen.getByRole('button', { name: /Lock-in раунда/i })).toBeEnabled();
     });
 
-    expect(screen.getByText('deck: 2')).toBeInTheDocument();
-    expect(screen.getByText('hand: 1')).toBeInTheDocument();
-    expect(screen.getByText('Огненный шар')).toBeInTheDocument();
-
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Завершить ход/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Lock-in раунда/i }));
       await flushMicrotasks();
     });
 
     await waitFor(() => {
-      expect(socket.sent).toContain(
-        JSON.stringify({
-          type: 'action',
-          action: {
-            type: 'EndTurn',
-            actorId: 'char_1',
-            playerId: 'user_1',
-          },
-        }),
-      );
+      expect(socket.sent).toContain(JSON.stringify({ type: 'roundDraft.lock', roundNumber: 1 }));
+    });
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 1,
+          orderedActions: [
+            {
+              intentId: 'draft_1',
+              playerId: 'user_1',
+              layer: 'offensive_control_spells',
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Огненный шар нанёс урон',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Огненный шар нанёс урон/i)).toBeInTheDocument();
     });
   });
 
@@ -242,11 +283,11 @@ describe('PlayPvpPage', () => {
     await renderPage('char_2', 'user_2');
 
     await act(async () => {
-      fireEvent.click(screen.getAllByRole('button', { name: /Войти в матч/i })[0]);
+      fireEvent.click(screen.getAllByRole('button', { name: /Войти/i })[0]);
       await flushMicrotasks();
     });
 
-    const socket = await submitJoin('session_alpha', /Войти в матч/i);
+    const socket = await submitJoin('session_alpha', /Войти/i);
 
     await waitFor(() => {
       expect(socket.sent).toContain(
@@ -257,40 +298,41 @@ describe('PlayPvpPage', () => {
     expect(socket.sent.some((item) => item.includes('"seed"'))).toBe(false);
   });
 
-  it('sends Summon action for summon card from hand', async () => {
+  it('sends roundDraft.replace with Summon intent for summon card from hand', async () => {
     await renderPage('char_1', 'user_1');
 
-    const socket = await submitJoin('session_summon', /Создать и подключиться/i);
+    const socket = await submitJoin('session_summon', /Создать/i);
 
     await act(async () => {
       socket.emitMessage({
         type: 'state',
-        state: {
-          turn: { number: 1, activePlayerId: 'user_1' },
-          phase: { current: 'ActionPhase' },
+        state: createRoundState({
           players: {
             user_1: { mana: 4, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 4, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
           },
           creatures: {},
           decks: {
             user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
           },
           hands: {
             user_1: ['summon_card_1'],
+            user_2: [],
           },
           discardPiles: {
             user_1: [],
+            user_2: [],
           },
           cardInstances: {
             summon_card_1: { id: 'summon_card_1', definitionId: '81', ownerId: 'user_1', zone: 'hand' },
           },
-          actionLog: [],
-        },
+        }),
       });
       await flushMicrotasks();
     });
 
-    const summonButton = await screen.findByRole('button', { name: /Призвать/i });
+    const summonButton = await screen.findByRole('button', { name: /Добавить призыв/i });
     expect(summonButton).toBeEnabled();
 
     await act(async () => {
@@ -299,31 +341,35 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(socket.sent).toContain(
-        JSON.stringify({
-          type: 'action',
-          action: {
-            type: 'Summon',
-            actorId: 'char_1',
-            playerId: 'user_1',
-            cardInstanceId: 'summon_card_1',
-          },
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as {
+            type?: string;
+            roundNumber?: number;
+            intents?: Array<Record<string, unknown>>;
+          };
+
+          return (
+            message.type === 'roundDraft.replace' &&
+            message.roundNumber === 1 &&
+            Array.isArray(message.intents) &&
+            message.intents[0]?.kind === 'Summon' &&
+            message.intents[0]?.cardInstanceId === 'summon_card_1'
+          );
         }),
-      );
+      ).toBe(true);
     });
   });
 
-  it('builds and sends CastSpell action through target draft UI', async () => {
+  it('builds and sends CastSpell roundDraft through target draft UI', async () => {
     await renderPage('char_1', 'user_1');
 
-    const socket = await submitJoin('session_spell', /Создать и подключиться/i);
+    const socket = await submitJoin('session_spell', /Создать/i);
 
     await act(async () => {
       socket.emitMessage({
         type: 'state',
-        state: {
-          turn: { number: 1, activePlayerId: 'user_1' },
-          phase: { current: 'ActionPhase' },
+        state: createRoundState({
           players: {
             user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
             user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
@@ -344,8 +390,7 @@ describe('PlayPvpPage', () => {
           cardInstances: {
             spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
           },
-          actionLog: [],
-        },
+        }),
       });
       await flushMicrotasks();
     });
@@ -366,39 +411,572 @@ describe('PlayPvpPage', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Отправить действие/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Добавить в очередь/i }));
       await flushMicrotasks();
     });
 
     await waitFor(() => {
-      expect(socket.sent).toContain(
-        JSON.stringify({
-          type: 'action',
-          action: {
-            type: 'CastSpell',
-            actorId: 'char_1',
-            playerId: 'user_1',
-            cardInstanceId: 'spell_card_1',
-            targetType: 'enemyCharacter',
-            targetId: 'char_2',
-          },
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as {
+            type?: string;
+            intents?: Array<Record<string, unknown>>;
+          };
+          const firstIntent = Array.isArray(message.intents) ? message.intents[0] : null;
+
+          return (
+            message.type === 'roundDraft.replace' &&
+            firstIntent?.kind === 'CastSpell' &&
+            firstIntent?.cardInstanceId === 'spell_card_1' &&
+            JSON.stringify(firstIntent?.target) === JSON.stringify({ targetType: 'enemyCharacter', targetId: 'char_2' })
+          );
         }),
-      );
+      ).toBe(true);
     });
   });
 
-  it('shows server join error and clears pending session before first state', async () => {
-    await renderPage('char_3', 'user_3');
+  it('builds and sends PlayCard roundDraft through self-target draft UI', async () => {
+    await renderPage('char_1', 'user_1');
 
-    const socket = await submitJoin('session_full', /Создать и подключиться/i);
+    const socket = await submitJoin('session_play_card', /Создать/i);
 
     await act(async () => {
-      socket.emitMessage({ type: 'error', error: 'Session is full' });
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['art_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            art_card_1: { id: 'art_card_1', definitionId: '64', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    const artCardTitle = await screen.findByText('Медитация');
+    const artCardButton = artCardTitle.closest('button');
+    expect(artCardButton).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(artCardButton!);
+      await flushMicrotasks();
+    });
+
+    const selfTargetButton = await screen.findByRole('button', { name: /Твой маг/i });
+    await act(async () => {
+      fireEvent.click(selfTargetButton);
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Добавить в очередь/i }));
       await flushMicrotasks();
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Session is full')).toBeInTheDocument();
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as {
+            type?: string;
+            intents?: Array<Record<string, unknown>>;
+          };
+          const firstIntent = Array.isArray(message.intents) ? message.intents[0] : null;
+
+          return (
+            message.type === 'roundDraft.replace' &&
+            firstIntent?.kind === 'PlayCard' &&
+            firstIntent?.cardInstanceId === 'art_card_1' &&
+            JSON.stringify(firstIntent?.target) === JSON.stringify({ targetType: 'self', targetId: 'char_1' })
+          );
+        }),
+      ).toBe(true);
+      expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('self')} -> Твой маг`, 'i')).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('sends roundDraft.replace with Evade intent for selected allied creature', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_evade', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {
+            ally_creature_1: {
+              creatureId: 'ally_creature_1',
+              ownerId: 'user_1',
+              hp: 4,
+              maxHp: 4,
+              attack: 2,
+              speed: 3,
+              summonedAtRound: 0,
+            },
+            enemy_creature_1: {
+              creatureId: 'enemy_creature_1',
+              ownerId: 'user_2',
+              hp: 3,
+              maxHp: 3,
+              attack: 1,
+              speed: 2,
+              summonedAtRound: 0,
+            },
+          },
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    const creatureButton = await screen.findByRole('button', { name: /ally_creature_1/i });
+
+    await act(async () => {
+      fireEvent.click(creatureButton);
+      await flushMicrotasks();
+    });
+
+    const evadeButton = await screen.findByRole('button', { name: /Добавить уклонение/i });
+    expect(evadeButton).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(evadeButton);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as {
+            type?: string;
+            intents?: Array<Record<string, unknown>>;
+          };
+          const firstIntent = Array.isArray(message.intents) ? message.intents[0] : null;
+
+          return (
+            message.type === 'roundDraft.replace' &&
+            firstIntent?.kind === 'Evade' &&
+            firstIntent?.actorId === 'ally_creature_1' &&
+            firstIntent?.playerId === 'user_1'
+          );
+        }),
+      ).toBe(true);
+      expect(screen.getAllByText(/Уклонение/i).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('restores local round queue from roundDraft snapshot after sync', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_restore', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_restore',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 0,
+            kind: 'CastSpell',
+            cardInstanceId: 'spell_card_1',
+            target: {
+              targetType: 'enemyCharacter',
+              targetId: 'char_2',
+            },
+          },
+        ],
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Заклинание: Огненный шар/i)).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i'))).toBeInTheDocument();
+    });
+  });
+
+  it('binds roundResolved outcome to the local queued intent by intentId', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_result_binding', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    const spellCardTitle = await screen.findByText('Огненный шар');
+    const spellCardButton = spellCardTitle.closest('button');
+    expect(spellCardButton).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(spellCardButton!);
+      await flushMicrotasks();
+    });
+
+    const targetButton = await screen.findByRole('button', { name: /Маг user_2/i });
+    await act(async () => {
+      fireEvent.click(targetButton);
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Добавить в очередь/i }));
+      await flushMicrotasks();
+    });
+
+    const draftReplacePayload = socket.sent
+      .map((payload) => JSON.parse(payload) as { type?: string; intents?: Array<Record<string, unknown>> })
+      .find((message) => message.type === 'roundDraft.replace' && Array.isArray(message.intents));
+
+    const firstIntent = draftReplacePayload?.intents?.[0];
+    expect(firstIntent?.intentId).toBeTruthy();
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 1,
+          orderedActions: [
+            {
+              intentId: 'enemy_hidden_1',
+              playerId: 'user_2',
+              layer: 'attacks',
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Существо соперника нанесло удар',
+            },
+            {
+              intentId: firstIntent?.intentId,
+              playerId: 'user_1',
+              layer: 'offensive_control_spells',
+              status: 'fizzled',
+              reasonCode: 'target_invalidated',
+              summary: 'Цель исчезла до резолва',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Скрытое действие соперника/i)).toBeInTheDocument();
+      expect(screen.getByText(/Игрок user_2/i)).toBeInTheDocument();
+      expect(screen.getByText(/Существо соперника нанесло удар/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Заклинание: Огненный шар/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length).toBeGreaterThan(0);
+      expect(screen.getByText(new RegExp(getRoundActionReasonLabel('target_invalidated'), 'i'))).toBeInTheDocument();
+      expect(screen.getByText(/target_invalidated/i)).toBeInTheDocument();
+      expect(screen.getByText(/Цель исчезла до резолва/i)).toBeInTheDocument();
+      expect(screen.getAllByText(new RegExp(getResolutionLayerLabel('offensive_control_spells'), 'i')).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/fizzled/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Шаги показаны в фактическом порядке server-side резолва/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows structured roundDraft.rejected errors near the affected intent', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_reject_binding', /Создать/i);
+
+    await waitFor(() => {
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as { type?: string; sessionId?: string };
+          return message.type === 'join' && message.sessionId === 'session_reject_binding';
+        }),
+      ).toBe(true);
+    });
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_restore',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 0,
+            kind: 'CastSpell',
+            cardInstanceId: 'spell_card_1',
+            target: {
+              targetType: 'enemyCharacter',
+              targetId: 'char_2',
+            },
+          },
+        ],
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i'))).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'roundDraft.rejected',
+        operation: 'lock',
+        roundNumber: 1,
+        code: 'validation_failed',
+        error: 'Target type validation failed',
+        errors: [
+          {
+            code: 'target_type',
+            message: 'Target type validation failed',
+            intentId: 'draft_restore',
+          },
+        ],
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Target type validation failed/i).length).toBeGreaterThan(1);
+      expect(screen.getByText(/validation_failed/i)).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(getRoundDraftRejectCodeLabel('validation_failed'), 'i'))).toBeInTheDocument();
+      expect(screen.getAllByText(/target_type/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(new RegExp(getRoundDraftValidationCodeLabel('target_type'), 'i'))).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i'))).toBeInTheDocument();
+    });
+  });
+
+  it('shows non-validation roundDraft.rejected code in the shared reject box', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_reject_code', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'roundDraft.rejected',
+        operation: 'lock',
+        roundNumber: 1,
+        code: 'join_required',
+        error: 'Join session first',
+        errors: [],
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/join_required/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(new RegExp(getRoundDraftRejectCodeLabel('join_required'), 'i'))).toBeInTheDocument();
+      expect(screen.getAllByText(/Join session first/i).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('shows malformed roundDraft payload reject without rendering round 0', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_reject_invalid_payload', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'roundDraft.rejected',
+        operation: 'replace',
+        roundNumber: 0,
+        code: 'invalid_payload',
+        error: 'Invalid roundDraft.replace payload',
+        errors: [],
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/invalid_payload/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(new RegExp(getRoundDraftRejectCodeLabel('invalid_payload'), 'i'))).toBeInTheDocument();
+      expect(screen.getAllByText(/Invalid roundDraft\.replace payload/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Server reject: replace текущего черновика/i)).toBeInTheDocument();
+      expect(screen.queryByText(/раунда 0/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows structured join.rejected and clears pending session before first state', async () => {
+    await renderPage('char_3', 'user_3');
+
+    const socket = await submitJoin('session_full', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'join.rejected',
+        sessionId: 'session_full',
+        code: 'session_full',
+        error: 'Session is full',
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Session is full').length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/session_full/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/В матче уже заняты оба PvP-слота/i)).toBeInTheDocument();
+      expect(screen.getByText(/Server reject: join сессии session_full/i)).toBeInTheDocument();
+      expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
+      expect(screen.getByText('Ожидание данных матча...')).toBeInTheDocument();
+    });
+  });
+
+  it('shows structured transport.rejected before first state and clears pending session', async () => {
+    await renderPage('char_3', 'user_3');
+
+    const socket = await submitJoin('session_transport_reject', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'transport.rejected',
+        code: 'unknown_message_type',
+        error: 'Unknown message type',
+        requestType: 'action',
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Unknown message type/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/unknown_message_type/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Тип WS-сообщения не поддерживается сервером/i)).toBeInTheDocument();
+      expect(screen.getByText(/Server reject: transport для action/i)).toBeInTheDocument();
       expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
       expect(screen.getByText('Ожидание данных матча...')).toBeInTheDocument();
     });

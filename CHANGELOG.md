@@ -1,5 +1,21 @@
 # Changelog
 
+> 2026-03-25 update: synchronized architecture docs with the actual simultaneous-round PvP implementation: `frontend/ARCHITECTURE.md` no longer describes legacy `join/action`, the stack architecture now reflects the implemented round lifecycle and public WebSocket contract (`roundDraft.replace`, `roundDraft.lock`, `roundDraft.snapshot`, `roundStatus`, `roundResolved`), and the simultaneous-round spec is marked as an implemented baseline/living spec.
+
+> 2026-03-25 update: simultaneous-round PvP now restores the local player draft after join/reconnect via a new personal `roundDraft.snapshot` WebSocket message; the server exposes the caller's current round draft without revealing opponent data, and `PlayPvpPage` rehydrates the local action queue from that snapshot while preserving round sync/lock state.
+
+> 2026-03-25 update: PvP WebSocket transport is now round-only: legacy client/server `action` messages were removed from the public frontend and server DTO flow, `WsGateway` no longer accepts turn-based immediate actions, and DTO coverage now asserts that old `action` payloads are rejected as unsupported transport messages.
+
+> 2026-03-25 update: `frontend` PvP flow is now wired to simultaneous hidden rounds: `gameWsService` and frontend DTOs understand `roundDraft.replace` / `roundDraft.lock` plus `roundStatus` / `roundResolved`, `PlayPvpPage` keeps a local action queue with reorder/remove/lock-in, previews intended resolution layers without promising FIFO execution, supports targeted card draft and creature attack draft, and renders the latest resolved round with updated UI tests for the new flow.
+
+> 2026-03-25 update: `server` now supports the simultaneous-round PvP transport and session flow with new WebSocket messages `roundDraft.replace` / `roundDraft.lock`, player-bound round-intent parsing, `GameSession`/`GameService` bridge methods for round drafts, personalized `roundStatus`, `roundResolved` broadcasts after both players lock, and integration coverage for the replace-lock-resolve cycle while keeping legacy `action` transport as a temporary fallback.
+
+> 2026-03-25 update: `game-core` now has the first executable round pipeline for simultaneous PvP: private round-draft storage in `GameEngine`, `submitRoundDraft(...)`, `lockRoundDraft(...)`, barrier-based `resolveRoundIfReady()`, ordered layer resolution through existing action commands, round rollover with initiative rotation, and integration tests for lock/wait/resolve flow.
+
+> 2026-03-25 update: `game-core` received the first simultaneous-round implementation slice with new `round` state in `GameState`, `RoundActionIntent`/`RoundState` types, pure `compile/sort/validate` round-draft utilities, summoning-sickness draft validation, and dedicated tests while keeping legacy turn-based `processAction(...)` intact.
+
+> 2026-03-25 update: added `docs/simultaneous-round-implementation-spec.md` with the implementation plan for hidden-round simultaneous PvP, including round lifecycle, resolution layers, tie-breaker rules, `RoundActionIntent`/`RoundState` models, WebSocket contracts, and phased migration steps for `game-core -> server -> frontend`.
+
 > 2026-03-25 update: `PlayPvpPage` now renders player portraits from the selected deck character and shows the opponent hand as a mirrored fan of card backs at the top of the board, while keeping card contents hidden.
 
 > 2026-03-25 update: `PlayPvpPage` now uses a single shared side column for player/deck widgets ordered top-to-bottom as opponent, opponent deck, local deck, local player.

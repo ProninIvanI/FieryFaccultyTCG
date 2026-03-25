@@ -40,8 +40,11 @@ describe('game-core turn flow', () => {
     expect(result.ok).toBe(true);
     expect(state.turn.number).toBe(2);
     expect(state.turn.activePlayerId).toBe('player_2');
+    expect(state.round.number).toBe(2);
+    expect(state.round.status).toBe('draft');
+    expect(state.round.initiativePlayerId).toBe('player_2');
     expect(state.phase.current).toBe('ActionPhase');
-    expect(state.players.player_2.actionPoints).toBe(2);
+    expect(state.players.player_2.actionPoints).toBe(3);
     expect(state.players.player_2.mana).toBe(1);
   });
 

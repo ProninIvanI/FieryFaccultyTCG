@@ -3,4 +3,8 @@ export * from './engine/GameEngine';
 export * from './engine/createInitialState';
 export * from './cards/CardRegistry';
 export * from './cards/catalog';
+export * from './rounds/compileRoundActions';
+export * from './rounds/presentation';
+export * from './rounds/sortRoundActions';
+export * from './rounds/validateRoundDraft';
 export * from './rng/SeededRng';

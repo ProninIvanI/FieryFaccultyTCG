@@ -4,6 +4,8 @@ import {
   CardRegistry,
   createInitialState,
   dealOpeningHand,
+  STARTING_ACTION_POINTS,
+  STARTING_MANA,
   toCardDefinitionFromCatalog,
 } from '../../../game-core/src';
 import { readFileSync } from 'fs';
@@ -69,9 +71,9 @@ const syncPlayerLoadoutIntoState = (
   state.players[player.playerId] = {
     playerId: player.playerId,
     characterId: player.characterId,
-    mana: 0,
+    mana: STARTING_MANA,
     maxMana: 10,
-    actionPoints: 2,
+    actionPoints: STARTING_ACTION_POINTS,
   };
   state.characters[player.characterId] = {
     characterId: player.characterId,
@@ -84,6 +86,11 @@ const syncPlayerLoadoutIntoState = (
   state.decks[player.playerId] = {
     ownerId: player.playerId,
     cards: nextDeck.map((card) => card.instanceId),
+  };
+  state.round.players[player.playerId] = {
+    playerId: player.playerId,
+    locked: false,
+    draftCount: 0,
   };
   nextDeck.forEach((card) => {
     state.cardInstances[card.instanceId] = card;

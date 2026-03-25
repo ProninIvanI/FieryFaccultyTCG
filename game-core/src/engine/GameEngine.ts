@@ -1,8 +1,19 @@
 import {
   Action,
+  AttackAction,
+  CastSpellAction,
+  EvadeAction,
   GameState,
   GameLogEntry,
   PhaseType,
+  PlayCardAction,
+  PlayerRoundDraft,
+  ResolvedRoundAction,
+  RoundActionIntent,
+  RoundActionReasonCode,
+  RoundDraftValidationResult,
+  RoundResolutionResult,
+  SummonAction,
 } from '../types';
 import { EventBus } from '../events/EventBus';
 import { EffectQueue } from '../queues/EffectQueue';
@@ -25,12 +36,18 @@ import { ShieldEffect } from '../effects/ShieldEffect';
 import { BuffEffect } from '../effects/BuffEffect';
 import { DebuffEffect } from '../effects/DebuffEffect';
 import { SummonEffect } from '../effects/SummonEffect';
+import { STARTING_ACTION_POINTS } from './createInitialState';
+import { compileRoundActions } from '../rounds/compileRoundActions';
+import { sortRoundActions } from '../rounds/sortRoundActions';
+import { validateRoundDraft } from '../rounds/validateRoundDraft';
+import { validateTargetType } from '../validation/validators';
 
 export class GameEngine {
   private readonly ctx: GameEngineContext;
   private readonly phaseMachine: PhaseStateMachine;
   private readonly commands: Map<Action['type'], ActionCommand>;
   private readonly effectHandlers: Map<string, EffectHandler>;
+  private readonly roundDrafts = new Map<string, PlayerRoundDraft>();
 
   constructor(private readonly state: GameState, cardRegistry: CardRegistry) {
     const events = new EventBus();
@@ -65,6 +82,142 @@ export class GameEngine {
     return this.state;
   }
 
+  getRoundDraft(playerId: string): PlayerRoundDraft | null {
+    const draft = this.roundDrafts.get(playerId);
+    return draft ? this.cloneDraft(draft) : null;
+  }
+
+  submitRoundDraft(
+    playerId: string,
+    roundNumber: number,
+    intents: RoundActionIntent[],
+  ): RoundDraftValidationResult {
+    if (!this.state.players[playerId]) {
+      return {
+        ok: false,
+        errors: [{ code: 'player_not_found', message: 'Player not found for round draft' }],
+      };
+    }
+
+    if (this.state.round.status === 'resolving') {
+      return {
+        ok: false,
+        errors: [{ code: 'round_resolving', message: 'Round is currently resolving' }],
+      };
+    }
+
+    const publicRoundState = this.state.round.players[playerId];
+    if (publicRoundState?.locked) {
+      return {
+        ok: false,
+        errors: [{ code: 'draft_locked', message: 'Locked round draft cannot be replaced' }],
+      };
+    }
+
+    const draft: PlayerRoundDraft = {
+      playerId,
+      roundNumber,
+      locked: false,
+      intents: intents.map((intent) => this.cloneIntent(intent)),
+    };
+
+    const validation = validateRoundDraft(this.state, this.ctx.cards, draft);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    this.roundDrafts.set(playerId, draft);
+    this.syncPublicRoundState(playerId, draft.intents.length, false);
+    this.refreshRoundStatus();
+    return { ok: true };
+  }
+
+  lockRoundDraft(playerId: string, roundNumber: number): RoundDraftValidationResult {
+    if (!this.state.players[playerId]) {
+      return {
+        ok: false,
+        errors: [{ code: 'player_not_found', message: 'Player not found for round draft' }],
+      };
+    }
+
+    const existingDraft = this.roundDrafts.get(playerId) ?? {
+      playerId,
+      roundNumber,
+      locked: false,
+      intents: [],
+    };
+
+    if (existingDraft.roundNumber !== roundNumber) {
+      return {
+        ok: false,
+        errors: [{
+          code: 'round_number',
+          message: `Round draft number ${roundNumber} does not match stored round ${existingDraft.roundNumber}`,
+        }],
+      };
+    }
+
+    if (existingDraft.locked) {
+      return { ok: true };
+    }
+
+    const validation = validateRoundDraft(this.state, this.ctx.cards, existingDraft);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    const lockedDraft: PlayerRoundDraft = {
+      ...existingDraft,
+      locked: true,
+      intents: existingDraft.intents.map((intent) => this.cloneIntent(intent)),
+    };
+    this.roundDrafts.set(playerId, lockedDraft);
+    this.syncPublicRoundState(playerId, lockedDraft.intents.length, true);
+    this.refreshRoundStatus();
+    return { ok: true };
+  }
+
+  resolveRoundIfReady(): RoundResolutionResult | null {
+    const playerIds = Object.keys(this.state.players);
+    if (
+      playerIds.length === 0 ||
+      playerIds.some((playerId) => !this.roundDrafts.get(playerId)?.locked)
+    ) {
+      return null;
+    }
+
+    this.state.round.status = 'resolving';
+
+    const allIntents = playerIds.flatMap((playerId) => {
+      const draft = this.roundDrafts.get(playerId);
+      return draft ? draft.intents.map((intent) => this.cloneIntent(intent)) : [];
+    });
+
+    const compiled = sortRoundActions(
+      compileRoundActions(
+        allIntents,
+        this.state,
+        this.ctx.cards,
+        this.state.round.initiativePlayerId,
+      ),
+    );
+
+    const orderedActions = compiled.map((compiledAction) =>
+      this.resolveCompiledRoundAction(compiledAction.intent, compiledAction.layer),
+    );
+
+    this.cleanupDefeatedCreatures();
+
+    const result: RoundResolutionResult = {
+      roundNumber: this.state.round.number,
+      orderedActions,
+    };
+
+    this.finishResolvedRound(result);
+    this.state.rngState = this.ctx.rng.getState();
+    return result;
+  }
+
   processAction(action: Action): { ok: boolean; errors?: string[] } {
     const command = this.commands.get(action.type);
     if (!command) {
@@ -75,14 +228,7 @@ export class GameEngine {
       return { ok: false, errors };
     }
 
-    this.log('action', { action });
-    this.state.actionLog.push(action);
-    this.ctx.events.emit('onAction', { action });
-
-    command.execute(action, this.state, this.ctx);
-    this.resolveEffects();
-    this.handleEndOfPhase();
-    this.state.rngState = this.ctx.rng.getState();
+    this.executeValidatedAction(action, command);
     return { ok: true };
   }
 
@@ -142,17 +288,291 @@ export class GameEngine {
       number: this.state.turn.number + 1,
       activePlayerId: playerIds[nextIndex],
     };
+    this.state.round.number = this.state.turn.number;
+    this.state.round.status = 'draft';
+    this.state.round.initiativePlayerId = playerIds[(this.state.round.number - 1) % playerIds.length] ?? playerIds[0];
+    Object.values(this.state.round.players).forEach((playerRoundState) => {
+      playerRoundState.locked = false;
+      playerRoundState.draftCount = 0;
+    });
+    this.state.round.lastResolution = undefined;
     this.prepareTurn();
   }
 
   private prepareTurn(): void {
     const activePlayer = this.state.players[this.state.turn.activePlayerId];
-    activePlayer.actionPoints = 2;
+    activePlayer.actionPoints = 3;
     activePlayer.mana = Math.min(activePlayer.maxMana, activePlayer.mana + 1);
 
     this.phaseMachine.reset();
     this.phaseMachine.advance();
     this.state.phase.current = this.phaseMachine.advance();
+  }
+
+  private executeValidatedAction(action: Action, command: ActionCommand): void {
+    this.log('action', { action });
+    this.state.actionLog.push(action);
+    this.ctx.events.emit('onAction', { action });
+
+    command.execute(action, this.state, this.ctx);
+    this.resolveEffects();
+    this.handleEndOfPhase();
+    this.state.rngState = this.ctx.rng.getState();
+  }
+
+  private resolveCompiledRoundAction(
+    intent: RoundActionIntent,
+    layer: ResolvedRoundAction['layer'],
+  ): ResolvedRoundAction {
+    const fizzleReason = this.getIntentFizzleReason(intent);
+    if (fizzleReason) {
+      return {
+        intentId: intent.intentId,
+        playerId: intent.playerId,
+        layer,
+        status: 'fizzled',
+        reasonCode: fizzleReason,
+        summary: `${intent.kind} fizzled before resolution`,
+      };
+    }
+
+    const action = this.buildActionFromIntent(intent);
+    if (!action) {
+      return {
+        intentId: intent.intentId,
+        playerId: intent.playerId,
+        layer,
+        status: 'fizzled',
+        reasonCode: 'invalid_intent',
+        summary: `${intent.kind} fizzled before resolution`,
+      };
+    }
+
+    const command = this.commands.get(action.type);
+    if (!command) {
+      return {
+        intentId: intent.intentId,
+        playerId: intent.playerId,
+        layer,
+        status: 'fizzled',
+        reasonCode: 'command_unavailable',
+        summary: `${intent.kind} has no command handler`,
+      };
+    }
+
+    this.executeValidatedAction(action, command);
+    return {
+      intentId: intent.intentId,
+      playerId: intent.playerId,
+      layer,
+      status: 'resolved',
+      reasonCode: 'resolved',
+      summary: `${intent.kind} resolved in layer ${layer}`,
+    };
+  }
+
+  private buildActionFromIntent(intent: RoundActionIntent): Action | null {
+    switch (intent.kind) {
+      case 'Summon': {
+        const action: SummonAction = {
+          type: 'Summon',
+          actorId: String(intent.actorId),
+          playerId: intent.playerId,
+          cardInstanceId: intent.cardInstanceId,
+        };
+        return action;
+      }
+      case 'CastSpell': {
+        const instance = this.state.cardInstances[intent.cardInstanceId];
+        const definition = instance ? this.ctx.cards.get(instance.definitionId) : undefined;
+        const action: CastSpellAction = {
+          type: 'CastSpell',
+          actorId: String(intent.actorId),
+          playerId: intent.playerId,
+          cardInstanceId: intent.cardInstanceId,
+          targetId: intent.target.targetId,
+          targetType: intent.target.targetType ?? definition?.targetType ?? 'any',
+        };
+        return action;
+      }
+      case 'PlayCard': {
+        const instance = this.state.cardInstances[intent.cardInstanceId];
+        const definition = instance ? this.ctx.cards.get(instance.definitionId) : undefined;
+        const action: PlayCardAction = {
+          type: 'PlayCard',
+          actorId: String(intent.actorId),
+          playerId: intent.playerId,
+          cardInstanceId: intent.cardInstanceId,
+          targetId: intent.target.targetId,
+          targetType: intent.target.targetType ?? definition?.targetType ?? 'any',
+        };
+        return action;
+      }
+      case 'Attack': {
+        const source = this.state.creatures[intent.sourceCreatureId];
+        const targetId = intent.target.targetId;
+        if (!source || !targetId) {
+          return null;
+        }
+        const action: AttackAction = {
+          type: 'Attack',
+          actorId: String(intent.actorId),
+          playerId: intent.playerId,
+          targetId,
+          attackType: 'creature',
+          speed: source.speed,
+          power: source.attack,
+        };
+        return action;
+      }
+      case 'Evade': {
+        const action: EvadeAction = {
+          type: 'Evade',
+          actorId: String(intent.actorId),
+          playerId: intent.playerId,
+        };
+        return action;
+      }
+    }
+  }
+
+  private getIntentFizzleReason(
+    intent: RoundActionIntent,
+  ): Exclude<RoundActionReasonCode, 'resolved' | 'invalid_intent' | 'command_unavailable'> | null {
+    switch (intent.kind) {
+      case 'Summon': {
+        const instance = this.state.cardInstances[intent.cardInstanceId];
+        if (!instance || instance.ownerId !== intent.playerId || instance.location !== 'hand') {
+          return 'card_unavailable';
+        }
+
+        const definition = this.ctx.cards.get(instance.definitionId);
+        if (!definition) {
+          return 'card_definition_missing';
+        }
+
+        return definition.type === 'creature' ? null : 'card_unavailable';
+      }
+      case 'CastSpell':
+      case 'PlayCard': {
+        const instance = this.state.cardInstances[intent.cardInstanceId];
+        if (!instance || instance.ownerId !== intent.playerId || instance.location !== 'hand') {
+          return 'card_unavailable';
+        }
+        const definition = this.ctx.cards.get(instance.definitionId);
+        if (!definition) {
+          return 'card_definition_missing';
+        }
+        return validateTargetType(
+          this.state,
+          String(intent.actorId),
+          intent.target.targetId,
+          definition.targetType,
+        ).length === 0
+          ? null
+          : 'target_invalidated';
+      }
+      case 'Attack': {
+        const source = this.state.creatures[intent.sourceCreatureId];
+        const targetId = intent.target.targetId;
+        if (!source || source.ownerId !== intent.playerId) {
+          return 'attack_source_unavailable';
+        }
+
+        if (source.summonedAtRound === this.state.round.number) {
+          return 'summoning_sickness';
+        }
+
+        if (!targetId) {
+          return 'target_invalidated';
+        }
+
+        return this.state.characters[targetId] || this.state.creatures[targetId]
+          ? null
+          : 'target_invalidated';
+      }
+      case 'Evade': {
+        const character = this.state.characters[String(intent.actorId)];
+        const creature = this.state.creatures[String(intent.actorId)];
+        return (
+          (character && character.ownerId === intent.playerId) ||
+          (creature && creature.ownerId === intent.playerId)
+        )
+          ? null
+          : 'actor_unavailable';
+      }
+    }
+  }
+
+  private cleanupDefeatedCreatures(): void {
+    Object.entries(this.state.creatures).forEach(([creatureId, creature]) => {
+      if (creature.hp <= 0) {
+        delete this.state.creatures[creatureId];
+      }
+    });
+  }
+
+  private finishResolvedRound(result: RoundResolutionResult): void {
+    const playerIds = Object.keys(this.state.players);
+    const nextRoundNumber = this.state.round.number + 1;
+    const nextInitiativePlayerId = playerIds[(nextRoundNumber - 1) % playerIds.length] ?? playerIds[0];
+
+    this.roundDrafts.clear();
+    Object.values(this.state.round.players).forEach((playerRoundState) => {
+      playerRoundState.locked = false;
+      playerRoundState.draftCount = 0;
+    });
+    Object.values(this.state.players).forEach((player) => {
+      player.actionPoints = STARTING_ACTION_POINTS;
+    });
+
+    this.state.round.number = nextRoundNumber;
+    this.state.round.status = 'draft';
+    this.state.round.initiativePlayerId = nextInitiativePlayerId;
+    this.state.round.lastResolution = result;
+    this.state.turn.number = nextRoundNumber;
+    this.state.turn.activePlayerId = nextInitiativePlayerId;
+  }
+
+  private refreshRoundStatus(): void {
+    const publicStates = Object.values(this.state.round.players);
+    if (this.state.round.status === 'resolving') {
+      return;
+    }
+    this.state.round.status = publicStates.some((playerState) => playerState.locked)
+      ? 'locked_waiting'
+      : 'draft';
+  }
+
+  private syncPublicRoundState(playerId: string, draftCount: number, locked: boolean): void {
+    this.state.round.players[playerId] = {
+      playerId,
+      locked,
+      draftCount,
+    };
+  }
+
+  private cloneDraft(draft: PlayerRoundDraft): PlayerRoundDraft {
+    return {
+      playerId: draft.playerId,
+      roundNumber: draft.roundNumber,
+      locked: draft.locked,
+      intents: draft.intents.map((intent) => this.cloneIntent(intent)),
+    };
+  }
+
+  private cloneIntent(intent: RoundActionIntent): RoundActionIntent {
+    switch (intent.kind) {
+      case 'Summon':
+        return { ...intent };
+      case 'CastSpell':
+      case 'PlayCard':
+        return { ...intent, target: { ...intent.target } };
+      case 'Attack':
+        return { ...intent, target: { ...intent.target } };
+      case 'Evade':
+        return { ...intent };
+    }
   }
 
   private log(type: GameLogEntry['type'], payload: Record<string, unknown>): void {
