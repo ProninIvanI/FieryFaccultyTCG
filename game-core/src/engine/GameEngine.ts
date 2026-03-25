@@ -38,7 +38,7 @@ import { ShieldEffect } from '../effects/ShieldEffect';
 import { BuffEffect } from '../effects/BuffEffect';
 import { DebuffEffect } from '../effects/DebuffEffect';
 import { SummonEffect } from '../effects/SummonEffect';
-import { STARTING_ACTION_POINTS } from './createInitialState';
+import { drawCards, STARTING_ACTION_POINTS } from './createInitialState';
 import { compileRoundActions } from '../rounds/compileRoundActions';
 import { sortRoundActions } from '../rounds/sortRoundActions';
 import { validateRoundDraft } from '../rounds/validateRoundDraft';
@@ -569,6 +569,8 @@ export class GameEngine {
     });
     Object.values(this.state.players).forEach((player) => {
       player.actionPoints = STARTING_ACTION_POINTS;
+      player.mana = Math.min(player.maxMana, player.mana + 1);
+      drawCards(this.state, player.playerId, 1);
     });
 
     this.state.round.number = nextRoundNumber;

@@ -180,6 +180,7 @@ export class WsGateway {
         if (stateSnapshot) {
           this.broadcast(binding.sessionId, { type: 'state', state: stateSnapshot });
         }
+        this.broadcastRoundDraftSnapshots(binding.sessionId);
         this.broadcastRoundStatus(binding.sessionId);
       }
     }
@@ -363,6 +364,22 @@ export class WsGateway {
       locked: snapshot?.locked ?? false,
       intents: snapshot?.intents ?? [],
       boardModel: snapshot?.boardModel ?? undefined,
+    });
+  }
+
+  private broadcastRoundDraftSnapshots(sessionId: string): void {
+    const sockets = this.sessionSockets.get(sessionId);
+    if (!sockets) {
+      return;
+    }
+
+    sockets.forEach((socket) => {
+      const binding = this.socketBindings.get(socket);
+      if (!binding) {
+        return;
+      }
+
+      this.sendRoundDraftSnapshot(sessionId, binding.playerId, socket);
     });
   }
 

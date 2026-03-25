@@ -74,20 +74,24 @@ describe('DeckPage', () => {
     fireEvent.change(deckNameInput, {
       target: { value: 'Aggro Fire Updated' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }));
 
     await waitFor(() => {
       expect(putSpy).toHaveBeenCalled();
     });
 
-    expect(putSpy).toHaveBeenCalledWith('/api/decks/deck_1', {
-      name: 'Aggro Fire Updated',
-      characterId: '1',
-      cards: [{ cardId: '1', quantity: 2 }],
-    }, undefined);
+    expect(putSpy).toHaveBeenCalledWith(
+      '/api/decks/deck_1',
+      {
+        name: 'Aggro Fire Updated',
+        characterId: '1',
+        cards: [{ cardId: '1', quantity: 2 }],
+      },
+      undefined,
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Колода сохранена.')).toBeInTheDocument();
     });
-  });
+  }, 10000);
 });

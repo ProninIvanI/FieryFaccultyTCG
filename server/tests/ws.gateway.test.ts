@@ -297,6 +297,50 @@ describe('ws gateway integration', () => {
     expect(nextStateOne.state.round.number).toBe(2);
     expect(nextStateTwo.state.round.number).toBe(2);
 
+    const clearedDraftOne = await playerOneMessages.waitFor<{
+      type: 'roundDraft.snapshot';
+      roundNumber: number;
+      locked: boolean;
+      intents: unknown[];
+    }>(
+      (message): message is {
+        type: 'roundDraft.snapshot';
+        roundNumber: number;
+        locked: boolean;
+        intents: unknown[];
+      } =>
+        message.type === 'roundDraft.snapshot' &&
+        typeof message.roundNumber === 'number' &&
+        message.roundNumber === 2 &&
+        message.locked === false &&
+        Array.isArray(message.intents) &&
+        message.intents.length === 0,
+    );
+    const clearedDraftTwo = await playerTwoMessages.waitFor<{
+      type: 'roundDraft.snapshot';
+      roundNumber: number;
+      locked: boolean;
+      intents: unknown[];
+    }>(
+      (message): message is {
+        type: 'roundDraft.snapshot';
+        roundNumber: number;
+        locked: boolean;
+        intents: unknown[];
+      } =>
+        message.type === 'roundDraft.snapshot' &&
+        typeof message.roundNumber === 'number' &&
+        message.roundNumber === 2 &&
+        message.locked === false &&
+        Array.isArray(message.intents) &&
+        message.intents.length === 0,
+    );
+
+    expect(clearedDraftOne.roundNumber).toBe(2);
+    expect(clearedDraftTwo.roundNumber).toBe(2);
+    expect(clearedDraftOne.intents).toEqual([]);
+    expect(clearedDraftTwo.intents).toEqual([]);
+
     playerOne.close();
     playerTwo.close();
   });

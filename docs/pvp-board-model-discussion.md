@@ -8,6 +8,7 @@
 
 - обсуждение завершено;
 - итоговые решения перенесены в [docs/pvp-board-model-plan.md](/c:/Users/Rumpel/Desktop/проекты/FieryFaccultyTCG/docs/pvp-board-model-plan.md);
+- follow-up выводы после первого smoke по корректности round-loop, playback и target UX тоже фиксируются уже в [docs/pvp-board-model-plan.md](/c:/Users/Rumpel/Desktop/проекты/FieryFaccultyTCG/docs/pvp-board-model-plan.md) и [docs/simultaneous-round-implementation-spec.md](/c:/Users/Rumpel/Desktop/проекты/FieryFaccultyTCG/docs/simultaneous-round-implementation-spec.md);
 - этот файл хранится как исторический контекст и больше не является основным рабочим источником требований.
 
 ## 1. Зачем существует этот документ

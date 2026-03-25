@@ -10,6 +10,7 @@ import {
   validatePhase,
   validateTargetType,
 } from '../validation/validators';
+import { moveCardInstance } from '../utils/cardZones';
 
 export class CastSpellActionCommand implements ActionCommand<CastSpellAction> {
   readonly type = 'CastSpell' as const;
@@ -50,8 +51,7 @@ export class CastSpellActionCommand implements ActionCommand<CastSpellAction> {
     player.mana = Math.max(0, player.mana - def.manaCost);
     player.actionPoints = Math.max(0, player.actionPoints - 1);
 
-    instance.location = 'discard';
-    state.discardPiles[action.playerId].push(instance.instanceId);
+    moveCardInstance(state, instance.instanceId, 'discard');
 
     def.effects.forEach((effectDef) => {
       const effectId = ctx.ids.next('effect');

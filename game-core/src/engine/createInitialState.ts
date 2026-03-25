@@ -20,6 +20,14 @@ export const dealOpeningHand = (
   playerId: PlayerId,
   handSize = STARTING_HAND_SIZE,
 ): void => {
+  drawCards(state, playerId, handSize);
+};
+
+export const drawCards = (
+  state: GameState,
+  playerId: PlayerId,
+  count = 1,
+): void => {
   const deckState = state.decks[playerId];
   const handState = state.hands[playerId];
 
@@ -27,7 +35,7 @@ export const dealOpeningHand = (
     return;
   }
 
-  const drawCount = Math.min(handSize, deckState.cards.length);
+  const drawCount = Math.min(count, deckState.cards.length);
   if (drawCount <= 0) {
     return;
   }

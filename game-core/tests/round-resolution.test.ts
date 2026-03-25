@@ -170,4 +170,170 @@ describe('game-core round resolution pipeline', () => {
     expect(state.players.player_1.actionPoints).toBe(3);
     expect(state.players.player_2.actionPoints).toBe(3);
   });
+
+  it('moves resolved cards out of hand into their post-round zones', () => {
+    const registry = new CardRegistry([
+      {
+        id: 'wolf',
+        name: 'Wolf',
+        type: 'creature',
+        manaCost: 1,
+        speed: 2,
+        targetType: 'self',
+        effects: [{ type: 'SummonEffect', creatureDefinitionId: 'wolf' }],
+      },
+      {
+        id: 'spark',
+        name: 'Spark',
+        type: 'spell',
+        manaCost: 1,
+        speed: 3,
+        targetType: 'enemyCharacter',
+        effects: [{ type: 'DamageEffect', value: 2, attackType: 'spell' }],
+      },
+    ]);
+    const state = createInitialState(123, [
+      {
+        playerId: 'player_1',
+        characterId: 'char_1',
+        deck: buildDeck('player_1', ['wolf']),
+      },
+      {
+        playerId: 'player_2',
+        characterId: 'char_2',
+        deck: buildDeck('player_2', ['spark']),
+      },
+    ]);
+
+    state.players.player_1.mana = 5;
+    state.players.player_2.mana = 5;
+    state.players.player_1.actionPoints = 3;
+    state.players.player_2.actionPoints = 3;
+
+    const engine = new GameEngine(state, registry);
+
+    expect(
+      engine.submitRoundDraft('player_1', 1, [
+        {
+          intentId: 'wolf_1',
+          roundNumber: 1,
+          playerId: 'player_1',
+          actorId: 'char_1',
+          queueIndex: 0,
+          kind: 'Summon',
+          cardInstanceId: 'card_player_1_1',
+        },
+      ]),
+    ).toEqual({ ok: true });
+    expect(
+      engine.submitRoundDraft('player_2', 1, [
+        {
+          intentId: 'spark_1',
+          roundNumber: 1,
+          playerId: 'player_2',
+          actorId: 'char_2',
+          queueIndex: 0,
+          kind: 'CastSpell',
+          cardInstanceId: 'card_player_2_1',
+          target: {
+            targetId: 'char_1',
+            targetType: 'enemyCharacter',
+          },
+        },
+      ]),
+    ).toEqual({ ok: true });
+
+    expect(engine.lockRoundDraft('player_1', 1)).toEqual({ ok: true });
+    expect(engine.lockRoundDraft('player_2', 1)).toEqual({ ok: true });
+    expect(engine.resolveRoundIfReady()).not.toBeNull();
+
+    const resolvedState = engine.getState();
+    expect(resolvedState.hands.player_1).toEqual([]);
+    expect(resolvedState.hands.player_2).toEqual([]);
+    expect(resolvedState.cardInstances.card_player_1_1.location).toBe('board');
+    expect(resolvedState.cardInstances.card_player_2_1.location).toBe('discard');
+    expect(resolvedState.discardPiles.player_2).toEqual(['card_player_2_1']);
+    expect(
+      Object.values(resolvedState.creatures).some(
+        (creature) => creature.sourceCardInstanceId === 'card_player_1_1',
+      ),
+    ).toBe(true);
+  });
+
+  it('refreshes mana, action points, and draws one card for each player when next round opens', () => {
+    const engine = buildEngine();
+    const state = engine.getState();
+
+    state.players.player_1.mana = 2;
+    state.players.player_2.mana = 9;
+    state.players.player_1.actionPoints = 1;
+    state.players.player_2.actionPoints = 1;
+
+    state.decks.player_1.cards.push('draw_player_1');
+    state.cardInstances.draw_player_1 = {
+      instanceId: 'draw_player_1',
+      ownerId: 'player_1',
+      definitionId: 'barrier',
+      location: 'deck',
+    };
+
+    state.decks.player_2.cards.push('draw_player_2');
+    state.cardInstances.draw_player_2 = {
+      instanceId: 'draw_player_2',
+      ownerId: 'player_2',
+      definitionId: 'fireball',
+      location: 'deck',
+    };
+
+    expect(
+      engine.submitRoundDraft('player_1', 1, [
+        {
+          intentId: 'barrier_1',
+          roundNumber: 1,
+          playerId: 'player_1',
+          actorId: 'char_1',
+          queueIndex: 0,
+          kind: 'CastSpell',
+          cardInstanceId: 'card_player_1_1',
+          target: {
+            targetId: 'char_1',
+            targetType: 'self',
+          },
+        },
+      ]),
+    ).toEqual({ ok: true });
+    expect(
+      engine.submitRoundDraft('player_2', 1, [
+        {
+          intentId: 'fireball_1',
+          roundNumber: 1,
+          playerId: 'player_2',
+          actorId: 'char_2',
+          queueIndex: 0,
+          kind: 'CastSpell',
+          cardInstanceId: 'card_player_2_1',
+          target: {
+            targetId: 'char_1',
+            targetType: 'enemyCharacter',
+          },
+        },
+      ]),
+    ).toEqual({ ok: true });
+
+    expect(engine.lockRoundDraft('player_1', 1)).toEqual({ ok: true });
+    expect(engine.lockRoundDraft('player_2', 1)).toEqual({ ok: true });
+    expect(engine.resolveRoundIfReady()).not.toBeNull();
+
+    expect(state.round.number).toBe(2);
+    expect(state.players.player_1.actionPoints).toBe(3);
+    expect(state.players.player_2.actionPoints).toBe(3);
+    expect(state.players.player_1.mana).toBe(2);
+    expect(state.players.player_2.mana).toBe(9);
+    expect(state.hands.player_1).toContain('draw_player_1');
+    expect(state.hands.player_2).toContain('draw_player_2');
+    expect(state.cardInstances.draw_player_1.location).toBe('hand');
+    expect(state.cardInstances.draw_player_2.location).toBe('hand');
+    expect(state.decks.player_1.cards).not.toContain('draw_player_1');
+    expect(state.decks.player_2.cards).not.toContain('draw_player_2');
+  });
 });

@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-03-26 update: closed the current PvP smoke-fix batch across `game-core`, `server`, and `frontend`: resolved cards now move between real zones, the next round restores mana/actions and draws cards, post-resolve personal snapshots are rebroadcast, `PlayPvpPage` gained ordered resolve playback with field highlights, diagnostics became opt-in, and the live match UI was compacted into replay-focused HUD panels with updated regression coverage.
+
 > 2026-03-26 update: PvP `PlayPvpPage` was moved from the old draft/sidebar flow to a core-driven battle ribbon: `game-core` now derives `BoardItem`, `RoundAction`, placement, unified `ribbonEntries`, and initial hand/creature intents; server snapshots expose `boardView` plus personal `boardModel`; frontend now inserts actions directly into the ribbon, removes manual reorder and the right-side context panel, uses inline action/target indicators with field-click targeting, and documentation/specs were synchronized to the implemented model.
 
 > 2026-03-25 update: `PlayPvpPage` PvP draft UX was polished on top of the new round-based flow: the creature panel now has a dedicated `Evade` action, the post-round area renders a reveal timeline in actual `roundResolved` order, target labels are resolved from the live snapshot instead of raw `targetId`, and frontend coverage now includes both `Evade` and self-target `PlayCard` draft scenarios.

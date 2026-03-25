@@ -10,6 +10,7 @@ import {
   validateMana,
   validatePhase,
 } from '../validation/validators';
+import { moveCardInstance } from '../utils/cardZones';
 
 export class SummonActionCommand implements ActionCommand<SummonAction> {
   readonly type = 'Summon' as const;
@@ -49,7 +50,7 @@ export class SummonActionCommand implements ActionCommand<SummonAction> {
     player.mana = Math.max(0, player.mana - def.manaCost);
     player.actionPoints = Math.max(0, player.actionPoints - 1);
 
-    instance.location = 'board';
+    moveCardInstance(state, instance.instanceId, 'board');
 
     const effectId = ctx.ids.next('effect');
     ctx.effects.enqueue({

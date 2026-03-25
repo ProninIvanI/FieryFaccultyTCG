@@ -241,7 +241,8 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('session_alpha');
+      expect(screen.getByText(/Матч активен/i)).toBeInTheDocument();
+      expect(screen.getByText(/session_alpha/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Lock-in раунда/i })).toBeEnabled();
     });
 
@@ -275,7 +276,44 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Огненный шар нанёс урон/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Огненный шар нанёс урон/i).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('hides diagnostics by default and reveals raw snapshot only after explicit toggle', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_diagnostics', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 1, maxMana: 1, actionPoints: 1, characterId: 'char_1' },
+            user_2: { mana: 1, maxMana: 1, actionPoints: 1, characterId: 'char_2' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Боевой режим/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Debug state/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Открыть raw snapshot/i)).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Диагностика включена/i)).toBeInTheDocument();
+      expect(screen.getByText(/Debug state/i)).toBeInTheDocument();
+      expect(screen.getByText(/Открыть raw snapshot/i)).toBeInTheDocument();
+      expect(screen.getByText(/Зоны игроков/i)).toBeInTheDocument();
     });
   });
 
@@ -296,6 +334,54 @@ describe('PlayPvpPage', () => {
     });
 
     expect(socket.sent.some((item) => item.includes('"seed"'))).toBe(false);
+  });
+
+  it('collapses connection form into compact hud after match connection', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_hud_compact', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 1, maxMana: 1, actionPoints: 1, characterId: 'char_1' },
+            user_2: { mana: 1, maxMana: 1, actionPoints: 1, characterId: 'char_2' },
+          },
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Матч активен/i)).toBeInTheDocument();
+      expect(screen.getByText(/В игре/i)).toBeInTheDocument();
+      expect(screen.getByText(/session_hud_compact/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Параметры подключения/i })).toBeInTheDocument();
+      expect(screen.queryByDisplayValue('session_hud_compact')).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Параметры подключения/i }));
+      await flushMicrotasks();
+    });
+
+    expect(screen.getByDisplayValue('session_hud_compact')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Свернуть в HUD/i })).toBeInTheDocument();
   });
 
   it('sends roundDraft.replace with Summon intent for summon card from hand', async () => {
@@ -1144,15 +1230,423 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/Скрытое действие соперника/i)).toBeInTheDocument();
       expect(screen.getByText(/Игрок user_2/i)).toBeInTheDocument();
-      expect(screen.getByText(/Существо соперника нанесло удар/i)).toBeInTheDocument();
+      expect(screen.queryByTestId('enemy-resolution-playback-card')).not.toBeInTheDocument();
       expect(screen.getAllByText(/Заклинание: Огненный шар/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length).toBeGreaterThan(0);
-      expect(screen.getByText(new RegExp(getRoundActionReasonLabel('target_invalidated'), 'i'))).toBeInTheDocument();
-      expect(screen.getByText(/target_invalidated/i)).toBeInTheDocument();
-      expect(screen.getByText(/Цель исчезла до резолва/i)).toBeInTheDocument();
+      expect(screen.getAllByText(new RegExp(getRoundActionReasonLabel('target_invalidated'), 'i')).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Цель исчезла до резолва/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(getResolutionLayerLabel('offensive_control_spells'), 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/fizzled/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/Шаги показаны в фактическом порядке server-side резолва/i)).toBeInTheDocument();
+    });
+  });
+
+  it('plays back orderedActions step by step in the resolution spotlight', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_playback', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 1,
+          orderedActions: [
+            {
+              intentId: 'enemy_hidden_1',
+              playerId: 'user_2',
+              layer: 'attacks',
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Первый шаг резолва',
+            },
+            {
+              intentId: 'enemy_hidden_2',
+              playerId: 'user_2',
+              layer: 'offensive_control_spells',
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Второй шаг резолва',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Текущий шаг резолва/i)).toBeInTheDocument();
+      expect(screen.getByText((_, element) => element?.textContent === 'Раунд#1')).toBeInTheDocument();
+      expect(screen.getByText((_, element) => element?.textContent === 'Всего шагов2')).toBeInTheDocument();
+      expect(screen.getByText(/Соперник: 2/i)).toBeInTheDocument();
+      expect(screen.getByTestId('resolution-playback-step')).toHaveTextContent('Шаг 1 из 2');
+      expect(screen.getByTestId('resolution-playback-summary')).toHaveTextContent('Первый шаг резолва');
+      expect(screen.getByTestId('resolution-playback-status')).toHaveTextContent('Идёт');
+      expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Резолв сейчас');
+      expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Первый шаг резолва');
+    });
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('resolution-playback-step')).toHaveTextContent('Шаг 2 из 2');
+        expect(screen.getByTestId('resolution-playback-summary')).toHaveTextContent('Второй шаг резолва');
+        expect(screen.getByTestId('resolution-playback-status')).toHaveTextContent('Завершён');
+        expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Второй шаг резолва');
+      },
+      { timeout: 2500 },
+    );
+  });
+
+  it('renders the active local resolve step inside the local battle lane', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_local_playback', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_local_1',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 0,
+            kind: 'CastSpell',
+            cardInstanceId: 'spell_card_1',
+            target: {
+              targetType: 'enemyCharacter',
+              targetId: 'char_2',
+            },
+          },
+        ],
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Заклинание: Огненный шар/i).length).toBeGreaterThan(0);
+    });
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 1,
+          orderedActions: [
+            {
+              intentId: 'draft_local_1',
+              playerId: 'user_1',
+              layer: 'offensive_control_spells',
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Локальный шаг резолва',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('local-resolution-playback-card')).toHaveTextContent('Резолв сейчас');
+      expect(screen.getByTestId('local-resolution-playback-card')).toHaveTextContent('Локальный шаг резолва');
+      expect(screen.getByTestId('local-resolution-playback-card')).toHaveTextContent('Локальный шаг резолва');
+      expect(screen.queryByTestId('enemy-resolution-playback-card')).not.toBeInTheDocument();
+    });
+  });
+
+  it('highlights the active local attached action inside the battle ribbon during playback', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_local_attached_playback', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+          boardView: {
+            players: {
+              user_1: {
+                playerId: 'user_1',
+                boardItems: [
+                  {
+                    id: 'creature:ally_creature_1',
+                    runtimeId: 'ally_creature_1',
+                    ownerId: 'user_1',
+                    controllerId: 'user_1',
+                    subtype: 'creature',
+                    lifetimeType: 'persistent',
+                    definitionId: '81',
+                    placement: { layer: 'summon', orderIndex: 0, queueIndex: 0 },
+                    state: { hp: 4, maxHp: 4, attack: 2, speed: 3 },
+                  },
+                ],
+                ribbonEntries: [
+                  {
+                    id: 'boardItem:creature:ally_creature_1',
+                    kind: 'boardItem',
+                    orderIndex: 0,
+                    layer: 'summon',
+                    boardItemId: 'creature:ally_creature_1',
+                    attachedRoundActionIds: ['draft_attack_1'],
+                  },
+                ],
+              },
+              user_2: {
+                playerId: 'user_2',
+                boardItems: [],
+                ribbonEntries: [],
+              },
+            },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_attack_1',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'ally_creature_1',
+            queueIndex: 0,
+            kind: 'Attack',
+            sourceCreatureId: 'ally_creature_1',
+            target: {
+              targetType: 'enemyCharacter',
+              targetId: 'char_2',
+            },
+          },
+        ],
+        boardModel: {
+          playerId: 'user_1',
+          boardItems: [
+            {
+              id: 'creature:ally_creature_1',
+              runtimeId: 'ally_creature_1',
+              ownerId: 'user_1',
+              controllerId: 'user_1',
+              subtype: 'creature',
+              lifetimeType: 'persistent',
+              definitionId: '81',
+              placement: { layer: 'summon', orderIndex: 0, queueIndex: 0 },
+              state: { hp: 4, maxHp: 4, attack: 2, speed: 3 },
+            },
+          ],
+          ribbonEntries: [
+            {
+              id: 'boardItem:creature:ally_creature_1',
+              kind: 'boardItem',
+              orderIndex: 0,
+              layer: 'summon',
+              boardItemId: 'creature:ally_creature_1',
+              attachedRoundActionIds: ['draft_attack_1'],
+            },
+          ],
+          roundActions: [
+            {
+              id: 'draft_attack_1',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'ally_creature_1',
+              kind: 'Attack',
+              source: { type: 'boardItem', boardItemId: 'creature:ally_creature_1' },
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              placement: { layer: 'attacks', orderIndex: 0, queueIndex: 0 },
+              status: 'draft',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Атака: ally_creature_1/i).length).toBeGreaterThan(0);
+    });
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 1,
+          orderedActions: [
+            {
+              intentId: 'draft_attack_1',
+              playerId: 'user_1',
+              layer: 'attacks',
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Атака из ленты сейчас резолвится',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('local-playback-inline-action')).toHaveTextContent('Атака: ally_creature_1');
+      expect(screen.getByTestId('local-playback-inline-action')).toHaveTextContent('Attacks');
+      expect(screen.getByTestId('local-resolution-playback-card')).toHaveTextContent('Атака из ленты сейчас резолвится');
+    });
+  });
+
+  it('highlights an enemy public board item when the active playback step matches a single public lane item', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_enemy_public_playback', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+          boardView: {
+            players: {
+              user_1: {
+                playerId: 'user_1',
+                boardItems: [],
+                ribbonEntries: [],
+              },
+              user_2: {
+                playerId: 'user_2',
+                boardItems: [
+                  {
+                    id: 'creature:enemy_creature_1',
+                    runtimeId: 'enemy_creature_1',
+                    ownerId: 'user_2',
+                    controllerId: 'user_2',
+                    subtype: 'creature',
+                    lifetimeType: 'persistent',
+                    definitionId: '81',
+                    placement: { layer: 'summon', orderIndex: 0, queueIndex: 0 },
+                    state: { hp: 4, maxHp: 4, attack: 2, speed: 3 },
+                  },
+                ],
+                ribbonEntries: [
+                  {
+                    id: 'boardItem:creature:enemy_creature_1',
+                    kind: 'boardItem',
+                    orderIndex: 0,
+                    layer: 'summon',
+                    boardItemId: 'creature:enemy_creature_1',
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 1,
+          orderedActions: [
+            {
+              intentId: 'enemy_hidden_1',
+              playerId: 'user_2',
+              layer: 'summon',
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Соперник выставил существо на поле',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Соперник выставил существо на поле');
+      expect(screen.getByTestId('enemy-playback-highlight-item')).toHaveTextContent('Существо соперника');
+      expect(screen.getByTestId('enemy-playback-highlight-item')).toHaveTextContent('Огненный элементаль');
     });
   });
 
@@ -1352,7 +1846,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(/В матче уже заняты оба PvP-слота/i)).toBeInTheDocument();
       expect(screen.getByText(/Server reject: join сессии session_full/i)).toBeInTheDocument();
       expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
-      expect(screen.getByText('Ожидание данных матча...')).toBeInTheDocument();
+      expect(screen.getByText('Ожидание матча')).toBeInTheDocument();
     });
   });
 
@@ -1377,7 +1871,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(/Тип WS-сообщения не поддерживается сервером/i)).toBeInTheDocument();
       expect(screen.getByText(/Server reject: transport для action/i)).toBeInTheDocument();
       expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
-      expect(screen.getByText('Ожидание данных матча...')).toBeInTheDocument();
+      expect(screen.getByText('Ожидание матча')).toBeInTheDocument();
     });
   });
 });

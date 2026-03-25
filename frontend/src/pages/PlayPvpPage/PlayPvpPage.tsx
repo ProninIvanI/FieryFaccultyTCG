@@ -138,6 +138,8 @@ interface MatchEventSummary {
   description: string;
 }
 
+const ROUND_RESOLUTION_PLAYBACK_STEP_MS = 800;
+
 type BattlefieldSelection =
   | { kind: 'hand'; instanceId: string }
   | { kind: 'creature'; creatureId: string }
@@ -857,6 +859,10 @@ export const PlayPvpPage = () => {
   const [lastResolvedRound, setLastResolvedRound] = useState<RoundResolutionResult | null>(null);
   const [selfBoardModel, setSelfBoardModel] = useState<PlayerBoardModel | null>(null);
   const [lastResolvedDraft, setLastResolvedDraft] = useState<RoundActionIntentDraft[]>([]);
+  const [resolvedPlaybackIndex, setResolvedPlaybackIndex] = useState(-1);
+  const [resolvedPlaybackComplete, setResolvedPlaybackComplete] = useState(true);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showConnectionControls, setShowConnectionControls] = useState(false);
   const hasLiveStateRef = useRef(false);
   const pendingSessionIdRef = useRef('');
   const intentSequenceRef = useRef(0);
@@ -941,6 +947,46 @@ export const PlayPvpPage = () => {
       cancelled = true;
     };
   }, [authToken, deckId]);
+
+  useEffect(() => {
+    const totalSteps = lastResolvedRound?.orderedActions.length ?? 0;
+
+    if (!lastResolvedRound || totalSteps === 0) {
+      setResolvedPlaybackIndex(-1);
+      setResolvedPlaybackComplete(true);
+      return;
+    }
+
+    setResolvedPlaybackIndex(0);
+    setResolvedPlaybackComplete(totalSteps === 1);
+  }, [lastResolvedRound]);
+
+  useEffect(() => {
+    const totalSteps = lastResolvedRound?.orderedActions.length ?? 0;
+
+    if (
+      !lastResolvedRound ||
+      totalSteps <= 1 ||
+      resolvedPlaybackComplete ||
+      resolvedPlaybackIndex < 0
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setResolvedPlaybackIndex((currentIndex) => {
+        const nextIndex = Math.min(currentIndex + 1, totalSteps - 1);
+        if (nextIndex >= totalSteps - 1) {
+          setResolvedPlaybackComplete(true);
+        }
+        return nextIndex;
+      });
+    }, ROUND_RESOLUTION_PLAYBACK_STEP_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [lastResolvedRound, resolvedPlaybackComplete, resolvedPlaybackIndex]);
 
   useEffect(() => {
     const nextRoundSync = getRoundSyncFromState(matchState, playerId);
@@ -1784,6 +1830,43 @@ export const PlayPvpPage = () => {
               : `Игрок ${action.playerId}`,
         };
       });
+  const activeResolvedTimelineEntry =
+    resolvedPlaybackIndex >= 0 && resolvedPlaybackIndex < resolvedTimelineEntries.length
+      ? resolvedTimelineEntries[resolvedPlaybackIndex]
+      : null;
+  const activeResolvedOwnerId = activeResolvedTimelineEntry?.action.playerId ?? null;
+  const enemyPlaybackEntry =
+    activeResolvedTimelineEntry && activeResolvedOwnerId && activeResolvedOwnerId !== playerId
+      ? activeResolvedTimelineEntry
+      : null;
+  const localPlaybackEntry =
+    activeResolvedTimelineEntry && activeResolvedOwnerId === playerId
+      ? activeResolvedTimelineEntry
+      : null;
+  const activeLocalPlaybackIntentId = localPlaybackEntry?.action.intentId ?? null;
+  const activeLocalPlaybackRoundAction =
+    activeLocalPlaybackIntentId && selfBoardModel?.roundActions?.length
+      ? selfBoardModel.roundActions.find((action) => action.id === activeLocalPlaybackIntentId) ?? null
+      : null;
+  const activeLocalPlaybackSourceBoardItemId =
+    activeLocalPlaybackRoundAction?.source.type === 'boardItem'
+      ? activeLocalPlaybackRoundAction.source.boardItemId
+      : null;
+  const resolvedPlaybackStepLabel = activeResolvedTimelineEntry
+    ? `Шаг ${resolvedPlaybackIndex + 1} из ${resolvedTimelineEntries.length}`
+    : 'Ожидание playback';
+  const localResolvedActionCount = resolvedTimelineEntries.filter((entry) => entry.action.playerId === playerId).length;
+  const enemyResolvedActionCount = resolvedTimelineEntries.length - localResolvedActionCount;
+  const hasActiveMatchConnection = Boolean(joinedSessionId || matchState);
+  const selectedDeckName = savedDecks.find((deck) => deck.id === deckId)?.name ?? 'не выбрана';
+  const activeEnemyPlaybackBoardItemId = useMemo(() => {
+    if (!enemyPlaybackEntry) {
+      return null;
+    }
+
+    const matchingItems = enemyRibbonBoardItems.filter((item) => item.placementLayer === enemyPlaybackEntry.action.layer);
+    return matchingItems.length === 1 ? matchingItems[0].id : null;
+  }, [enemyPlaybackEntry, enemyRibbonBoardItems]);
 
   const draftRejectionErrorsByIntentId = useMemo(() => {
     const errorMap = new Map<string, RoundDraftRejectedSummary['errors']>();
@@ -1924,133 +2007,180 @@ export const PlayPvpPage = () => {
       <div className={styles.workbench}>
         <div className={styles.controlColumn}>
           <Card title="Панель матча" className={styles.themedCard}>
-            <form className={styles.formGrid} onSubmit={submitJoin}>
-              <div className={styles.segmentedRow}>
-                <button
-                  className={mode === 'create' ? styles.segmentActive : styles.segmentButton}
-                  type="button"
-                  onClick={() => setMode('create')}
-                >
-                  Создать матч
-                </button>
-                <button
-                  className={mode === 'join' ? styles.segmentActive : styles.segmentButton}
-                  type="button"
-                  onClick={() => setMode('join')}
-                >
-                  Войти в матч
-                </button>
-              </div>
-
-              <label className={styles.formRow}>
-                <span className={styles.label}>playerId</span>
-                <input className={styles.input} type="text" value={playerId} readOnly />
-              </label>
-
-              <label className={styles.formRow}>
-                <span className={styles.label}>sessionId</span>
-                <div className={styles.inlineField}>
-                  <input
-                    className={styles.input}
-                    type="text"
-                    value={sessionId}
-                    onChange={(event) => setSessionId(event.target.value)}
-                    placeholder="session_..."
-                  />
+            {hasActiveMatchConnection && !showConnectionControls ? (
+              <div className={styles.hudPanel}>
+                <div className={styles.hudHeader}>
+                  <div>
+                    <span className={styles.summaryLabel}>Матч активен</span>
+                    <strong className={styles.spotlightValue}>В игре</strong>
+                  </div>
+                  <span className={styles.cardBadge}>{status}</span>
+                </div>
+                <div className={styles.hudGrid}>
+                  <div className={styles.hudTile}>
+                    <span className={styles.summaryLabel}>Сессия</span>
+                    <strong>{joinedSessionId || sessionId}</strong>
+                  </div>
+                  <div className={styles.hudTile}>
+                    <span className={styles.summaryLabel}>Режим</span>
+                    <strong>{mode === 'create' ? 'Создатель' : 'Подключение'}</strong>
+                  </div>
+                  <div className={styles.hudTile}>
+                    <span className={styles.summaryLabel}>Колода</span>
+                    <strong>{selectedDeckName}</strong>
+                  </div>
+                  <div className={styles.hudTile}>
+                    <span className={styles.summaryLabel}>Игрок</span>
+                    <strong>{playerId}</strong>
+                  </div>
+                </div>
+                <div className={styles.inlineActions}>
+                  <button className={styles.primaryButton} type="button" onClick={() => setShowConnectionControls(true)}>
+                    Параметры подключения
+                  </button>
                   <button
                     className={styles.secondaryButton}
                     type="button"
-                    onClick={() => setSessionId(buildSessionId())}
+                    onClick={handleDisconnect}
+                    disabled={status === 'idle' || status === 'disconnected'}
                   >
-                    Сгенерировать
+                    Отключиться
                   </button>
                 </div>
-              </label>
-
-              <label className={styles.formRow}>
-                <span className={styles.label}>seed</span>
-                <input
-                  className={styles.input}
-                  type="number"
-                  value={seed}
-                  onChange={(event) => setSeed(event.target.value)}
-                  disabled={mode === 'join'}
-                />
-              </label>
-
-              <label className={styles.formRow}>
-                <span className={styles.label}>deck</span>
-                <select
-                  className={styles.input}
-                  value={deckId}
-                  onChange={(event) => setDeckId(event.target.value)}
-                  disabled={isDecksLoading || savedDecks.length === 0}
-                >
-                  <option value="">Выбери колоду</option>
-                  {savedDecks.map((deck) => (
-                    <option key={deck.id} value={deck.id}>
-                      {deck.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div className={styles.formActions}>
-                <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Подключаемся...' : mode === 'create' ? 'Создать и подключиться' : 'Войти в матч'}
-                </button>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={handleDisconnect}
-                  disabled={status === 'idle' || status === 'disconnected'}
-                >
-                  Отключиться
-                </button>
+                <div className={styles.hint}>Форма подключения скрыта, чтобы не перегружать экран во время матча.</div>
               </div>
+            ) : (
+              <form className={styles.formGrid} onSubmit={submitJoin}>
+                <div className={styles.segmentedRow}>
+                  <button
+                    className={mode === 'create' ? styles.segmentActive : styles.segmentButton}
+                    type="button"
+                    onClick={() => setMode('create')}
+                  >
+                    Создать матч
+                  </button>
+                  <button
+                    className={mode === 'join' ? styles.segmentActive : styles.segmentButton}
+                    type="button"
+                    onClick={() => setMode('join')}
+                  >
+                    Войти в матч
+                  </button>
+                </div>
 
-              <div className={styles.hintBlock}>
-                <div className={styles.hint}>Статус соединения: {status}</div>
-                <div className={styles.hint}>
-                  Активная сессия: {joinedSessionId || 'ещё не подключено'}
+                <label className={styles.formRow}>
+                  <span className={styles.label}>playerId</span>
+                  <input className={styles.input} type="text" value={playerId} readOnly />
+                </label>
+
+                <label className={styles.formRow}>
+                  <span className={styles.label}>sessionId</span>
+                  <div className={styles.inlineField}>
+                    <input
+                      className={styles.input}
+                      type="text"
+                      value={sessionId}
+                      onChange={(event) => setSessionId(event.target.value)}
+                      placeholder="session_..."
+                    />
+                    <button
+                      className={styles.secondaryButton}
+                      type="button"
+                      onClick={() => setSessionId(buildSessionId())}
+                    >
+                      Сгенерировать
+                    </button>
+                  </div>
+                </label>
+
+                <label className={styles.formRow}>
+                  <span className={styles.label}>seed</span>
+                  <input
+                    className={styles.input}
+                    type="number"
+                    value={seed}
+                    onChange={(event) => setSeed(event.target.value)}
+                    disabled={mode === 'join'}
+                  />
+                </label>
+
+                <label className={styles.formRow}>
+                  <span className={styles.label}>deck</span>
+                  <select
+                    className={styles.input}
+                    value={deckId}
+                    onChange={(event) => setDeckId(event.target.value)}
+                    disabled={isDecksLoading || savedDecks.length === 0}
+                  >
+                    <option value="">Выбери колоду</option>
+                    {savedDecks.map((deck) => (
+                      <option key={deck.id} value={deck.id}>
+                        {deck.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className={styles.formActions}>
+                  <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Подключаемся...' : mode === 'create' ? 'Создать и подключиться' : 'Войти в матч'}
+                  </button>
+                  <button
+                    className={styles.secondaryButton}
+                    type="button"
+                    onClick={handleDisconnect}
+                    disabled={status === 'idle' || status === 'disconnected'}
+                  >
+                    Отключиться
+                  </button>
+                  {hasActiveMatchConnection ? (
+                    <button className={styles.secondaryButton} type="button" onClick={() => setShowConnectionControls(false)}>
+                      Свернуть в HUD
+                    </button>
+                  ) : null}
                 </div>
-                <div className={styles.hint}>
-                  Выбранная колода: {savedDecks.find((deck) => deck.id === deckId)?.name ?? 'не выбрана'}
+
+                <div className={styles.hintBlock}>
+                  <div className={styles.hint}>Статус соединения: {status}</div>
+                  <div className={styles.hint}>
+                    Активная сессия: {joinedSessionId || 'ещё не подключено'}
+                  </div>
+                  <div className={styles.hint}>Выбранная колода: {selectedDeckName}</div>
+                  {mode === 'join' ? (
+                    <div className={styles.hint}>В режиме входа seed не отправляется — используется seed создателя матча.</div>
+                  ) : null}
+                  {isDecksLoading ? (
+                    <div className={styles.hint}>Загружаем доступные колоды...</div>
+                  ) : null}
                 </div>
-                {mode === 'join' ? (
-                  <div className={styles.hint}>В режиме входа seed не отправляется — используется seed создателя матча.</div>
-                ) : null}
-                {isDecksLoading ? (
-                  <div className={styles.hint}>Загружаем доступные колоды...</div>
-                ) : null}
+              </form>
+            )}
+
+            {transportRejected ? (
+              <div className={styles.roundRejectBox}>
+                <strong>
+                  Server reject: transport {transportRejected.requestType ? `для ${transportRejected.requestType}` : 'без типа сообщения'}
+                </strong>
+                <div className={styles.roundQueueError}>
+                  <span className={styles.cardBadge}>{transportRejected.code}</span>
+                  <span>{getTransportRejectCodeLabel(transportRejected.code)}</span>
+                </div>
+                <span>{transportRejected.error}</span>
               </div>
-
-              {transportRejected ? (
-                <div className={styles.roundRejectBox}>
-                  <strong>
-                    Server reject: transport {transportRejected.requestType ? `для ${transportRejected.requestType}` : 'без типа сообщения'}
-                  </strong>
-                  <div className={styles.roundQueueError}>
-                    <span className={styles.cardBadge}>{transportRejected.code}</span>
-                    <span>{getTransportRejectCodeLabel(transportRejected.code)}</span>
-                  </div>
-                  <span>{transportRejected.error}</span>
+            ) : null}
+            {joinRejected ? (
+              <div className={styles.roundRejectBox}>
+                <strong>
+                  Server reject: join {joinRejected.sessionId ? `сессии ${joinRejected.sessionId}` : 'подключения к матчу'}
+                </strong>
+                <div className={styles.roundQueueError}>
+                  <span className={styles.cardBadge}>{joinRejected.code}</span>
+                  <span>{getJoinRejectCodeLabel(joinRejected.code)}</span>
                 </div>
-              ) : null}
-              {joinRejected ? (
-                <div className={styles.roundRejectBox}>
-                  <strong>
-                    Server reject: join {joinRejected.sessionId ? `сессии ${joinRejected.sessionId}` : 'подключения к матчу'}
-                  </strong>
-                  <div className={styles.roundQueueError}>
-                    <span className={styles.cardBadge}>{joinRejected.code}</span>
-                    <span>{getJoinRejectCodeLabel(joinRejected.code)}</span>
-                  </div>
-                  <span>{joinRejected.error}</span>
-                </div>
-              ) : null}
-              {error ? <div className={styles.errorBox}>{error}</div> : null}
-            </form>
+                <span>{joinRejected.error}</span>
+              </div>
+            ) : null}
+            {error ? <div className={styles.errorBox}>{error}</div> : null}
           </Card>
         </div>
 
@@ -2240,59 +2370,91 @@ export const PlayPvpPage = () => {
                         <strong>{enemyBoards[0]?.playerId ?? 'Ожидание соперника'}</strong>
                       </div>
                     </div>
+                    {enemyPlaybackEntry ? (
+                      <div className={`${styles.ribbonCard} ${styles.ribbonCardPlayback}`.trim()} data-testid="enemy-resolution-playback-card">
+                        <div className={styles.ribbonHeader}>
+                          <div>
+                            <span className={styles.summaryLabel}>Резолв сейчас</span>
+                            <strong>{enemyPlaybackEntry.title}</strong>
+                          </div>
+                          <div className={styles.ribbonBadgeRow}>
+                            <span className={styles.cardBadge}>{resolvedPlaybackStepLabel}</span>
+                            <span className={styles.cardBadge}>{enemyPlaybackEntry.action.status}</span>
+                          </div>
+                        </div>
+                        <span>{enemyPlaybackEntry.subtitle}</span>
+                        <div className={styles.ribbonBadgeRow}>
+                          <span className={styles.cardBadge}>{getResolutionLayerLabel(enemyPlaybackEntry.action.layer)}</span>
+                          <span className={styles.cardBadge}>{getRoundActionReasonLabel(enemyPlaybackEntry.action.reasonCode)}</span>
+                        </div>
+                        <span className={styles.hint}>{enemyPlaybackEntry.action.summary}</span>
+                      </div>
+                    ) : null}
                     {enemyRibbonBoardItems.length > 0 ? (
                       <div className={styles.ribbonSection}>
                         <span className={styles.summaryLabel}>Боевая лента соперника</span>
                         <div className={styles.ribbonGrid}>
-                          {enemyRibbonBoardItems.map((item) =>
-                            item.subtype === 'creature' ? (
-                              <div key={item.id} className={styles.ribbonCard}>
-                                <button
-                                  className={`${styles.selectionSurface} ${selection?.kind === 'creature' && selection.creatureId === item.runtimeId ? styles.selectionSurfaceActive : ''} ${isSelectableTarget(item.runtimeId) ? styles.selectionSurfaceTargetable : ''} ${isDraftTargetActive(item.runtimeId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                                  aria-label={getTargetButtonAriaLabel(`Существо ${item.runtimeId}`, isSelectableTarget(item.runtimeId))}
-                                  type="button"
-                                  onClick={() =>
-                                    isSelectableTarget(item.runtimeId)
-                                      ? setDraftTargetId(item.runtimeId)
-                                      : setSelection({ kind: 'creature', creatureId: item.runtimeId })
-                                  }
+                          {enemyRibbonBoardItems.map((item) => {
+                            const isEnemyPlaybackItemActive = activeEnemyPlaybackBoardItemId === item.id;
+
+                            return (
+                              item.subtype === 'creature' ? (
+                                <div
+                                  key={item.id}
+                                  className={`${styles.ribbonCard} ${isEnemyPlaybackItemActive ? styles.ribbonCardPlaybackActive : ''}`.trim()}
+                                  data-testid={isEnemyPlaybackItemActive ? 'enemy-playback-highlight-item' : undefined}
+                                >
+                                  <button
+                                    className={`${styles.selectionSurface} ${selection?.kind === 'creature' && selection.creatureId === item.runtimeId ? styles.selectionSurfaceActive : ''} ${isSelectableTarget(item.runtimeId) ? styles.selectionSurfaceTargetable : ''} ${isDraftTargetActive(item.runtimeId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                                    aria-label={getTargetButtonAriaLabel(`Существо ${item.runtimeId}`, isSelectableTarget(item.runtimeId))}
+                                    type="button"
+                                    onClick={() =>
+                                      isSelectableTarget(item.runtimeId)
+                                        ? setDraftTargetId(item.runtimeId)
+                                        : setSelection({ kind: 'creature', creatureId: item.runtimeId })
+                                    }
+                                  >
+                                    <div className={styles.ribbonHeader}>
+                                      <div>
+                                        <span className={styles.summaryLabel}>Существо соперника</span>
+                                        <strong>{item.title}</strong>
+                                      </div>
+                                      <div className={styles.ribbonBadgeRow}>
+                                        <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
+                                        <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
+                                        <span className={styles.cardBadge}>Игрок {item.ownerId}</span>
+                                      </div>
+                                    </div>
+                                    <span className={styles.hint}>{item.runtimeId}</span>
+                                    <div className={styles.ribbonStats}>
+                                      <span>HP {item.hp ?? 0}/{item.maxHp ?? 0}</span>
+                                      <span>ATK {item.attack ?? 0}</span>
+                                      <span>SPD {item.speed ?? 0}</span>
+                                    </div>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div
+                                  key={item.id}
+                                  className={`${styles.ribbonCard} ${styles.ribbonCardEffect} ${isEnemyPlaybackItemActive ? styles.ribbonCardPlaybackActive : ''}`.trim()}
+                                  data-testid={isEnemyPlaybackItemActive ? 'enemy-playback-highlight-item' : undefined}
                                 >
                                   <div className={styles.ribbonHeader}>
                                     <div>
-                                      <span className={styles.summaryLabel}>Существо соперника</span>
+                                      <span className={styles.summaryLabel}>Эффект соперника</span>
                                       <strong>{item.title}</strong>
                                     </div>
                                     <div className={styles.ribbonBadgeRow}>
                                       <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
                                       <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                      <span className={styles.cardBadge}>Игрок {item.ownerId}</span>
+                                      {item.duration !== undefined ? <span className={styles.cardBadge}>dur {item.duration}</span> : null}
                                     </div>
                                   </div>
-                                  <span className={styles.hint}>{item.runtimeId}</span>
-                                  <div className={styles.ribbonStats}>
-                                    <span>HP {item.hp ?? 0}/{item.maxHp ?? 0}</span>
-                                    <span>ATK {item.attack ?? 0}</span>
-                                    <span>SPD {item.speed ?? 0}</span>
-                                  </div>
-                                </button>
-                              </div>
-                            ) : (
-                              <div key={item.id} className={`${styles.ribbonCard} ${styles.ribbonCardEffect}`.trim()}>
-                                <div className={styles.ribbonHeader}>
-                                  <div>
-                                    <span className={styles.summaryLabel}>Эффект соперника</span>
-                                    <strong>{item.title}</strong>
-                                  </div>
-                                  <div className={styles.ribbonBadgeRow}>
-                                    <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
-                                    <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                    {item.duration !== undefined ? <span className={styles.cardBadge}>dur {item.duration}</span> : null}
-                                  </div>
+                                  <span className={styles.hint}>{item.subtitle}</span>
                                 </div>
-                                <span className={styles.hint}>{item.subtitle}</span>
-                              </div>
-                            )
-                          )}
+                              )
+                            );
+                          })}
                         </div>
                       </div>
                     ) : (
@@ -2306,6 +2468,26 @@ export const PlayPvpPage = () => {
                         <strong>{playerId}</strong>
                       </div>
                     </div>
+                    {localPlaybackEntry ? (
+                      <div className={`${styles.ribbonCard} ${styles.ribbonCardPlayback}`.trim()} data-testid="local-resolution-playback-card">
+                        <div className={styles.ribbonHeader}>
+                          <div>
+                            <span className={styles.summaryLabel}>Резолв сейчас</span>
+                            <strong>{localPlaybackEntry.title}</strong>
+                          </div>
+                          <div className={styles.ribbonBadgeRow}>
+                            <span className={styles.cardBadge}>{resolvedPlaybackStepLabel}</span>
+                            <span className={styles.cardBadge}>{localPlaybackEntry.action.status}</span>
+                          </div>
+                        </div>
+                        <span>{localPlaybackEntry.subtitle}</span>
+                        <div className={styles.ribbonBadgeRow}>
+                          <span className={styles.cardBadge}>{getResolutionLayerLabel(localPlaybackEntry.action.layer)}</span>
+                          <span className={styles.cardBadge}>{getRoundActionReasonLabel(localPlaybackEntry.action.reasonCode)}</span>
+                        </div>
+                        <span className={styles.hint}>{localPlaybackEntry.action.summary}</span>
+                      </div>
+                    ) : null}
                     {hasLocalBattleRibbonEntries ? (
                       <div className={styles.ribbonSection}>
                         <span className={styles.summaryLabel}>Твоя боевая лента</span>
@@ -2317,10 +2499,12 @@ export const PlayPvpPage = () => {
                                 item.subtype === 'creature' &&
                                 selection?.kind === 'creature' &&
                                 selection.creatureId === item.runtimeId;
+                              const isPlaybackBoardItemActive = activeLocalPlaybackSourceBoardItemId === item.id;
                               const localCardClassName = [
                                 styles.ribbonCard,
                                 item.subtype === 'effect' ? styles.ribbonCardEffect : styles.ribbonCardLocal,
                                 attachedActions.length > 0 ? styles.ribbonCardActive : '',
+                                isPlaybackBoardItemActive ? styles.ribbonCardPlaybackActive : '',
                               ]
                                 .filter(Boolean)
                                 .join(' ');
@@ -2362,7 +2546,11 @@ export const PlayPvpPage = () => {
                                     <div className={styles.ribbonActionStack}>
                                       <span className={styles.summaryLabel}>Активность в раунде</span>
                                       {attachedActions.map((action) => (
-                                        <div key={`${item.id}_${action.id}`} className={styles.ribbonInlineAction}>
+                                        <div
+                                          key={`${item.id}_${action.id}`}
+                                          className={`${styles.ribbonInlineAction} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonInlineActionActive : ''}`.trim()}
+                                          data-testid={activeLocalPlaybackIntentId === action.id ? 'local-playback-inline-action' : undefined}
+                                        >
                                           <div className={styles.ribbonBadgeRow}>
                                             <span className={styles.cardBadge}>Core #{action.orderIndex + 1}</span>
                                             <span className={styles.cardBadge}>{action.status}</span>
@@ -2457,7 +2645,11 @@ export const PlayPvpPage = () => {
                                     <div className={styles.ribbonActionStack}>
                                       <span className={styles.summaryLabel}>Активность в раунде</span>
                                       {attachedActions.map((action) => (
-                                        <div key={`${item.id}_${action.id}`} className={styles.ribbonInlineAction}>
+                                        <div
+                                          key={`${item.id}_${action.id}`}
+                                          className={`${styles.ribbonInlineAction} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonInlineActionActive : ''}`.trim()}
+                                          data-testid={activeLocalPlaybackIntentId === action.id ? 'local-playback-inline-action' : undefined}
+                                        >
                                           <div className={styles.ribbonBadgeRow}>
                                             <span className={styles.cardBadge}>Core #{action.orderIndex + 1}</span>
                                             <span className={styles.cardBadge}>{action.status}</span>
@@ -2489,7 +2681,11 @@ export const PlayPvpPage = () => {
                             const action = entry.action;
 
                             return (
-                              <div key={entry.id} className={`${styles.ribbonCard} ${styles.ribbonCardAction}`.trim()}>
+                              <div
+                                key={entry.id}
+                                className={`${styles.ribbonCard} ${styles.ribbonCardAction} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonCardPlaybackActive : ''}`.trim()}
+                                data-testid={activeLocalPlaybackIntentId === action.id ? 'local-playback-action-card' : undefined}
+                              >
                                 <div className={styles.ribbonHeader}>
                                   <div>
                                     <span className={styles.summaryLabel}>
@@ -2719,6 +2915,27 @@ export const PlayPvpPage = () => {
         </div>
 
         <div className={styles.contextColumn}>
+          <Card title="Режим экрана" className={styles.themedCard}>
+            <div className={styles.focusPanel}>
+              <div className={styles.matchSpotlight}>
+                <span className={styles.summaryLabel}>Отображение</span>
+                <strong className={styles.spotlightValue}>{showDiagnostics ? 'Диагностика включена' : 'Боевой режим'}</strong>
+                <p className={styles.paragraph}>
+                  В боевом режиме скрываем сырые snapshot/debug-блоки и оставляем только информацию, полезную прямо во время матча.
+                </p>
+                <div className={styles.inlineActions}>
+                  <button
+                    className={styles.secondaryButton}
+                    type="button"
+                    onClick={() => setShowDiagnostics((current) => !current)}
+                  >
+                    {showDiagnostics ? 'Скрыть диагностику' : 'Показать диагностику'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           <Card title="Статус мага" className={styles.themedCard}>
             {localPlayer ? (
               <div className={styles.heroPanel}>
@@ -2762,41 +2979,88 @@ export const PlayPvpPage = () => {
             )}
           </Card>
 
-          <Card title="Зоны игроков" className={styles.themedCard}>
-            {playerBoards.length > 0 ? (
-              <div className={styles.playerBoardList}>
-                {playerBoards.map((playerBoard) => (
-                  <div
-                    key={playerBoard.playerId}
-                    className={`${styles.playerBoard} ${playerBoard.locked ? styles.playerBoardActive : ''}`.trim()}
-                  >
-                    <div className={styles.playerBoardHeader}>
-                      <strong>{playerBoard.playerId}</strong>
-                      <span>{playerBoard.locked ? 'Готово' : 'Выбор'}</span>
+          {showDiagnostics ? (
+            <Card title="Зоны игроков" className={styles.themedCard}>
+              {playerBoards.length > 0 ? (
+                <div className={styles.playerBoardList}>
+                  {playerBoards.map((playerBoard) => (
+                    <div
+                      key={playerBoard.playerId}
+                      className={`${styles.playerBoard} ${playerBoard.locked ? styles.playerBoardActive : ''}`.trim()}
+                    >
+                      <div className={styles.playerBoardHeader}>
+                        <strong>{playerBoard.playerId}</strong>
+                        <span>{playerBoard.locked ? 'Готово' : 'Выбор'}</span>
+                      </div>
+                      <div className={styles.zoneGrid}>
+                        <span>deck: {playerBoard.deckSize}</span>
+                        <span>hand: {playerBoard.handSize}</span>
+                        <span>discard: {playerBoard.discardSize}</span>
+                        <span>
+                          mana: {playerBoard.mana}/{playerBoard.maxMana}
+                        </span>
+                      </div>
                     </div>
-                    <div className={styles.zoneGrid}>
-                      <span>deck: {playerBoard.deckSize}</span>
-                      <span>hand: {playerBoard.handSize}</span>
-                      <span>discard: {playerBoard.discardSize}</span>
-                      <span>
-                        mana: {playerBoard.mana}/{playerBoard.maxMana}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className={styles.emptyState}>Зоны игроков появятся после первого server `state`.</div>
-            )}
-          </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.emptyState}>Зоны игроков появятся после первого server `state`.</div>
+              )}
+            </Card>
+          ) : null}
 
           <Card title="Последний резолв" className={styles.themedCard}>
             {lastResolvedRound ? (
               <div className={styles.focusPanel}>
+                <div className={styles.resolveSummaryStrip}>
+                  <div className={styles.resolveSummaryPill}>
+                    <span className={styles.indicatorKicker}>Раунд</span>
+                    <strong className={styles.indicatorValue}>#{lastResolvedRound.roundNumber}</strong>
+                  </div>
+                  <div className={styles.resolveSummaryPill}>
+                    <span className={styles.indicatorKicker}>Всего шагов</span>
+                    <strong className={styles.indicatorValue}>{resolvedTimelineEntries.length}</strong>
+                  </div>
+                  <div className={styles.resolveSummaryPill}>
+                    <span className={styles.indicatorKicker}>Твои шаги</span>
+                    <strong className={styles.indicatorValue}>{localResolvedActionCount}</strong>
+                    <span className={styles.indicatorSubvalue}>Соперник: {enemyResolvedActionCount}</span>
+                  </div>
+                </div>
+                {activeResolvedTimelineEntry ? (
+                  <div className={styles.indicatorRail}>
+                    <div className={styles.indicatorPill}>
+                      <span className={styles.indicatorKicker}>Playback</span>
+                      <strong className={styles.indicatorValue} data-testid="resolution-playback-status">
+                        {resolvedPlaybackComplete ? 'Завершён' : 'Идёт'}
+                      </strong>
+                      <span className={styles.indicatorSubvalue} data-testid="resolution-playback-step">
+                        {resolvedPlaybackStepLabel}
+                      </span>
+                    </div>
+                    <div className={styles.indicatorPill}>
+                      <span className={styles.indicatorKicker}>Текущий шаг резолва</span>
+                      <strong className={styles.indicatorValue} data-testid="resolution-playback-title">
+                        {activeResolvedTimelineEntry.title}
+                      </strong>
+                      <span className={styles.indicatorSubvalue}>{activeResolvedTimelineEntry.subtitle}</span>
+                    </div>
+                    <div className={styles.indicatorPill}>
+                      <span className={styles.indicatorKicker}>Итог шага</span>
+                      <strong className={styles.indicatorValue}>{activeResolvedTimelineEntry.action.status}</strong>
+                      <span className={styles.indicatorSubvalue} data-testid="resolution-playback-summary">
+                        {activeResolvedTimelineEntry.action.summary}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
                 {resolvedTimelineEntries.length > 0 ? (
                   <div className={styles.roundQueueList}>
-                    {resolvedTimelineEntries.map(({ order, action, title, subtitle, ownerLabel }) => (
-                      <div key={action.intentId} className={styles.roundQueueItem}>
+                    {resolvedTimelineEntries.map(({ order, action, title, subtitle, ownerLabel }, index) => (
+                      <div
+                        key={action.intentId}
+                        className={`${styles.roundQueueItem} ${index === resolvedPlaybackIndex ? styles.roundQueueItemActive : ''}`.trim()}
+                      >
                         <div className={styles.roundQueueMain}>
                           <span className={styles.roundQueueIndex}>{order}</span>
                           <div className={styles.roundQueueText}>
@@ -2805,13 +3069,18 @@ export const PlayPvpPage = () => {
                           </div>
                         </div>
                         <div className={styles.roundQueueMeta}>
-                          <span className={styles.cardBadge}>{ownerLabel}</span>
-                          <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
-                          <span className={styles.cardBadge}>{action.status}</span>
-                          <span className={styles.cardBadge}>{action.reasonCode}</span>
-                          <span>{getRoundActionReasonLabel(action.reasonCode)}</span>
-                          <span>{action.summary}</span>
+                          <div className={styles.roundQueueTagRow}>
+                            <span className={styles.cardBadge}>{ownerLabel}</span>
+                            <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
+                            {index === resolvedPlaybackIndex ? <span className={styles.cardBadge}>Сейчас</span> : null}
+                          </div>
+                          <div className={styles.roundQueueOutcome}>
+                            <span className={styles.cardBadge}>{action.status}</span>
+                            <strong>{getRoundActionReasonLabel(action.reasonCode)}</strong>
+                          </div>
+                          {showDiagnostics ? <span className={styles.cardBadge}>{action.reasonCode}</span> : null}
                         </div>
+                        <div className={styles.roundQueueSummary}>{action.summary}</div>
                       </div>
                     ))}
                   </div>
@@ -2820,7 +3089,7 @@ export const PlayPvpPage = () => {
                 )}
                 {resolvedTimelineEntries.length > 0 ? (
                   <div className={styles.hint}>
-                    Шаги показаны в фактическом порядке server-side резолва. Для твоих intent дополнительно восстановлены локальные label/target по `intentId`.
+                    Шаги показаны в фактическом порядке server-side резолва. Для твоих intent локальные label и target восстановлены по `intentId`.
                   </div>
                 ) : null}
               </div>
@@ -2844,14 +3113,16 @@ export const PlayPvpPage = () => {
             )}
           </Card>
 
-          <Card title="Debug state" className={styles.themedCard}>
-            <details className={styles.debugPanel}>
-              <summary className={styles.debugSummary}>Открыть raw snapshot</summary>
-              <pre className={styles.rawState}>
-                {matchState ? JSON.stringify(matchState, null, 2) : 'Ожидание данных матча...'}
-              </pre>
-            </details>
-          </Card>
+          {showDiagnostics ? (
+            <Card title="Debug state" className={styles.themedCard}>
+              <details className={styles.debugPanel}>
+                <summary className={styles.debugSummary}>Открыть raw snapshot</summary>
+                <pre className={styles.rawState}>
+                  {matchState ? JSON.stringify(matchState, null, 2) : 'Ожидание данных матча...'}
+                </pre>
+              </details>
+            </Card>
+          ) : null}
         </div>
       </div>
     </PageShell>
