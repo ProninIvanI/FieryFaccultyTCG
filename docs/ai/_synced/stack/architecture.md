@@ -186,6 +186,6 @@
 
 - добить rule-completeness для edge cases и cleanup/end-of-round;
 - расширить UI на все action kinds;
-- добавить более структурированные outcome reason codes;
-- при необходимости построить replay/reveal timeline поверх `roundResolved`;
+- расширить уже внедрённые structured reason/reject contracts на оставшиеся UX-кейсы по мере появления;
+- развить уже внедрённый reveal timeline поверх `roundResolved` в более подробный battle log;
 - синхронизировать остальные docs с фактической реализацией по мере развития PvP.

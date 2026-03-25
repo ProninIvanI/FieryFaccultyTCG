@@ -483,12 +483,11 @@ type ServerMessageDto =
 
 ## 10. Что делать следующим коммитом
 
-Следующая практическая задача должна быть не в UI, а в `game-core`.
+Базовый перевод PvP на hidden-round модель уже реализован сквозным пакетом `game-core -> server -> frontend`.
 
-Рекомендуемый ближайший пакет:
+Текущий практический next step:
 
-1. добавить `game-core/src/types/round.ts`;
-2. расширить `GameState` новым `round`-разделом;
-3. написать тесты на `sortRoundActions` и `validateRoundDraft`;
-4. зафиксировать server DTO под `roundDraft.replace` и `roundDraft.lock`;
-5. только после этого переводить `PlayPvpPage` на action queue.
+1. пройти ручной smoke round-flow в двух реальных клиентах;
+2. при необходимости добрать оставшиеся UX-кейсы action-flow поверх уже реализованных `Summon / CastSpell / PlayCard / Attack / Evade`;
+3. расширить post-round battle log, если текущего reveal timeline окажется недостаточно для чтения резолва;
+4. продолжить rule-completeness в `game-core` для edge cases и cleanup/end-of-round.

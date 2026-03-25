@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-03-25 update: `PlayPvpPage` PvP draft UX was polished on top of the new round-based flow: the creature panel now has a dedicated `Evade` action, the post-round area renders a reveal timeline in actual `roundResolved` order, target labels are resolved from the live snapshot instead of raw `targetId`, and frontend coverage now includes both `Evade` and self-target `PlayCard` draft scenarios.
+
 > 2026-03-25 update: synchronized architecture docs with the actual simultaneous-round PvP implementation: `frontend/ARCHITECTURE.md` no longer describes legacy `join/action`, the stack architecture now reflects the implemented round lifecycle and public WebSocket contract (`roundDraft.replace`, `roundDraft.lock`, `roundDraft.snapshot`, `roundStatus`, `roundResolved`), and the simultaneous-round spec is marked as an implemented baseline/living spec.
 
 > 2026-03-25 update: simultaneous-round PvP now restores the local player draft after join/reconnect via a new personal `roundDraft.snapshot` WebSocket message; the server exposes the caller's current round draft without revealing opponent data, and `PlayPvpPage` rehydrates the local action queue from that snapshot while preserving round sync/lock state.
