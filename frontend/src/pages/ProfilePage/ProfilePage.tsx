@@ -1,7 +1,34 @@
-﻿import { Card, HomeLinkButton, PageShell } from '@/components';
+import { useEffect, useState } from 'react';
+import { Card, HomeLinkButton, PageShell } from '@/components';
+import { authService } from '@/services';
 import styles from './ProfilePage.module.css';
 
 export const ProfilePage = () => {
+  const [session, setSession] = useState(() => authService.getSession());
+
+  useEffect(() => {
+    let cancelled = false;
+    const currentSession = authService.getSession();
+    setSession(currentSession);
+
+    if (!currentSession || currentSession.username) {
+      return;
+    }
+
+    void authService.ensureSessionProfile(currentSession).then((nextSession) => {
+      if (!cancelled) {
+        setSession(nextSession);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const displayName = session?.username ?? session?.userId ?? 'Игрок';
+  const avatarInitial = displayName.slice(0, 1).toUpperCase();
+
   return (
     <PageShell
       title="Личный кабинет"
@@ -10,9 +37,9 @@ export const ProfilePage = () => {
     >
       <Card title="Профиль игрока">
         <div className={styles.profileHeader}>
-          <div className={styles.avatar} aria-hidden="true">A</div>
+          <div className={styles.avatar} aria-hidden="true">{avatarInitial}</div>
           <div className={styles.profileMeta}>
-            <div className={styles.profileName}>Ник</div>
+            <div className={styles.profileName}>{displayName}</div>
             <div className={styles.metaRow}>
               <span>Уровень: 12</span>
               <span>Ранг: Адепт</span>
@@ -37,9 +64,9 @@ export const ProfilePage = () => {
           <div className={styles.statsGroup}>
             <h3 className={styles.sectionTitle}>Соревновательная</h3>
             <div className={styles.statPairs}>
-              <span>Рейтинг</span><strong>—</strong>
-              <span>Макс. рейтинг</span><strong>—</strong>
-              <span>Место в таблице</span><strong>—</strong>
+              <span>Рейтинг</span><strong>-</strong>
+              <span>Макс. рейтинг</span><strong>-</strong>
+              <span>Место в таблице</span><strong>-</strong>
             </div>
           </div>
 
@@ -55,8 +82,8 @@ export const ProfilePage = () => {
           <div className={styles.statsGroup}>
             <h3 className={styles.sectionTitle}>Эффективность</h3>
             <div className={styles.statPairs}>
-              <span>Средний урон</span><strong>—</strong>
-              <span>Максимальный урон</span><strong>—</strong>
+              <span>Средний урон</span><strong>-</strong>
+              <span>Максимальный урон</span><strong>-</strong>
             </div>
           </div>
 

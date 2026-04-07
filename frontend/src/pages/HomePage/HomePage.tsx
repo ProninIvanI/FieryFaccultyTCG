@@ -7,11 +7,27 @@ import { AuthSession } from "@/types";
 import styles from "./HomePage.module.css";
 
 export const HomePage = () => {
-  const [session, setSession] = useState<AuthSession | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
   useEffect(() => {
-    setSession(authService.getSession());
+    let cancelled = false;
+    const currentSession = authService.getSession();
+    setSession(currentSession);
+
+    if (!currentSession || currentSession.username) {
+      return;
+    }
+
+    void authService.ensureSessionProfile(currentSession).then((nextSession) => {
+      if (!cancelled) {
+        setSession(nextSession);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!session) {
@@ -20,6 +36,7 @@ export const HomePage = () => {
 
   return (
     <AuthHome
+      session={session}
       logoutError={logoutError}
       onLogout={async () => {
         const result = await authService.logout(session);
@@ -80,9 +97,11 @@ const PublicHome = () => {
 };
 
 const AuthHome = ({
+  session,
   logoutError,
   onLogout,
 }: {
+  session: AuthSession;
   logoutError: string | null;
   onLogout: () => Promise<void>;
 }) => {
@@ -97,6 +116,8 @@ const AuthHome = ({
     status: string;
     subtitle?: string;
   }> = [];
+  const displayName = session.username ?? session.userId;
+  const avatarInitial = displayName.slice(0, 1).toUpperCase();
 
   useEffect(() => {
     if (!isMenuOpen) {
@@ -189,17 +210,17 @@ const AuthHome = ({
                   aria-expanded={isMenuOpen}
                   ref={menuButtonRef}
                 >
-                  <span className={styles.userAvatar}>A</span>
+                  <span className={styles.userAvatar}>{avatarInitial}</span>
                   <span className={styles.userMeta}>
-                    <span className={styles.userName}>Akela</span>
+                    <span className={styles.userName}>{displayName}</span>
                   </span>
                   <span className={styles.userCaret}>▾</span>
                 </button>
                 {isMenuOpen ? (
                   <div className={styles.userMenu} role="menu" ref={menuRef}>
                     <div className={styles.userMenuHeader}>
-                      <div className={styles.userMenuTitle}>Akela #21635</div>
-                      <div className={styles.userMenuSub}>Регион: Европа</div>
+                      <div className={styles.userMenuTitle}>{displayName}</div>
+                      <div className={styles.userMenuSub}>Аккаунт активен</div>
                     </div>
                     <div className={styles.userMenuSection}>
                       <button className={styles.menuButton} type="button">

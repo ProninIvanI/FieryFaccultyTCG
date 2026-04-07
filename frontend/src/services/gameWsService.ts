@@ -232,7 +232,11 @@ class GameWsService {
     }
 
     if (parsed.type === 'state') {
-      this.emit({ type: 'state', state: parsed.state as GameStateSnapshot });
+      this.emit({
+        type: 'state',
+        state: parsed.state as GameStateSnapshot,
+        playerLabels: parsed.playerLabels,
+      });
       return;
     }
 

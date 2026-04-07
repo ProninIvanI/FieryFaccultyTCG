@@ -3,12 +3,14 @@ type AuthUserResponse = {
   data?: {
     user?: {
       id?: string;
+      username?: string;
     };
   };
 };
 
 export type AuthIdentity = {
   userId: string;
+  username?: string;
 };
 
 const DEFAULT_AUTH_ME_URL = process.env.BACKEND_AUTH_ME_URL ?? 'http://localhost:3001/api/auth/me';
@@ -31,5 +33,8 @@ export const resolveAuthIdentity = async (token: string): Promise<AuthIdentity |
     return null;
   }
 
-  return { userId };
+  return {
+    userId,
+    username: typeof payload.data?.user?.username === 'string' ? payload.data.user.username : undefined,
+  };
 };

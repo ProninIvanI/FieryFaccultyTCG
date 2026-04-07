@@ -23,7 +23,12 @@ const isAuthSession = (value: unknown): value is AuthSession => {
     return false;
   }
   const session = value as AuthSession;
-  return Boolean(session.userId && session.token && session.createdAt);
+  return Boolean(
+    session.userId &&
+    session.token &&
+    session.createdAt &&
+    (session.username === undefined || typeof session.username === 'string')
+  );
 };
 
 const saveSession = (session: AuthSession): void => {
@@ -34,6 +39,17 @@ const clearSession = (): void => {
   localStorage.removeItem(SESSION_KEY);
 };
 
+const toSessionWithUsername = (payload?: AuthResponse): AuthSession | null => {
+  if (!payload?.session?.userId || !payload.session.token || !payload.session.createdAt) {
+    return null;
+  }
+
+  return {
+    ...payload.session,
+    username: payload.user?.username || payload.session.username,
+  };
+};
+
 export const authService = {
   async register(params: {
     email: string;
@@ -41,10 +57,14 @@ export const authService = {
     password: string;
   }): Promise<{ ok: boolean; error?: string }> {
     try {
-      await axiosInstance.post<{ success: boolean; data?: AuthResponse }>(
+      const response = await axiosInstance.post<{ success: boolean; data?: AuthResponse }>(
         '/api/auth/register',
         params,
       );
+      const session = toSessionWithUsername(response.data.data);
+      if (session) {
+        saveSession(session);
+      }
       return { ok: true };
     } catch (error) {
       const message = typeof error === 'object' && error && 'error' in error
@@ -63,7 +83,7 @@ export const authService = {
         '/api/auth/login',
         params,
       );
-      const session = response.data.data?.session;
+      const session = toSessionWithUsername(response.data.data);
       if (!session) {
         return { ok: false, error: SESSION_MISSING_ERROR };
       }
@@ -87,6 +107,44 @@ export const authService = {
       return isAuthSession(parsed) ? parsed : null;
     } catch {
       return null;
+    }
+  },
+
+  async ensureSessionProfile(sessionOverride?: AuthSession | null): Promise<AuthSession | null> {
+    const session = sessionOverride ?? authService.getSession();
+    if (!session?.token) {
+      clearSession();
+      return null;
+    }
+
+    if (session.username) {
+      return session;
+    }
+
+    try {
+      const response = await axiosInstance.get<{
+        success: boolean;
+        data?: {
+          user?: {
+            id?: string;
+            username?: string;
+          };
+        };
+      }>('/api/auth/me');
+
+      const user = response.data.data?.user;
+      if (user?.id !== session.userId || !user.username) {
+        return session;
+      }
+
+      const nextSession: AuthSession = {
+        ...session,
+        username: user.username,
+      };
+      saveSession(nextSession);
+      return nextSession;
+    } catch {
+      return session;
     }
   },
 

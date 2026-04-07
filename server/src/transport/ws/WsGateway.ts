@@ -17,6 +17,7 @@ type IdentityResolver = (token: string) => Promise<AuthIdentity | null>;
 type RuntimePlayerMeta = {
   userId: string;
   playerId: string;
+  username?: string;
   deckId: string;
   connectedAt: string;
 };
@@ -97,13 +98,13 @@ export class WsGateway {
         return;
       }
 
-      this.trackSessionJoin(message.sessionId, identity.userId, deck.deckId, result.session.getSeed());
+      this.trackSessionJoin(message.sessionId, identity, deck.deckId, result.session.getSeed());
       await this.persistMatchIfReady(message.sessionId, result.session.getState());
 
       this.attachSocket(message.sessionId, identity.userId, socket);
       const stateSnapshot = this.gameService.getStateSnapshot(message.sessionId);
       if (stateSnapshot) {
-        this.broadcast(message.sessionId, { type: 'state', state: stateSnapshot });
+        this.broadcast(message.sessionId, this.toStateMessage(message.sessionId, stateSnapshot));
       }
       this.broadcastRoundStatus(message.sessionId);
       this.sendRoundDraftSnapshot(message.sessionId, identity.userId, socket);
@@ -178,7 +179,7 @@ export class WsGateway {
         this.broadcast(binding.sessionId, { type: 'roundResolved', result: result.resolved });
         const stateSnapshot = this.gameService.getStateSnapshot(binding.sessionId);
         if (stateSnapshot) {
-          this.broadcast(binding.sessionId, { type: 'state', state: stateSnapshot });
+          this.broadcast(binding.sessionId, this.toStateMessage(binding.sessionId, stateSnapshot));
         }
         this.broadcastRoundDraftSnapshots(binding.sessionId);
         this.broadcastRoundStatus(binding.sessionId);
@@ -210,7 +211,8 @@ export class WsGateway {
     }
   }
 
-  private trackSessionJoin(sessionId: string, userId: string, deckId: string, seed: number): void {
+  private trackSessionJoin(sessionId: string, identity: AuthIdentity, deckId: string, seed: number): void {
+    const userId = identity.userId;
     const now = new Date().toISOString();
     const existing = this.sessionMeta.get(sessionId);
 
@@ -218,6 +220,7 @@ export class WsGateway {
       existing.players.set(userId, {
         userId,
         playerId: userId,
+        username: identity.username,
         deckId,
         connectedAt: now,
       });
@@ -236,6 +239,7 @@ export class WsGateway {
           {
             userId,
             playerId: userId,
+            username: identity.username,
             deckId,
             connectedAt: now,
           },
@@ -350,6 +354,30 @@ export class WsGateway {
       return;
     }
     sockets.forEach((socket) => this.send(socket, message));
+  }
+
+  private getPlayerLabels(sessionId: string): Record<string, string> | undefined {
+    const meta = this.sessionMeta.get(sessionId);
+    if (!meta) {
+      return undefined;
+    }
+
+    const labels = Array.from(meta.players.values()).reduce<Record<string, string>>((acc, player) => {
+      if (player.username) {
+        acc[player.playerId] = player.username;
+      }
+      return acc;
+    }, {});
+
+    return Object.keys(labels).length > 0 ? labels : undefined;
+  }
+
+  private toStateMessage(sessionId: string, state: GameState): Extract<ServerMessageDto, { type: 'state' }> {
+    return {
+      type: 'state',
+      state,
+      playerLabels: this.getPlayerLabels(sessionId),
+    };
   }
 
   private send(socket: WebSocket, message: ServerMessageDto): void {

@@ -24,7 +24,7 @@ describe('HomePage', () => {
   it('renders authenticated home with full navigation', () => {
     localStorage.setItem(
       'fftcg_session',
-      JSON.stringify({ userId: 'user_1', token: 'token_1', createdAt: '2026-03-17T10:00:00.000Z' })
+      JSON.stringify({ userId: 'user_1', username: 'Akela', token: 'token_1', createdAt: '2026-03-17T10:00:00.000Z' })
     );
     render(
       <BrowserRouter>
@@ -40,6 +40,7 @@ describe('HomePage', () => {
   it('sends logout request with active token when user clicks logout', async () => {
     const storedSession = {
       userId: 'user_1',
+      username: 'Akela',
       token: 'token_1',
       createdAt: '2026-03-17T10:00:00.000Z',
     };

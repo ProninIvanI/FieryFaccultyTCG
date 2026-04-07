@@ -24,6 +24,7 @@ export type {
   JoinMatchMessage,
   JoinRejectedServerMessage,
   LockRoundDraftMessage,
+  PlayerLabelMap,
   PvpClientMessage,
   PvpConnectionStatus,
   PvpServerMessage,

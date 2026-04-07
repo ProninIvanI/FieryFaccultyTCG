@@ -11,6 +11,7 @@ export type GameStateSnapshot = Partial<GameState> & {
   boardView?: PublicBoardView;
 };
 export type RoundActionIntentDraft = RoundActionIntent;
+export type PlayerLabelMap = Record<string, string>;
 
 export interface JoinMatchMessage {
   type: 'join';
@@ -39,6 +40,7 @@ export type PvpClientMessage =
 export interface StateServerMessage {
   type: 'state';
   state: GameStateSnapshot;
+  playerLabels?: PlayerLabelMap;
 }
 
 export interface TransportRejectedServerMessage {
@@ -131,7 +133,7 @@ export type PvpConnectionStatus =
 
 export type PvpServiceEvent =
   | { type: 'status'; status: PvpConnectionStatus }
-  | { type: 'state'; state: GameStateSnapshot }
+  | { type: 'state'; state: GameStateSnapshot; playerLabels?: PlayerLabelMap }
   | {
       type: 'transportRejected';
       code: TransportRejectedServerMessage['code'];

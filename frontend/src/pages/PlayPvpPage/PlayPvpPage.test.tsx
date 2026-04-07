@@ -83,10 +83,10 @@ const flushMicrotasks = async (): Promise<void> => {
   await Promise.resolve();
 };
 
-const setAuthSession = (userId: string): void => {
+const setAuthSession = (userId: string, username = userId): void => {
   localStorage.setItem(
     'fftcg_session',
-    JSON.stringify({ userId, token: `token_${userId}`, createdAt: '2026-03-20T12:00:00.000Z' }),
+    JSON.stringify({ userId, username, token: `token_${userId}`, createdAt: '2026-03-20T12:00:00.000Z' }),
   );
 };
 
@@ -121,8 +121,8 @@ const mockDeckList = (characterId: string) => {
   };
 };
 
-const renderPage = async (characterId: string, userId: string): Promise<void> => {
-  setAuthSession(userId);
+const renderPage = async (characterId: string, userId: string, username = userId): Promise<void> => {
+  setAuthSession(userId, username);
   const resolveDeckList = mockDeckList(characterId);
 
   render(
@@ -1144,7 +1144,7 @@ describe('PlayPvpPage', () => {
   });
 
   it('binds roundResolved outcome to the local queued intent by intentId', async () => {
-    await renderPage('char_1', 'user_1');
+    await renderPage('char_1', 'user_1', 'Локальный маг');
 
     const socket = await submitJoin('session_result_binding', /Создать/i);
 
@@ -1186,7 +1186,7 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    const targetButton = await screen.findByRole('button', { name: /Маг user_2/i });
+    const targetButton = await screen.findByRole('button', { name: /Маг (Соперник Ник|user_2)/i });
     await act(async () => {
       fireEvent.click(targetButton);
       await flushMicrotasks();
@@ -1229,7 +1229,6 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Скрытое действие соперника/i)).toBeInTheDocument();
-      expect(screen.getByText(/Игрок user_2/i)).toBeInTheDocument();
       expect(screen.queryByTestId('enemy-resolution-playback-card')).not.toBeInTheDocument();
       expect(screen.getAllByText(/Заклинание: Огненный шар/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length).toBeGreaterThan(0);
@@ -1249,6 +1248,10 @@ describe('PlayPvpPage', () => {
     await act(async () => {
       socket.emitMessage({
         type: 'state',
+        playerLabels: {
+          user_1: 'Локальный маг',
+          user_2: 'Соперник Ник',
+        },
         state: createRoundState({
           players: {
             user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },

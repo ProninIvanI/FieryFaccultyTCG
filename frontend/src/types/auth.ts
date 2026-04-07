@@ -7,6 +7,7 @@ export interface UserAccount {
 
 export interface AuthSession {
   userId: string;
+  username?: string;
   token: string;
   createdAt: string;
 }

@@ -29,8 +29,10 @@ import { ROUTES } from '@/constants';
 import rawCardData from '@/data/cards.json';
 import { authService, deckService, gameWsService } from '@/services';
 import {
+  AuthSession,
   GameStateSnapshot,
   JoinRejectedServerMessage,
+  PlayerLabelMap,
   PvpConnectionStatus,
   PvpServiceEvent,
   RoundActionIntentDraft,
@@ -991,7 +993,7 @@ const handleServiceEvent = (
 };
 
 export const PlayPvpPage = () => {
-  const session = authService.getSession();
+  const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
   const playerId = session?.userId ?? '';
   const authToken = session?.token ?? '';
   const [mode, setMode] = useState<'create' | 'join'>('create');
@@ -1002,6 +1004,7 @@ export const PlayPvpPage = () => {
   const [isDecksLoading, setIsDecksLoading] = useState(false);
   const [status, setStatus] = useState<PvpConnectionStatus>(gameWsService.getStatus());
   const [matchState, setMatchState] = useState<GameStateSnapshot | null>(null);
+  const [playerLabels, setPlayerLabels] = useState<PlayerLabelMap>({});
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [joinedSessionId, setJoinedSessionId] = useState('');
@@ -1030,6 +1033,23 @@ export const PlayPvpPage = () => {
   }, [roundDraft]);
 
   useEffect(() => {
+    if (!session || session.username) {
+      return;
+    }
+
+    let cancelled = false;
+    void authService.ensureSessionProfile(session).then((nextSession) => {
+      if (!cancelled) {
+        setSession(nextSession);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  useEffect(() => {
     const unsubscribe = gameWsService.subscribe((event) => {
       if (event.type === 'state') {
         hasLiveStateRef.current = true;
@@ -1037,6 +1057,7 @@ export const PlayPvpPage = () => {
           setJoinedSessionId(pendingSessionIdRef.current);
         }
         setMatchState(event.state);
+        setPlayerLabels(event.playerLabels ?? {});
         setTransportRejected(null);
         setJoinRejected(null);
         setError('');
@@ -1047,6 +1068,7 @@ export const PlayPvpPage = () => {
         pendingSessionIdRef.current = '';
         setJoinedSessionId('');
         setMatchState(null);
+        setPlayerLabels({});
       }
 
       if (event.type === 'roundResolved') {
@@ -1187,7 +1209,23 @@ export const PlayPvpPage = () => {
     () => playerBoards.find((playerBoard) => playerBoard.playerId === playerId) ?? null,
     [playerBoards, playerId]
   );
+  const resolvedPlayerLabels = useMemo(
+    () => (playerId && session?.username ? { ...playerLabels, [playerId]: session.username } : playerLabels),
+    [playerId, playerLabels, session?.username],
+  );
+  const getPlayerDisplayName = useCallback(
+    (candidatePlayerId?: string | null): string => {
+      if (!candidatePlayerId) {
+        return '';
+      }
+
+      return resolvedPlayerLabels[candidatePlayerId] ?? candidatePlayerId;
+    },
+    [resolvedPlayerLabels],
+  );
+  const localDisplayName = getPlayerDisplayName(playerId);
   const primaryEnemyBoard = enemyBoards[0] ?? null;
+  const primaryEnemyDisplayName = getPlayerDisplayName(primaryEnemyBoard?.playerId);
   const enemyRibbonBoardItems = useMemo(
     () => (primaryEnemyBoard?.playerId ? getPlayerPublicRibbonBoardItems(matchState, primaryEnemyBoard.playerId) : []),
     [matchState, primaryEnemyBoard?.playerId],
@@ -1367,7 +1405,7 @@ export const PlayPvpPage = () => {
           if (board.characterId) {
             candidates.push({
               id: board.characterId,
-              label: `Маг ${board.playerId}`,
+              label: `Маг ${getPlayerDisplayName(board.playerId)}`,
               kind: 'character',
             });
           }
@@ -1392,7 +1430,7 @@ export const PlayPvpPage = () => {
         if (board.characterId) {
           candidates.push({
             id: board.characterId,
-            label: `Маг ${board.playerId}`,
+            label: `Маг ${getPlayerDisplayName(board.playerId)}`,
             kind: 'character',
           });
         }
@@ -1408,7 +1446,7 @@ export const PlayPvpPage = () => {
     }
 
     return candidates;
-  }, [creatures, enemyBoards, enemyCreatures, isSelectedCreatureOwnedByLocalPlayer, localPlayer, playerId, selectedCardTargetType]);
+  }, [creatures, enemyBoards, enemyCreatures, getPlayerDisplayName, isSelectedCreatureOwnedByLocalPlayer, localPlayer, playerId, selectedCardTargetType]);
   const knownTargetLabelsById = useMemo(() => {
     const labelMap = new Map<string, string>();
 
@@ -1418,7 +1456,7 @@ export const PlayPvpPage = () => {
 
     enemyBoards.forEach((board) => {
       if (board.characterId) {
-        labelMap.set(board.characterId, `Маг ${board.playerId}`);
+        labelMap.set(board.characterId, `Маг ${getPlayerDisplayName(board.playerId)}`);
       }
     });
 
@@ -1430,7 +1468,7 @@ export const PlayPvpPage = () => {
     });
 
     return labelMap;
-  }, [creatures, enemyBoards, localPlayer, playerId]);
+  }, [creatures, enemyBoards, getPlayerDisplayName, localPlayer, playerId]);
   const selectedTargetLabel = targetDraft
     ? `${getTargetTypeLabel(targetDraft.targetType)} -> ${knownTargetLabelsById.get(targetDraft.targetId) ?? targetDraft.targetId}`
     : 'цель ещё не выбрана';
@@ -1571,6 +1609,7 @@ export const PlayPvpPage = () => {
     setIsSubmitting(true);
     setError('');
     setMatchState(null);
+    setPlayerLabels({});
     setJoinedSessionId('');
     setSelection(null);
     setDraftTargetId('');
@@ -1600,6 +1639,7 @@ export const PlayPvpPage = () => {
     gameWsService.disconnect();
     setJoinedSessionId('');
     setMatchState(null);
+    setPlayerLabels({});
     setSelection(null);
     setDraftTargetId('');
     setRoundDraft([]);
@@ -1987,7 +2027,7 @@ export const PlayPvpPage = () => {
           order: index + 1,
           action,
           draft,
-          ownerLabel: isLocalAction ? 'Ты' : `Игрок ${action.playerId}`,
+          ownerLabel: isLocalAction ? 'Ты' : `Игрок ${getPlayerDisplayName(action.playerId)}`,
           title: draft
             ? getIntentLabel(draft)
             : isLocalAction
@@ -2013,6 +2053,9 @@ export const PlayPvpPage = () => {
     activeResolvedTimelineEntry && activeResolvedOwnerId === playerId
       ? activeResolvedTimelineEntry
       : null;
+  const isEnemyHandEmpty = (primaryEnemyBoard?.handSize ?? 0) === 0;
+  const isEnemyLaneEmpty = !enemyPlaybackEntry && enemyRibbonBoardItems.length === 0;
+  const isLocalLaneEmpty = !localPlaybackEntry && !hasLocalBattleRibbonEntries;
   const activeLocalPlaybackIntentId = localPlaybackEntry?.action.intentId ?? null;
   const activeLocalPlaybackRoundAction =
     activeLocalPlaybackIntentId && selfBoardModel?.roundActions?.length
@@ -2201,7 +2244,7 @@ export const PlayPvpPage = () => {
                   </div>
                   <div className={styles.hudTile}>
                     <span className={styles.summaryLabel}>Игрок</span>
-                    <strong>{playerId}</strong>
+                    <strong>{localDisplayName}</strong>
                   </div>
                 </div>
                 <div className={styles.inlineActions}>
@@ -2240,7 +2283,7 @@ export const PlayPvpPage = () => {
 
                 <label className={styles.formRow}>
                   <span className={styles.label}>Игрок</span>
-                  <input className={styles.input} type="text" value={playerId} readOnly />
+                  <input className={styles.input} type="text" value={localDisplayName} readOnly />
                 </label>
 
                 <label className={styles.formRow}>
@@ -2381,7 +2424,7 @@ export const PlayPvpPage = () => {
                   </div>
                   <p className={styles.paragraph}>
                     Раунд {matchSummary.roundNumber}, статус {getRoundStatusLabel(matchSummary.roundStatus)}. Инициатива у{' '}
-                    {matchSummary.initiativePlayerId || 'не определена'}.
+                    {matchSummary.initiativePlayerId ? getPlayerDisplayName(matchSummary.initiativePlayerId) : 'не определена'}.
                   </p>
                   <div className={styles.summaryGrid}>
                     <div className={styles.summaryTile}>
@@ -2410,7 +2453,7 @@ export const PlayPvpPage = () => {
                         <span className={styles.playerSideLabel}>Соперник</span>
                         <button
                           className={`${styles.avatarTargetButton} ${primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetable : ''} ${primaryEnemyBoard?.characterId && isDraftTargetActive(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                          aria-label={getTargetButtonAriaLabel(`Маг ${primaryEnemyBoard?.playerId ?? 'соперника'}`, Boolean(primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId)))}
+                          aria-label={getTargetButtonAriaLabel(`Маг ${primaryEnemyDisplayName || 'соперника'}`, Boolean(primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId)))}
                           type="button"
                           onClick={() => {
                             const enemyCharacterId = primaryEnemyBoard?.characterId;
@@ -2430,7 +2473,7 @@ export const PlayPvpPage = () => {
                           </div>
                           <div className={styles.playerIdentity}>
                             <strong>{enemyCharacter?.name ?? 'Ожидание соперника'}</strong>
-                            <span>{primaryEnemyBoard?.playerId ?? 'Подключится позже'}</span>
+                            <span>{primaryEnemyDisplayName || 'Подключится позже'}</span>
                             <span>
                               {primaryEnemyBoard
                                 ? getCharacterStatusLabel(enemyCharacter, primaryEnemyBoard.mana, primaryEnemyBoard.maxMana)
@@ -2496,7 +2539,7 @@ export const PlayPvpPage = () => {
                           </div>
                           <div className={styles.playerIdentity}>
                             <strong>{localCharacter?.name ?? 'Твой персонаж'}</strong>
-                            <span>{playerId}</span>
+                            <span>{localDisplayName}</span>
                             <span>
                               {localPlayer
                                 ? getCharacterStatusLabel(localCharacter, localPlayer.mana, localPlayer.maxMana)
@@ -2508,7 +2551,7 @@ export const PlayPvpPage = () => {
                     </aside>
 
                     <section className={styles.fieldFrame}>
-                  <section className={`${styles.handTray} ${styles.opponentHandTray}`.trim()}>
+                  <section className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}>
                     <div className={styles.battleLaneHeader}>
                       <div>
                         <span className={styles.summaryLabel}>Рука соперника</span>
@@ -2529,10 +2572,10 @@ export const PlayPvpPage = () => {
                     )}
                   </section>
 
-                  <section className={`${styles.battleLane} ${isEnemySideActive ? styles.battleLaneActive : ''}`.trim()}>
+                  <section className={`${styles.battleLane} ${isEnemySideActive ? styles.battleLaneActive : ''} ${isEnemyLaneEmpty ? styles.compactZone : ''}`.trim()}>
                     <div className={styles.battleLaneHeader}>
                       <div>
-                        <strong>{enemyBoards[0]?.playerId ?? 'Ожидание соперника'}</strong>
+                        <strong>{primaryEnemyDisplayName || 'Ожидание соперника'}</strong>
                       </div>
                     </div>
                     {enemyPlaybackEntry ? (
@@ -2627,10 +2670,10 @@ export const PlayPvpPage = () => {
                     )}
                   </section>
 
-                  <section className={`${styles.battleLane} ${isLocalSideActive ? styles.battleLaneActive : ''}`.trim()}>
+                  <section className={`${styles.battleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()}>
                     <div className={styles.battleLaneHeader}>
                       <div>
-                        <strong>{playerId}</strong>
+                        <strong>{localDisplayName}</strong>
                       </div>
                     </div>
                     {localPlaybackEntry ? (
@@ -3152,14 +3195,14 @@ export const PlayPvpPage = () => {
                 <div className={styles.heroPanelHeader}>
                   <div>
                     <span className={styles.summaryLabel}>Твой маг</span>
-                    <strong>{localPlayer.playerId}</strong>
+                    <strong>{localDisplayName}</strong>
                   </div>
                   <span className={styles.heroChip}>{roundSync?.selfLocked ? 'Готово' : 'Настройка'}</span>
                 </div>
                 <div className={styles.detailsList}>
                   <div className={styles.detailRow}>
                     <span>Игрок</span>
-                    <strong>{localPlayer.playerId}</strong>
+                    <strong>{localDisplayName}</strong>
                   </div>
                   <div className={styles.detailRow}>
                     <span>Персонаж</span>
@@ -3199,7 +3242,7 @@ export const PlayPvpPage = () => {
                       className={`${styles.playerBoard} ${playerBoard.locked ? styles.playerBoardActive : ''}`.trim()}
                     >
                       <div className={styles.playerBoardHeader}>
-                        <strong>{playerBoard.playerId}</strong>
+                        <strong>{getPlayerDisplayName(playerBoard.playerId)}</strong>
                         <span>{playerBoard.locked ? 'Готово' : 'Выбор'}</span>
                       </div>
                       <div className={styles.zoneGrid}>

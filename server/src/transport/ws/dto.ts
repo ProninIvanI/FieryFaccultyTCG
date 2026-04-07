@@ -6,7 +6,7 @@ export type ClientMessageDto =
   | { type: 'roundDraft.lock'; roundNumber: number };
 
 export type ServerMessageDto =
-  | { type: 'state'; state: unknown }
+  | { type: 'state'; state: unknown; playerLabels?: Record<string, string> }
   | {
       type: 'transport.rejected';
       code: 'invalid_json' | 'invalid_payload' | 'unknown_message_type';

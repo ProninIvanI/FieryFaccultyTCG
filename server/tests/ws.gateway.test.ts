@@ -68,10 +68,10 @@ describe('ws gateway integration', () => {
     const service = new GameService(registry);
     const gateway = new WsGateway(service, async (token) => {
       if (token === 'token_1') {
-        return { userId: 'player_1' };
+        return { userId: 'player_1', username: 'Alpha' };
       }
       if (token === 'token_2') {
-        return { userId: 'player_2' };
+        return { userId: 'player_2', username: 'Bravo' };
       }
       return null;
     });
@@ -104,8 +104,8 @@ describe('ws gateway integration', () => {
     await waitForOpen(playerOne);
 
     playerOne.send(JSON.stringify({ type: 'join', sessionId: 'match-sync', token: 'token_1', deckId: 'deck_1', seed: 123 }));
-    const firstJoinState = await playerOneMessages.waitFor<{ type: 'state'; state: { boardView?: { players?: Record<string, { ribbonEntries?: unknown[] }> } } }>(
-      (message): message is { type: 'state'; state: { boardView?: { players?: Record<string, { ribbonEntries?: unknown[] }> } } } =>
+    const firstJoinState = await playerOneMessages.waitFor<{ type: 'state'; state: { boardView?: { players?: Record<string, { ribbonEntries?: unknown[] }> } }; playerLabels?: Record<string, string> }>(
+      (message): message is { type: 'state'; state: { boardView?: { players?: Record<string, { ribbonEntries?: unknown[] }> } }; playerLabels?: Record<string, string> } =>
         message.type === 'state' &&
         typeof message.state === 'object' &&
         message.state !== null,
@@ -113,6 +113,7 @@ describe('ws gateway integration', () => {
     expect(firstJoinState.type).toBe('state');
     expect(firstJoinState.state.boardView?.players).toBeDefined();
     expect(Array.isArray(firstJoinState.state.boardView?.players?.player_1?.ribbonEntries)).toBe(true);
+    expect(firstJoinState.playerLabels?.player_1).toBe('Alpha');
 
     const playerTwo = new WebSocket(`ws://127.0.0.1:${port}`);
     const playerTwoMessages = createMessageCollector(playerTwo);
@@ -127,6 +128,14 @@ describe('ws gateway integration', () => {
 
     expect(playerOneUpdated.type).toBe('state');
     expect(playerTwoUpdated.type).toBe('state');
+    expect((playerOneUpdated as { playerLabels?: Record<string, string> }).playerLabels).toEqual({
+      player_1: 'Alpha',
+      player_2: 'Bravo',
+    });
+    expect((playerTwoUpdated as { playerLabels?: Record<string, string> }).playerLabels).toEqual({
+      player_1: 'Alpha',
+      player_2: 'Bravo',
+    });
 
     playerOne.close();
     playerTwo.close();
