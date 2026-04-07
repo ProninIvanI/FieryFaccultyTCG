@@ -322,6 +322,13 @@ export class GameService {
       if (!existing.hasPlayer(playerId) && existing.getPlayerCount() >= 2) {
         return { ok: false, error: 'Session is full' };
       }
+      const characterAlreadyTaken = Object.entries(existing.getState().players).some(
+        ([existingPlayerId, playerState]) =>
+          existingPlayerId !== playerId && playerState.characterId === loadout.characterId,
+      );
+      if (characterAlreadyTaken) {
+        return { ok: false, error: 'Character is already taken in this session' };
+      }
       if (!existing.hasPlayer(playerId)) {
         existing.syncPlayerLoadout(loadout);
       }

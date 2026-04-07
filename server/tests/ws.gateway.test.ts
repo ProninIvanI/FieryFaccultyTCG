@@ -554,6 +554,75 @@ describe('ws gateway integration', () => {
     socket.close();
   });
 
+  it('rejects second player with the same character in one session', async () => {
+    const port = 47420 + Math.floor(Math.random() * 1000);
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
+    const service = new GameService(registry);
+    const gateway = new WsGateway(service, async (token) => {
+      if (token === 'token_1') {
+        return { userId: 'player_1', username: 'Alpha' };
+      }
+      if (token === 'token_2') {
+        return { userId: 'player_2', username: 'Bravo' };
+      }
+      return null;
+    });
+
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          deck: {
+            id: 'deck_same_char',
+            characterId: 'char_1',
+            cards: [{ cardId: '1', quantity: 2 }],
+          },
+        },
+      }),
+    } as Response)));
+
+    gateway.start(port);
+    gateways.push(gateway);
+
+    const playerOne = new WebSocket(`ws://127.0.0.1:${port}`);
+    await waitForOpen(playerOne);
+    playerOne.send(JSON.stringify({ type: 'join', sessionId: 'match-duplicate-character', token: 'token_1', deckId: 'deck_same_char', seed: 123 }));
+
+    const playerTwo = new WebSocket(`ws://127.0.0.1:${port}`);
+    const playerTwoMessages = createMessageCollector(playerTwo);
+    await waitForOpen(playerTwo);
+    playerTwo.send(JSON.stringify({ type: 'join', sessionId: 'match-duplicate-character', token: 'token_2', deckId: 'deck_same_char' }));
+
+    const rejected = await playerTwoMessages.waitFor<{
+      type: 'join.rejected';
+      sessionId: string;
+      code: string;
+      error: string;
+    }>(
+      (message): message is {
+        type: 'join.rejected';
+        sessionId: string;
+        code: string;
+        error: string;
+      } =>
+        message.type === 'join.rejected' &&
+        typeof message.sessionId === 'string' &&
+        typeof message.code === 'string' &&
+        typeof message.error === 'string',
+    );
+
+    expect(rejected).toEqual({
+      type: 'join.rejected',
+      sessionId: 'match-duplicate-character',
+      code: 'duplicate_character',
+      error: 'Character is already taken in this session',
+    });
+
+    playerOne.close();
+    playerTwo.close();
+  });
+
   it('sends structured transport.rejected when client sends unknown message type', async () => {
     const port = 47450 + Math.floor(Math.random() * 1000);
     const registry = new SessionRegistry((seed, players) => createEngine(seed, players));

@@ -57,6 +57,7 @@ export interface JoinRejectedServerMessage {
     | 'unauthorized'
     | 'deck_unavailable'
     | 'session_full'
+    | 'duplicate_character'
     | 'seed_mismatch'
     | 'invalid_payload';
   error: string;

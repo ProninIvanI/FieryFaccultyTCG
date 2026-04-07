@@ -421,6 +421,8 @@ const getJoinRejectCodeLabel = (code: JoinRejectedServerMessage['code']): string
       return 'Выбранная колода недоступна для этого игрока';
     case 'session_full':
       return 'В матче уже заняты оба PvP-слота';
+    case 'duplicate_character':
+      return 'Этот персонаж уже занят в матче. Выберите колоду с другим магом';
     case 'seed_mismatch':
       return 'Seed не совпадает с уже созданной сессией';
     case 'invalid_payload':
@@ -993,7 +995,7 @@ const handleServiceEvent = (
       error: event.error,
       errors: [...event.errors],
     });
-    setError(event.error);
+    setError('');
     return;
   }
 
@@ -1288,6 +1290,20 @@ export const PlayPvpPage = () => {
     () => (primaryEnemyBoard?.characterId ? characterCatalogById.get(primaryEnemyBoard.characterId) ?? null : null),
     [primaryEnemyBoard]
   );
+  const localCharacterState = useMemo(() => {
+    if (!localPlayer?.characterId || !matchState?.characters) {
+      return null;
+    }
+
+    return matchState.characters[localPlayer.characterId] ?? null;
+  }, [localPlayer, matchState?.characters]);
+  const enemyCharacterState = useMemo(() => {
+    if (!primaryEnemyBoard?.characterId || !matchState?.characters) {
+      return null;
+    }
+
+    return matchState.characters[primaryEnemyBoard.characterId] ?? null;
+  }, [matchState?.characters, primaryEnemyBoard?.characterId]);
   const currentRoundNumber = roundSync?.roundNumber ?? matchSummary?.roundNumber ?? 0;
   const isEnemySideActive = Boolean(roundSync?.opponentLocked);
   const isLocalSideActive = Boolean(roundSync?.selfLocked);
@@ -2615,6 +2631,22 @@ export const PlayPvpPage = () => {
                                 ? getCharacterStatusLabel(enemyCharacter, primaryEnemyBoard.mana, primaryEnemyBoard.maxMana)
                                 : 'Персонаж появится после подключения'}
                             </span>
+                            {primaryEnemyBoard && enemyCharacterState ? (
+                              <div className={styles.playerIdentityStats}>
+                                <span className={styles.playerIdentityStat}>
+                                  HP {enemyCharacterState.hp}/{enemyCharacterState.maxHp}
+                                </span>
+                                <span className={styles.playerIdentityStat}>
+                                  Мана {primaryEnemyBoard.mana}/{primaryEnemyBoard.maxMana}
+                                </span>
+                                <span className={styles.playerIdentityStat}>
+                                  Ловкость {enemyCharacterState.dexterity}
+                                </span>
+                                <span className={styles.playerIdentityStat}>
+                                  Конц. {enemyCharacterState.concentration}
+                                </span>
+                              </div>
+                            ) : null}
                           </div>
                         </button>
                       </div>
@@ -2708,6 +2740,22 @@ export const PlayPvpPage = () => {
                                 ? getCharacterStatusLabel(localCharacter, localPlayer.mana, localPlayer.maxMana)
                                 : 'Данные ещё не пришли'}
                             </span>
+                            {localPlayer && localCharacterState ? (
+                              <div className={styles.playerIdentityStats}>
+                                <span className={styles.playerIdentityStat}>
+                                  HP {localCharacterState.hp}/{localCharacterState.maxHp}
+                                </span>
+                                <span className={styles.playerIdentityStat}>
+                                  Мана {localPlayer.mana}/{localPlayer.maxMana}
+                                </span>
+                                <span className={styles.playerIdentityStat}>
+                                  Ловкость {localCharacterState.dexterity}
+                                </span>
+                                <span className={styles.playerIdentityStat}>
+                                  Конц. {localCharacterState.concentration}
+                                </span>
+                              </div>
+                            ) : null}
                           </div>
                         </button>
                       </div>

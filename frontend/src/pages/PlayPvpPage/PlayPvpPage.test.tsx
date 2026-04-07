@@ -1780,7 +1780,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByText(/Target type validation failed/i).length).toBeGreaterThan(1);
+      expect(screen.getAllByText(/Target type validation failed/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/validation_failed/i)).toBeInTheDocument();
       expect(screen.getByText(new RegExp(getRoundDraftRejectCodeLabel('validation_failed'), 'i'))).toBeInTheDocument();
       expect(screen.getAllByText(/target_type/i).length).toBeGreaterThan(0);
@@ -1889,6 +1889,29 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(/Сервер отклонил вход в сессию session_full/i)).toBeInTheDocument();
       expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
       expect(screen.getByText('Ожидание матча')).toBeInTheDocument();
+    });
+  });
+
+  it('shows duplicate character join rejection before first state', async () => {
+    await renderPage('char_3', 'user_3');
+
+    const socket = await submitJoin('session_duplicate_character', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'join.rejected',
+        sessionId: 'session_duplicate_character',
+        code: 'duplicate_character',
+        error: 'Character is already taken in this session',
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Character is already taken in this session/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Этот персонаж уже занят в матче. Выберите колоду с другим магом/i)).toBeInTheDocument();
+      expect(screen.getByText(/Сервер отклонил вход в сессию session_duplicate_character/i)).toBeInTheDocument();
+      expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
     });
   });
 

@@ -204,6 +204,8 @@ export class WsGateway {
     switch (error) {
       case 'Session is full':
         return 'session_full';
+      case 'Character is already taken in this session':
+        return 'duplicate_character';
       case 'Session already exists with a different seed':
         return 'seed_mismatch';
       default:
