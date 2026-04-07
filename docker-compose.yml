@@ -73,6 +73,7 @@ services:
       - "${FRONTEND_PORT:-3000}:3000"
     volumes:
       - ./frontend:/app
+      - ./game-core:/game-core
       - /app/node_modules
     depends_on:
       - backend
