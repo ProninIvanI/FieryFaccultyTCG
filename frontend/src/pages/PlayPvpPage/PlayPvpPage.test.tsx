@@ -1032,8 +1032,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(/Твоя боевая лента/i)).toBeInTheDocument();
       expect(screen.getByText(/Боевая лента соперника/i)).toBeInTheDocument();
       expect(screen.getAllByText(/ally_creature_1/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/Шаг #1/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(new RegExp(getResolutionLayerLabel('summon'), 'i')).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('button', { name: /Убрать из ленты/i }).length).toBeGreaterThan(0);
       expect(screen.getByText(/Ходы: 2/i)).toBeInTheDocument();
       expect(screen.queryByText(/Модификаторы/i)).not.toBeInTheDocument();
     });

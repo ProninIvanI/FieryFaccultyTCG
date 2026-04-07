@@ -384,6 +384,33 @@ const getRibbonTargetTabAriaLabel = (label: string): string => `Назначит
 const getRibbonTargetCompactLabel = (candidate: TargetCandidateSummary): string =>
   candidate.kind === 'character' ? 'М' : 'С';
 
+const getPreferredDefaultTargetId = (
+  targetType: TargetType | null | undefined,
+  candidates: TargetCandidateSummary[],
+): string | null => {
+  if (!targetType || candidates.length === 0) {
+    return null;
+  }
+
+  switch (targetType) {
+    case 'self':
+    case 'allyCharacter':
+      return candidates.find((candidate) => candidate.kind === 'character')?.id ?? null;
+    case 'enemyCharacter':
+      return candidates.find((candidate) => candidate.kind === 'character')?.id ?? null;
+    case 'any':
+      return (
+        candidates.find((candidate) => candidate.kind === 'character')?.id ??
+        candidates[0]?.id ??
+        null
+      );
+    case 'creature':
+      return null;
+    default:
+      return null;
+  }
+};
+
 const getJoinRejectCodeLabel = (code: JoinRejectedServerMessage['code']): string => {
   switch (code) {
     case 'unauthorized':
@@ -1501,6 +1528,11 @@ export const PlayPvpPage = () => {
       compactLabel: getRibbonTargetCompactLabel(candidate),
     })),
   [getTargetCandidatesForType]);
+  const getDefaultTargetIdForType = useCallback(
+    (targetType: TargetType | null | undefined): string | null =>
+      getPreferredDefaultTargetId(targetType, getTargetCandidatesForType(targetType)),
+    [getTargetCandidatesForType],
+  );
   const selectedAttackTargetLabel = attackTargetDraft
     ? `${getTargetTypeLabel(attackTargetDraft.targetType)} -> ${knownTargetLabelsById.get(attackTargetDraft.targetId) ?? attackTargetDraft.targetId}`
     : selectedCreatureHasSummoningSickness
@@ -2203,6 +2235,37 @@ export const PlayPvpPage = () => {
       setSelection(null);
     }
   }, [creatures, localHandCards, selection]);
+
+  useEffect(() => {
+    if (!currentRoundNumber || roundDraft.length === 0) {
+      return;
+    }
+
+    let changed = false;
+    const nextDraft = roundDraft.map((intent) => {
+      if (!('target' in intent) || intent.target?.targetId || !intent.target?.targetType) {
+        return intent;
+      }
+
+      const defaultTargetId = getDefaultTargetIdForType(intent.target.targetType);
+      if (!defaultTargetId) {
+        return intent;
+      }
+
+      changed = true;
+      return {
+        ...intent,
+        target: {
+          targetType: intent.target.targetType,
+          targetId: defaultTargetId,
+        },
+      };
+    });
+
+    if (changed) {
+      syncRoundDraft(nextDraft);
+    }
+  }, [currentRoundNumber, getDefaultTargetIdForType, roundDraft, syncRoundDraft]);
 
   const lastDraftRosterSignatureRef = useRef('');
 
@@ -3025,36 +3088,43 @@ export const PlayPvpPage = () => {
                                   ) : null}
                                   <div className={styles.ribbonActionBody}>
                                     <div className={styles.ribbonHeader}>
-                                      <div>
-                                        <span className={styles.summaryLabel}>
-                                          {action.sourceType === 'card' ? 'Карта в раунде' : 'Действие раунда'}
-                                        </span>
+                                      <div className={styles.ribbonActionMain}>
                                         <strong>{action.title}</strong>
                                       </div>
                                       <div className={styles.ribbonBadgeRow}>
                                         <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
-                                        <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
-                                        <span className={styles.cardBadge}>{action.statusLabel}</span>
+                                        {showDiagnostics ? (
+                                          <>
+                                            <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
+                                            <span className={styles.cardBadge}>{action.statusLabel}</span>
+                                          </>
+                                        ) : null}
                                       </div>
                                     </div>
-                                    <div className={`${styles.ribbonActionCallout} ${getActionCalloutToneClassName(action.layer)}`.trim()}>
-                                      <span className={styles.ribbonActionCalloutMode}>
-                                        {canAdjustActionTarget ? 'Выбранная цель' : 'Сейчас выбрано'}
-                                      </span>
-                                      <strong className={styles.ribbonActionCalloutFocus}>
-                                        {action.targetLabel ?? action.focusLabel}
-                                      </strong>
-                                    </div>
-                                    <span>{action.subtitle}</span>
-                                    {renderIntentValidationErrors(action.id)}
-                                    <div className={styles.ribbonBadgeRow}>
-                                      <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
-                                      {action.targetLabel ? (
-                                        <span className={`${styles.cardBadge} ${styles.cardBadgeTarget}`.trim()}>
-                                          Цель: {action.targetLabel}
+                                    {showDiagnostics ? (
+                                      <div className={`${styles.ribbonActionCallout} ${getActionCalloutToneClassName(action.layer)}`.trim()}>
+                                        <span className={styles.ribbonActionCalloutMode}>
+                                          {canAdjustActionTarget ? 'Выбранная цель' : 'Сейчас выбрано'}
                                         </span>
-                                      ) : null}
-                                    </div>
+                                        <strong className={styles.ribbonActionCalloutFocus}>
+                                          {action.targetLabel ?? action.focusLabel}
+                                        </strong>
+                                      </div>
+                                    ) : null}
+                                    <span className={styles.ribbonActionAssistive}>
+                                      {action.targetLabel ?? action.subtitle}
+                                    </span>
+                                    {renderIntentValidationErrors(action.id)}
+                                    {showDiagnostics ? (
+                                      <div className={styles.ribbonBadgeRow}>
+                                        <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
+                                        {action.targetLabel ? (
+                                          <span className={`${styles.cardBadge} ${styles.cardBadgeTarget}`.trim()}>
+                                            Цель: {action.targetLabel}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    ) : null}
                                     <div className={styles.inlineActions}>
                                       <button
                                         className={styles.secondaryButton}
@@ -3134,14 +3204,6 @@ export const PlayPvpPage = () => {
                                       ) : null}
                                     </div>
                                   </div>
-                                  <div className={styles.handCardArtworkFooter}>
-                                    <span className={styles.handCardArtworkKicker}>
-                                      {card.school ? getCatalogSchoolLabel(card.school) : 'Нейтральная карта'}
-                                    </span>
-                                    <strong className={styles.handCardArtworkLine}>
-                                      {card.cardType === 'summon' ? 'Призыв существа' : 'Мгновенный розыгрыш'}
-                                    </strong>
-                                  </div>
                                 </div>
                                 <div className={styles.handCardBody}>
                                   <strong className={styles.handCardTitle}>{card.name}</strong>
@@ -3164,18 +3226,6 @@ export const PlayPvpPage = () => {
                                       <div className={styles.handMetaRow}>
                                         <span className={styles.cardBadge}>В ленте</span>
                                       </div>
-                                    </div>
-                                  ) : null}
-                                  {!handCardIntentIdsByInstanceId.has(card.instanceId) && card.speed ? (
-                                    <div className={styles.handMetaRow}>
-                                      <span className={styles.cardBadge}>Скорость {card.speed}</span>
-                                    </div>
-                                  ) : null}
-                                  {!handCardIntentIdsByInstanceId.has(card.instanceId) && !card.speed ? (
-                                    <div className={styles.handMetaRow}>
-                                      <span className={styles.cardBadge}>
-                                        {card.cardType === 'summon' ? 'Готов к призыву' : 'Готов к розыгрышу'}
-                                      </span>
                                     </div>
                                   ) : null}
                                 </div>
