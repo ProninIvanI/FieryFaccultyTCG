@@ -11,6 +11,23 @@ import {
   validateTargetType,
 } from '../validation/validators';
 import { moveCardInstance } from '../utils/cardZones';
+import { buildEffectTargetIds } from './effectTargets';
+import { shouldEnqueueEffectForTarget } from './effectResolution';
+
+function buildEffectData(effectDef: NonNullable<GameEngineContext['cards'] extends { get(id: string): infer T } ? T : never>['effects'][number]): Record<string, unknown> {
+  return {
+    value: effectDef.value,
+    attackType: effectDef.attackType,
+    creatureDefinitionId: effectDef.creatureDefinitionId,
+    stat: effectDef.stat,
+    targetCount: effectDef.targetCount,
+    ignoreShield: effectDef.ignoreShield,
+    ignoreEvade: effectDef.ignoreEvade,
+    repeatNextTurn: effectDef.repeatNextTurn,
+    appliesToAllEnemies: effectDef.appliesToAllEnemies,
+    appliesToAllCreatures: effectDef.appliesToAllCreatures,
+  };
+}
 
 export class PlayCardActionCommand implements ActionCommand<PlayCardAction> {
   readonly type = 'PlayCard' as const;
@@ -56,22 +73,23 @@ export class PlayCardActionCommand implements ActionCommand<PlayCardAction> {
     moveCardInstance(state, instance.instanceId, 'discard');
 
     def.effects.forEach((effectDef) => {
-      const effectId = ctx.ids.next('effect');
-      ctx.effects.enqueue({
-        effectId,
-        type: effectDef.type,
-        sourceId: action.actorId,
-        ownerId: action.playerId,
-        sourceCardInstanceId: action.cardInstanceId,
-        definitionId: def.id,
-        targetId: action.targetId,
-        createdAtTurn: state.turn.number,
-        duration: effectDef.duration,
-        data: {
-          value: effectDef.value,
-          attackType: effectDef.attackType,
-          creatureDefinitionId: effectDef.creatureDefinitionId,
-        },
+      buildEffectTargetIds(state, action.actorId, action.targetId, effectDef).forEach((targetId) => {
+        if (!shouldEnqueueEffectForTarget(state, targetId, effectDef, def.speed)) {
+          return;
+        }
+        const effectId = ctx.ids.next('effect');
+        ctx.effects.enqueue({
+          effectId,
+          type: effectDef.type,
+          sourceId: action.actorId,
+          ownerId: action.playerId,
+          sourceCardInstanceId: action.cardInstanceId,
+          definitionId: def.id,
+          targetId,
+          createdAtTurn: state.turn.number,
+          duration: effectDef.duration,
+          data: buildEffectData(effectDef),
+        });
       });
     });
   }

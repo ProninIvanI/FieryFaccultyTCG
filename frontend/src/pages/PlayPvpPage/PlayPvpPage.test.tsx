@@ -243,11 +243,11 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/Матч активен/i)).toBeInTheDocument();
       expect(screen.getByText(/session_alpha/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Lock-in раунда/i })).toBeEnabled();
+      expect(screen.getByRole('button', { name: /Завершить ход/i })).toBeEnabled();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Lock-in раунда/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Завершить ход/i }));
       await flushMicrotasks();
     });
 
@@ -1002,9 +1002,9 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(/Твоя боевая лента/i)).toBeInTheDocument();
       expect(screen.getByText(/Боевая лента соперника/i)).toBeInTheDocument();
       expect(screen.getAllByText(/ally_creature_1/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/Core #1/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Шаг #1/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(getResolutionLayerLabel('summon'), 'i')).length).toBeGreaterThan(0);
-      expect(screen.getByText(/dur 2/i)).toBeInTheDocument();
+      expect(screen.getByText(/Ходы: 2/i)).toBeInTheDocument();
       expect(screen.queryByText(/Модификаторы/i)).not.toBeInTheDocument();
     });
   });
@@ -1820,7 +1820,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/invalid_payload/i).length).toBeGreaterThan(0);
       expect(screen.getByText(new RegExp(getRoundDraftRejectCodeLabel('invalid_payload'), 'i'))).toBeInTheDocument();
       expect(screen.getAllByText(/Invalid roundDraft\.replace payload/i).length).toBeGreaterThan(0);
-      expect(screen.getByText(/Server reject: replace текущей ленты/i)).toBeInTheDocument();
+      expect(screen.getByText(/Сервер отклонил: обновление текущей ленты/i)).toBeInTheDocument();
       expect(screen.queryByText(/раунда 0/i)).not.toBeInTheDocument();
     });
   });
@@ -1844,7 +1844,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText('Session is full').length).toBeGreaterThan(0);
       expect(screen.getAllByText(/session_full/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/В матче уже заняты оба PvP-слота/i)).toBeInTheDocument();
-      expect(screen.getByText(/Server reject: join сессии session_full/i)).toBeInTheDocument();
+      expect(screen.getByText(/Сервер отклонил вход в сессию session_full/i)).toBeInTheDocument();
       expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
       expect(screen.getByText('Ожидание матча')).toBeInTheDocument();
     });
@@ -1869,7 +1869,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/Unknown message type/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/unknown_message_type/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/Тип WS-сообщения не поддерживается сервером/i)).toBeInTheDocument();
-      expect(screen.getByText(/Server reject: transport для action/i)).toBeInTheDocument();
+      expect(screen.getByText(/Сервер отклонил сообщение для action/i)).toBeInTheDocument();
       expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
       expect(screen.getByText('Ожидание матча')).toBeInTheDocument();
     });

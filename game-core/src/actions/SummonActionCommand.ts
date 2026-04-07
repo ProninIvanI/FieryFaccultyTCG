@@ -62,8 +62,8 @@ export class SummonActionCommand implements ActionCommand<SummonAction> {
       definitionId: def.id,
       createdAtTurn: state.turn.number,
       data: {
-        hp: def.manaCost + 2,
-        attack: Math.max(1, def.manaCost - 1),
+        hp: typeof def.hp === 'number' ? def.hp : def.manaCost + 2,
+        attack: typeof def.attack === 'number' ? def.attack : Math.max(1, def.manaCost - 1),
         speed: def.speed,
         creatureDefinitionId: def.id,
       },

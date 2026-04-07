@@ -99,6 +99,13 @@ const validateCardIntent = (
   return definition.manaCost;
 };
 
+const getManaDiscountForCardDefinition = (definition: { effects: Array<{ type: string; value?: number }> }): number =>
+  definition.effects.reduce((sum, effect) => (
+    effect.type === 'NextSpellManaDiscountEffect'
+      ? sum + Number(effect.value ?? 0)
+      : sum
+  ), 0);
+
 export const validateRoundDraft = (
   state: GameState,
   cards: CardRegistry,
@@ -128,8 +135,17 @@ export const validateRoundDraft = (
   let pendingSummons = 0;
   let manaCost = 0;
   let actionPointCost = 0;
+  let pendingSpellManaDiscount = 0;
 
-  draft.intents.forEach((intent) => {
+  [...draft.intents]
+    .sort((left, right) => {
+      const queueDelta = left.queueIndex - right.queueIndex;
+      if (queueDelta !== 0) {
+        return queueDelta;
+      }
+      return left.intentId.localeCompare(right.intentId);
+    })
+    .forEach((intent) => {
     if (intent.playerId !== draft.playerId) {
       pushError(errors, 'intent_player', 'Intent playerId does not match draft owner', intent.intentId);
     }
@@ -150,7 +166,19 @@ export const validateRoundDraft = (
     actionPointCost += getActionPointCost(intent);
 
     if (intent.kind === 'Summon' || intent.kind === 'CastSpell' || intent.kind === 'PlayCard') {
-      manaCost += validateCardIntent(state, cards, draft.playerId, intent, errors);
+      const baseManaCost = validateCardIntent(state, cards, draft.playerId, intent, errors);
+      const instance = state.cardInstances[intent.cardInstanceId];
+      const definition = instance ? cards.get(instance.definitionId) : undefined;
+
+      if (intent.kind === 'CastSpell') {
+        manaCost += Math.max(0, baseManaCost - pendingSpellManaDiscount);
+        pendingSpellManaDiscount = 0;
+      } else {
+        manaCost += baseManaCost;
+        if (definition) {
+          pendingSpellManaDiscount += getManaDiscountForCardDefinition(definition);
+        }
+      }
     }
 
     if (intent.kind === 'Summon') {

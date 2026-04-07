@@ -13,10 +13,11 @@ export class DamageEffect implements EffectHandler {
       return;
     }
     const value = Number(effect.data?.value ?? 0);
+    const ignoreShield = Number(effect.data?.ignoreShield ?? 0);
     const character = state.characters[targetId];
     const creature = state.creatures[targetId];
     if (character) {
-      const { damage, shieldBroken } = this.applyShield(character.shield, value);
+      const { damage, shieldBroken } = this.applyShield(character.shield, value, ignoreShield);
       if (shieldBroken) {
         character.shield = undefined;
         character.concentration = Math.max(0, character.concentration - 1);
@@ -32,14 +33,16 @@ export class DamageEffect implements EffectHandler {
 
   private applyShield(
     shield: GameState['characters'][string]['shield'],
-    damage: number
+    damage: number,
+    ignoreShield: number,
   ): { damage: number; shieldBroken: boolean } {
     if (!shield) {
       return { damage, shieldBroken: false };
     }
-    if (damage <= shield.energy) {
+    const effectiveShield = Math.max(0, shield.energy - Math.max(0, ignoreShield));
+    if (damage <= effectiveShield) {
       return { damage: 0, shieldBroken: false };
     }
-    return { damage: damage - shield.energy, shieldBroken: true };
+    return { damage: damage - effectiveShield, shieldBroken: true };
   }
 }

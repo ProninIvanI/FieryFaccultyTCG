@@ -108,6 +108,10 @@ interface RoundRibbonActionSummary {
   id: string;
   title: string;
   subtitle: string;
+  modeLabel: string;
+  statusLabel: string;
+  targetLabel?: string;
+  focusLabel: string;
   layer: ResolutionLayer;
   status: string;
   orderIndex: number;
@@ -187,18 +191,162 @@ const getCardAccentClassName = (cardType: string): string => {
   return styles.cardAccentNeutral;
 };
 
+const getRoundActionStatusDisplay = (status: string): string => {
+  switch (status) {
+    case 'draft':
+      return 'Готовится';
+    case 'locked':
+      return 'Зафиксировано';
+    case 'resolved':
+      return 'Сработало';
+    case 'fizzled':
+      return 'Сорвалось';
+    case 'rejected':
+      return 'Отклонено';
+    default:
+      return status;
+  }
+};
+
+const getRoundActionModeLabel = (layer: ResolutionLayer): string => {
+  switch (layer) {
+    case 'summon':
+      return 'Призыв';
+    case 'defensive_modifiers':
+    case 'defensive_spells':
+      return 'Защита';
+    case 'other_modifiers':
+      return 'Поддержка';
+    case 'offensive_control_spells':
+      return 'Боевое заклинание';
+    case 'attacks':
+      return 'Атака';
+    case 'cleanup_end_of_round':
+      return 'Конец раунда';
+    default:
+      return getResolutionLayerLabel(layer);
+  }
+};
+
+const getBoardItemSubtitle = (
+  subtype: 'creature' | 'effect',
+  lifetimeType: 'temporary' | 'persistent',
+): string => {
+  if (subtype === 'creature') {
+    return lifetimeType === 'persistent' ? 'Существо на поле' : 'Временный призыв';
+  }
+
+  return lifetimeType === 'persistent' ? 'Постоянный эффект' : 'Эффект на раунд';
+};
+
+const getDurationLabel = (duration: number): string => `Ходы: ${duration}`;
+
+const getActionTargetPreview = (subtitle: string): string | undefined => {
+  if (subtitle === 'Без цели' || subtitle === 'Цель уточняется') {
+    return undefined;
+  }
+
+  return subtitle;
+};
+
+const getRoundActionFocusLabel = (modeLabel: string, targetLabel?: string): string =>
+  targetLabel ? `${modeLabel} -> ${targetLabel}` : modeLabel;
+
+const getRoundActionTone = (
+  layer: ResolutionLayer,
+): 'summon' | 'defense' | 'attack' | 'support' => {
+  switch (layer) {
+    case 'summon':
+      return 'summon';
+    case 'defensive_modifiers':
+    case 'defensive_spells':
+      return 'defense';
+    case 'attacks':
+      return 'attack';
+    default:
+      return 'support';
+  }
+};
+
+const getRibbonActionToneClassName = (layer: ResolutionLayer): string => {
+  switch (getRoundActionTone(layer)) {
+    case 'summon':
+      return styles.ribbonActionToneSummon;
+    case 'defense':
+      return styles.ribbonActionToneDefense;
+    case 'attack':
+      return styles.ribbonActionToneAttack;
+    case 'support':
+      return styles.ribbonActionToneSupport;
+  }
+};
+
+const getRoundQueueToneClassName = (layer: ResolutionLayer): string => {
+  switch (getRoundActionTone(layer)) {
+    case 'summon':
+      return styles.roundQueueItemSummon;
+    case 'defense':
+      return styles.roundQueueItemDefense;
+    case 'attack':
+      return styles.roundQueueItemAttack;
+    case 'support':
+      return styles.roundQueueItemSupport;
+  }
+};
+
+const getActionToneBadgeClassName = (layer: ResolutionLayer): string => {
+  switch (getRoundActionTone(layer)) {
+    case 'summon':
+      return styles.cardBadgeToneSummon;
+    case 'defense':
+      return styles.cardBadgeToneDefense;
+    case 'attack':
+      return styles.cardBadgeToneAttack;
+    case 'support':
+      return styles.cardBadgeToneSupport;
+  }
+};
+
+const getActionCalloutToneClassName = (layer: ResolutionLayer): string => {
+  switch (getRoundActionTone(layer)) {
+    case 'summon':
+      return styles.ribbonActionCalloutSummon;
+    case 'defense':
+      return styles.ribbonActionCalloutDefense;
+    case 'attack':
+      return styles.ribbonActionCalloutAttack;
+    case 'support':
+      return styles.ribbonActionCalloutSupport;
+  }
+};
+
 const getRoundStatusLabel = (status: string): string => {
   switch (status) {
     case 'draft':
-      return 'Набор действий';
+      return 'Подготовка';
     case 'locked_waiting':
       return 'Ожидание соперника';
     case 'resolving':
-      return 'Резолв';
+      return 'Разыгрывание';
     case 'resolved':
       return 'Завершён';
     default:
       return status || 'Неизвестно';
+  }
+};
+
+const getConnectionStatusLabel = (status: PvpConnectionStatus): string => {
+  switch (status) {
+    case 'connected':
+      return 'Подключено';
+    case 'connecting':
+      return 'Подключение';
+    case 'disconnected':
+      return 'Отключено';
+    case 'idle':
+      return 'Не подключено';
+    default:
+      return status;
   }
 };
 
@@ -313,7 +461,7 @@ const getCharacterStatusLabel = (
   maxMana: number
 ): string => {
   const schoolLabel = character ? getCatalogSchoolLabel(character.faculty) : 'Персонаж не выбран';
-  return `${schoolLabel} · ${mana}/${maxMana} mana`;
+  return `${schoolLabel} · мана ${mana}/${maxMana}`;
 };
 
 const getMatchSummary = (state: GameStateSnapshot | null): MatchSummary | null => {
@@ -581,14 +729,7 @@ const getPlayerBoardItemSummaries = (
             ? placement.orderIndex
             : Number.MAX_SAFE_INTEGER,
         title: card?.name ?? fallbackTitle,
-        subtitle:
-          item.subtype === 'creature'
-            ? item.lifetimeType === 'persistent'
-              ? 'Закреплённый объект поля'
-              : 'Временный объект поля'
-            : item.lifetimeType === 'persistent'
-              ? 'Длительный эффект'
-              : 'Раундовый эффект',
+        subtitle: getBoardItemSubtitle(item.subtype, item.lifetimeType),
         hp: stateView && typeof stateView.hp === 'number' ? stateView.hp : undefined,
         maxHp: stateView && typeof stateView.maxHp === 'number' ? stateView.maxHp : undefined,
         attack: stateView && typeof stateView.attack === 'number' ? stateView.attack : undefined,
@@ -617,7 +758,7 @@ const getPlayerBoardItemSummaries = (
       placementLayer: 'summon',
       placementOrderIndex: index,
       title: `Существо ${creature.creatureId}`,
-      subtitle: 'Закреплённый объект поля',
+      subtitle: getBoardItemSubtitle('creature', 'persistent'),
       hp: creature.hp,
       maxHp: creature.maxHp,
       attack: creature.attack,
@@ -1688,6 +1829,13 @@ export const PlayPvpPage = () => {
             subtitle: matchingDraft
               ? getIntentTargetLabel(matchingDraft)
               : action.summary ?? `Слой ${getResolutionLayerLabel(action.placement.layer)}`,
+            modeLabel: getRoundActionModeLabel(action.placement.layer),
+            statusLabel: getRoundActionStatusDisplay(action.status),
+            targetLabel: matchingDraft ? getActionTargetPreview(getIntentTargetLabel(matchingDraft)) : undefined,
+            focusLabel: getRoundActionFocusLabel(
+              getRoundActionModeLabel(action.placement.layer),
+              matchingDraft ? getActionTargetPreview(getIntentTargetLabel(matchingDraft)) : undefined,
+            ),
             layer: action.placement.layer,
             status: action.status,
             orderIndex: action.placement.orderIndex,
@@ -1714,6 +1862,13 @@ export const PlayPvpPage = () => {
         id: intent.intentId,
         title: getIntentLabel(intent),
         subtitle: getIntentTargetLabel(intent),
+        modeLabel: getRoundActionModeLabel(previewLayerByIntentId.get(intent.intentId) ?? 'other_modifiers'),
+        statusLabel: getRoundActionStatusDisplay(roundSync?.selfLocked ? 'locked' : 'draft'),
+        targetLabel: getActionTargetPreview(getIntentTargetLabel(intent)),
+        focusLabel: getRoundActionFocusLabel(
+          getRoundActionModeLabel(previewLayerByIntentId.get(intent.intentId) ?? 'other_modifiers'),
+          getActionTargetPreview(getIntentTargetLabel(intent)),
+        ),
         layer: previewLayerByIntentId.get(intent.intentId) ?? 'other_modifiers',
         status: roundSync?.selfLocked ? 'locked' : 'draft',
         orderIndex: index,
@@ -1817,17 +1972,17 @@ export const PlayPvpPage = () => {
           order: index + 1,
           action,
           draft,
-          ownerLabel: isLocalAction ? 'Ты' : `Соперник · ${action.playerId}`,
+          ownerLabel: isLocalAction ? 'Ты' : `Игрок ${action.playerId}`,
           title: draft
             ? getIntentLabel(draft)
             : isLocalAction
-              ? `Твой intent ${action.intentId}`
+              ? `Твоё действие ${action.intentId}`
               : 'Скрытое действие соперника',
           subtitle: draft
             ? getIntentTargetLabel(draft)
             : isLocalAction
-              ? 'Детали intent не восстановлены локально'
-              : `Игрок ${action.playerId}`,
+              ? 'Детали действия не восстановлены локально'
+              : 'Скрыто до раскрытия резолва',
         };
       });
   const activeResolvedTimelineEntry =
@@ -1982,7 +2137,7 @@ export const PlayPvpPage = () => {
         <Card title="Нужна авторизация">
           <div className={styles.noticeBlock}>
             <p className={styles.paragraph}>
-              Сначала войди в аккаунт, чтобы использовать `userId` как `playerId` для игрового сервера.
+              Сначала войди в аккаунт, чтобы использовать свой игровой идентификатор для PvP-сервера.
             </p>
             <div className={styles.inlineActions}>
               <Link className={styles.primaryButton} to={ROUTES.LOGIN}>
@@ -2014,7 +2169,7 @@ export const PlayPvpPage = () => {
                     <span className={styles.summaryLabel}>Матч активен</span>
                     <strong className={styles.spotlightValue}>В игре</strong>
                   </div>
-                  <span className={styles.cardBadge}>{status}</span>
+                  <span className={styles.cardBadge}>{getConnectionStatusLabel(status)}</span>
                 </div>
                 <div className={styles.hudGrid}>
                   <div className={styles.hudTile}>
@@ -2069,12 +2224,12 @@ export const PlayPvpPage = () => {
                 </div>
 
                 <label className={styles.formRow}>
-                  <span className={styles.label}>playerId</span>
+                  <span className={styles.label}>Игрок</span>
                   <input className={styles.input} type="text" value={playerId} readOnly />
                 </label>
 
                 <label className={styles.formRow}>
-                  <span className={styles.label}>sessionId</span>
+                  <span className={styles.label}>Сессия</span>
                   <div className={styles.inlineField}>
                     <input
                       className={styles.input}
@@ -2094,7 +2249,7 @@ export const PlayPvpPage = () => {
                 </label>
 
                 <label className={styles.formRow}>
-                  <span className={styles.label}>seed</span>
+                  <span className={styles.label}>Seed матча</span>
                   <input
                     className={styles.input}
                     type="number"
@@ -2105,7 +2260,7 @@ export const PlayPvpPage = () => {
                 </label>
 
                 <label className={styles.formRow}>
-                  <span className={styles.label}>deck</span>
+                  <span className={styles.label}>Колода</span>
                   <select
                     className={styles.input}
                     value={deckId}
@@ -2141,7 +2296,7 @@ export const PlayPvpPage = () => {
                 </div>
 
                 <div className={styles.hintBlock}>
-                  <div className={styles.hint}>Статус соединения: {status}</div>
+                  <div className={styles.hint}>Соединение: {getConnectionStatusLabel(status)}</div>
                   <div className={styles.hint}>
                     Активная сессия: {joinedSessionId || 'ещё не подключено'}
                   </div>
@@ -2159,7 +2314,7 @@ export const PlayPvpPage = () => {
             {transportRejected ? (
               <div className={styles.roundRejectBox}>
                 <strong>
-                  Server reject: transport {transportRejected.requestType ? `для ${transportRejected.requestType}` : 'без типа сообщения'}
+                  Сервер отклонил сообщение {transportRejected.requestType ? `для ${transportRejected.requestType}` : 'без типа'}
                 </strong>
                 <div className={styles.roundQueueError}>
                   <span className={styles.cardBadge}>{transportRejected.code}</span>
@@ -2171,7 +2326,7 @@ export const PlayPvpPage = () => {
             {joinRejected ? (
               <div className={styles.roundRejectBox}>
                 <strong>
-                  Server reject: join {joinRejected.sessionId ? `сессии ${joinRejected.sessionId}` : 'подключения к матчу'}
+                  Сервер отклонил вход {joinRejected.sessionId ? `в сессию ${joinRejected.sessionId}` : 'в матч'}
                 </strong>
                 <div className={styles.roundQueueError}>
                   <span className={styles.cardBadge}>{joinRejected.code}</span>
@@ -2206,7 +2361,7 @@ export const PlayPvpPage = () => {
                       onClick={handleLockRound}
                       disabled={!canLockRound}
                     >
-                      {roundSync?.selfLocked ? 'Ожидание lock-in соперника' : 'Lock-in раунда'}
+                      {roundSync?.selfLocked ? 'Ждём ход соперника' : 'Завершить ход'}
                     </button>
                   </div>
                   <p className={styles.paragraph}>
@@ -2237,7 +2392,7 @@ export const PlayPvpPage = () => {
                   <section className={styles.boardShell}>
                     <aside className={styles.boardSideColumn}>
                       <div className={`${styles.playerSideCard} ${isEnemySideActive ? styles.playerSideCardActive : ''}`.trim()}>
-                        <span className={styles.playerSideLabel}>Игрок 1</span>
+                        <span className={styles.playerSideLabel}>Соперник</span>
                         <button
                           className={`${styles.avatarTargetButton} ${primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetable : ''} ${primaryEnemyBoard?.characterId && isDraftTargetActive(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
                           aria-label={getTargetButtonAriaLabel(`Маг ${primaryEnemyBoard?.playerId ?? 'соперника'}`, Boolean(primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId)))}
@@ -2272,9 +2427,9 @@ export const PlayPvpPage = () => {
 
                       <div className={`${styles.deckRail} ${styles.deckRailVertical} ${isEnemySideActive ? styles.deckRailActive : ''}`.trim()}>
                         <div className={styles.deckRailHeader}>
-                          <span className={styles.summaryLabel}>колода игрока 1</span>
+                          <span className={styles.summaryLabel}>Колода соперника</span>
                           <span className={styles.deckRailMeta}>
-                            deck: {primaryEnemyBoard?.deckSize ?? 0} · hand: {primaryEnemyBoard?.handSize ?? 0}
+                            Колода: {primaryEnemyBoard?.deckSize ?? 0} · Рука: {primaryEnemyBoard?.handSize ?? 0}
                           </span>
                         </div>
                         <div className={styles.deckRailCards} aria-hidden="true">
@@ -2288,9 +2443,9 @@ export const PlayPvpPage = () => {
                       </div>
                       <div className={`${styles.deckRail} ${styles.deckRailVertical} ${isLocalSideActive ? styles.deckRailActive : ''}`.trim()}>
                         <div className={styles.deckRailHeader}>
-                          <span className={styles.summaryLabel}>колода игрока 2</span>
+                          <span className={styles.summaryLabel}>Твоя колода</span>
                           <span className={styles.deckRailMeta}>
-                            deck: {localBoard?.deckSize ?? 0} · hand: {localBoard?.handSize ?? 0}
+                            Колода: {localBoard?.deckSize ?? 0} · Рука: {localBoard?.handSize ?? 0}
                           </span>
                         </div>
                         <div className={styles.deckRailCards} aria-hidden="true">
@@ -2304,7 +2459,7 @@ export const PlayPvpPage = () => {
                       </div>
 
                       <div className={`${styles.playerSideCard} ${isLocalSideActive ? styles.playerSideCardActive : ''}`.trim()}>
-                        <span className={styles.playerSideLabel}>Игрок 2</span>
+                        <span className={styles.playerSideLabel}>Ты</span>
                         <button
                           className={`${styles.avatarTargetButton} ${localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : ''} ${localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
                           aria-label={getTargetButtonAriaLabel('Твой маг', Boolean(localPlayer && isSelectableTarget(localPlayer.characterId)))}
@@ -2330,7 +2485,7 @@ export const PlayPvpPage = () => {
                             <span>
                               {localPlayer
                                 ? getCharacterStatusLabel(localCharacter, localPlayer.mana, localPlayer.maxMana)
-                                : 'Нет state'}
+                                : 'Данные ещё не пришли'}
                             </span>
                           </div>
                         </button>
@@ -2338,11 +2493,6 @@ export const PlayPvpPage = () => {
                     </aside>
 
                     <section className={styles.fieldFrame}>
-                    <div className={styles.arenaHeader}>
-                      <span className={styles.summaryLabel}>Поле</span>
-                      <strong>Центральная арена</strong>
-                    </div>
-
                   <section className={`${styles.handTray} ${styles.opponentHandTray}`.trim()}>
                     <div className={styles.battleLaneHeader}>
                       <div>
@@ -2420,9 +2570,9 @@ export const PlayPvpPage = () => {
                                         <strong>{item.title}</strong>
                                       </div>
                                       <div className={styles.ribbonBadgeRow}>
-                                        <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
+                                        <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
                                         <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                        <span className={styles.cardBadge}>Игрок {item.ownerId}</span>
+                                        <span className={styles.cardBadge}>Соперник</span>
                                       </div>
                                     </div>
                                     <span className={styles.hint}>{item.runtimeId}</span>
@@ -2445,9 +2595,9 @@ export const PlayPvpPage = () => {
                                       <strong>{item.title}</strong>
                                     </div>
                                     <div className={styles.ribbonBadgeRow}>
-                                      <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
+                                      <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
                                       <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                      {item.duration !== undefined ? <span className={styles.cardBadge}>dur {item.duration}</span> : null}
+                                      {item.duration !== undefined ? <span className={styles.cardBadge}>{getDurationLabel(item.duration)}</span> : null}
                                     </div>
                                   </div>
                                   <span className={styles.hint}>{item.subtitle}</span>
@@ -2477,7 +2627,9 @@ export const PlayPvpPage = () => {
                           </div>
                           <div className={styles.ribbonBadgeRow}>
                             <span className={styles.cardBadge}>{resolvedPlaybackStepLabel}</span>
-                            <span className={styles.cardBadge}>{localPlaybackEntry.action.status}</span>
+                            <span className={styles.cardBadge}>
+                              {getRoundActionStatusDisplay(localPlaybackEntry.action.status)} · {localPlaybackEntry.action.status}
+                            </span>
                           </div>
                         </div>
                         <span>{localPlaybackEntry.subtitle}</span>
@@ -2523,13 +2675,13 @@ export const PlayPvpPage = () => {
                                   >
                                     <div className={styles.ribbonHeader}>
                                       <div>
-                                        <span className={styles.summaryLabel}>Объект поля</span>
+                                        <span className={styles.summaryLabel}>Существо на поле</span>
                                         <strong>{item.title}</strong>
                                       </div>
                                       <div className={styles.ribbonBadgeRow}>
-                                        <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
+                                        <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
                                         <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                        <span className={styles.cardBadge}>Под контролем</span>
+                                        <span className={styles.cardBadge}>Твоё</span>
                                         {attachedActions.length > 0 ? (
                                           <span className={styles.cardBadge}>Активно: {attachedActions.length}</span>
                                         ) : null}
@@ -2548,18 +2700,30 @@ export const PlayPvpPage = () => {
                                       {attachedActions.map((action) => (
                                         <div
                                           key={`${item.id}_${action.id}`}
-                                          className={`${styles.ribbonInlineAction} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonInlineActionActive : ''}`.trim()}
+                                          className={`${styles.ribbonInlineAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonInlineActionActive : ''}`.trim()}
                                           data-testid={activeLocalPlaybackIntentId === action.id ? 'local-playback-inline-action' : undefined}
                                         >
                                           <div className={styles.ribbonBadgeRow}>
-                                            <span className={styles.cardBadge}>Core #{action.orderIndex + 1}</span>
-                                            <span className={styles.cardBadge}>{action.status}</span>
+                                            <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
+                                            <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
+                                            <span className={styles.cardBadge}>{action.statusLabel}</span>
                                             <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
                                           </div>
                                           <div className={styles.ribbonActionText}>
                                             <strong>{action.title}</strong>
                                             <span>{action.subtitle}</span>
                                           </div>
+                                          <div className={`${styles.ribbonActionCallout} ${getActionCalloutToneClassName(action.layer)}`.trim()}>
+                                            <span className={styles.ribbonActionCalloutMode}>Сейчас выбрано</span>
+                                            <strong className={styles.ribbonActionCalloutFocus}>{action.focusLabel}</strong>
+                                          </div>
+                                          {action.targetLabel ? (
+                                            <div className={styles.ribbonBadgeRow}>
+                                              <span className={`${styles.cardBadge} ${styles.cardBadgeTarget}`.trim()}>
+                                                Цель: {action.targetLabel}
+                                              </span>
+                                            </div>
+                                          ) : null}
                                           {renderIntentValidationErrors(action.id)}
                                           <div className={styles.inlineActions}>
                                             <button
@@ -2579,7 +2743,7 @@ export const PlayPvpPage = () => {
                                     <div className={styles.inlineConfigurator}>
                                       <div className={styles.indicatorRail}>
                                         <div className={styles.indicatorPill}>
-                                          <span className={styles.indicatorKicker}>Статус</span>
+                                          <span className={styles.indicatorKicker}>Режим</span>
                                           <strong className={styles.indicatorValue}>{selectedCreatureActionStatusLabel}</strong>
                                         </div>
                                         <div className={styles.indicatorPill}>
@@ -2628,13 +2792,13 @@ export const PlayPvpPage = () => {
                                 <div key={entry.id} className={localCardClassName}>
                                   <div className={styles.ribbonHeader}>
                                     <div>
-                                      <span className={styles.summaryLabel}>Объект поля</span>
+                                      <span className={styles.summaryLabel}>Эффект на поле</span>
                                       <strong>{item.title}</strong>
                                     </div>
                                     <div className={styles.ribbonBadgeRow}>
-                                      <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Замок' : 'Раунд'}</span>
+                                      <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
                                       <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                      {item.duration !== undefined ? <span className={styles.cardBadge}>dur {item.duration}</span> : null}
+                                      {item.duration !== undefined ? <span className={styles.cardBadge}>{getDurationLabel(item.duration)}</span> : null}
                                       {attachedActions.length > 0 ? (
                                         <span className={styles.cardBadge}>Активно: {attachedActions.length}</span>
                                       ) : null}
@@ -2647,18 +2811,30 @@ export const PlayPvpPage = () => {
                                       {attachedActions.map((action) => (
                                         <div
                                           key={`${item.id}_${action.id}`}
-                                          className={`${styles.ribbonInlineAction} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonInlineActionActive : ''}`.trim()}
+                                          className={`${styles.ribbonInlineAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonInlineActionActive : ''}`.trim()}
                                           data-testid={activeLocalPlaybackIntentId === action.id ? 'local-playback-inline-action' : undefined}
                                         >
                                           <div className={styles.ribbonBadgeRow}>
-                                            <span className={styles.cardBadge}>Core #{action.orderIndex + 1}</span>
-                                            <span className={styles.cardBadge}>{action.status}</span>
+                                            <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
+                                            <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
+                                            <span className={styles.cardBadge}>{action.statusLabel}</span>
                                             <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
                                           </div>
                                           <div className={styles.ribbonActionText}>
                                             <strong>{action.title}</strong>
                                             <span>{action.subtitle}</span>
                                           </div>
+                                          <div className={`${styles.ribbonActionCallout} ${getActionCalloutToneClassName(action.layer)}`.trim()}>
+                                            <span className={styles.ribbonActionCalloutMode}>Сейчас выбрано</span>
+                                            <strong className={styles.ribbonActionCalloutFocus}>{action.focusLabel}</strong>
+                                          </div>
+                                          {action.targetLabel ? (
+                                            <div className={styles.ribbonBadgeRow}>
+                                              <span className={`${styles.cardBadge} ${styles.cardBadgeTarget}`.trim()}>
+                                                Цель: {action.targetLabel}
+                                              </span>
+                                            </div>
+                                          ) : null}
                                           {renderIntentValidationErrors(action.id)}
                                           <div className={styles.inlineActions}>
                                             <button
@@ -2683,25 +2859,35 @@ export const PlayPvpPage = () => {
                             return (
                               <div
                                 key={entry.id}
-                                className={`${styles.ribbonCard} ${styles.ribbonCardAction} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonCardPlaybackActive : ''}`.trim()}
+                                className={`${styles.ribbonCard} ${styles.ribbonCardAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonCardPlaybackActive : ''}`.trim()}
                                 data-testid={activeLocalPlaybackIntentId === action.id ? 'local-playback-action-card' : undefined}
                               >
                                 <div className={styles.ribbonHeader}>
                                   <div>
                                     <span className={styles.summaryLabel}>
-                                      {action.sourceType === 'card' ? 'Действие из руки' : 'Действие раунда'}
+                                      {action.sourceType === 'card' ? 'Карта в раунде' : 'Действие раунда'}
                                     </span>
                                     <strong>{action.title}</strong>
                                   </div>
                                   <div className={styles.ribbonBadgeRow}>
-                                    <span className={styles.cardBadge}>Core #{action.orderIndex + 1}</span>
-                                    <span className={styles.cardBadge}>{action.status}</span>
+                                    <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
+                                    <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
+                                    <span className={styles.cardBadge}>{action.statusLabel}</span>
                                   </div>
+                                </div>
+                                <div className={`${styles.ribbonActionCallout} ${getActionCalloutToneClassName(action.layer)}`.trim()}>
+                                  <span className={styles.ribbonActionCalloutMode}>Сейчас выбрано</span>
+                                  <strong className={styles.ribbonActionCalloutFocus}>{action.focusLabel}</strong>
                                 </div>
                                 <span>{action.subtitle}</span>
                                 {renderIntentValidationErrors(action.id)}
                                 <div className={styles.ribbonBadgeRow}>
                                   <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
+                                  {action.targetLabel ? (
+                                    <span className={`${styles.cardBadge} ${styles.cardBadgeTarget}`.trim()}>
+                                      Цель: {action.targetLabel}
+                                    </span>
+                                  ) : null}
                                 </div>
                                 <div className={styles.inlineActions}>
                                   <button
@@ -2726,7 +2912,7 @@ export const PlayPvpPage = () => {
                   {roundDraftRejected ? (
                     <div className={styles.roundRejectBox}>
                       <strong>
-                        Server reject: {roundDraftRejected.operation === 'lock' ? 'lock-in' : 'replace'}{' '}
+                        Сервер отклонил: {roundDraftRejected.operation === 'lock' ? 'завершение хода' : 'обновление'}{' '}
                         {roundDraftRejected.roundNumber > 0
                           ? `раунда ${roundDraftRejected.roundNumber}`
                           : 'текущей ленты'}
@@ -2745,7 +2931,7 @@ export const PlayPvpPage = () => {
                     </div>
                   ) : null}
                   <div className={styles.hint}>
-                    Порядок в боевой ленте показывает текущее намерение. Итоговый резолв всё равно идёт по слоям из `game-core`.
+                    Порядок в боевой ленте показывает только текущий замысел. Во время разыгрывания шаги всё равно идут по боевым слоям.
                   </div>
 
                   <section className={styles.handTray}>
@@ -2781,7 +2967,7 @@ export const PlayPvpPage = () => {
                                 <strong>{card.name}</strong>
                                 <div className={styles.handCardMeta}>
                                   <span>{getCardTypeLabel(card.cardType)}</span>
-                                  {card.speed ? <span>speed {card.speed}</span> : null}
+                                  {card.speed ? <span>Скорость {card.speed}</span> : null}
                                 </div>
                                 {(card.hp || card.attack || card.speed) ? (
                                   <div className={styles.handCardStats}>
@@ -2798,7 +2984,7 @@ export const PlayPvpPage = () => {
                               </div>
                               <div className={styles.handCardFooter}>
                                 <div className={styles.handMetaRow}>
-                                  <span className={styles.cardBadge}>{card.mana} mana</span>
+                                  <span className={styles.cardBadge}>Мана {card.mana}</span>
                                   <span className={styles.cardBadge}>
                                     {card.cardType === 'summon' ? 'Призыв' : 'Розыгрыш'}
                                   </span>
@@ -2825,7 +3011,7 @@ export const PlayPvpPage = () => {
                                     <>
                                       <div className={styles.indicatorRail}>
                                         <div className={styles.indicatorPill}>
-                                          <span className={styles.indicatorKicker}>Состояние</span>
+                                          <span className={styles.indicatorKicker}>Режим</span>
                                           <strong className={styles.indicatorValue}>
                                             {selectedHandCardIntent
                                               ? 'Призыв уже в ленте'
@@ -2884,7 +3070,7 @@ export const PlayPvpPage = () => {
                                     </>
                                   ) : (
                                     <div className={styles.hint}>
-                                      Клик по карте в руке сразу добавляет её в боевую ленту и выставляет стартовую цель по правилам game-core.
+                                      Клик по карте в руке сразу добавляет её в боевую ленту и выбирает стартовую цель по правилам боя.
                                     </div>
                                   )}
                                 </div>
@@ -2948,25 +3134,25 @@ export const PlayPvpPage = () => {
                 </div>
                 <div className={styles.detailsList}>
                   <div className={styles.detailRow}>
-                    <span>playerId</span>
+                    <span>Игрок</span>
                     <strong>{localPlayer.playerId}</strong>
                   </div>
                   <div className={styles.detailRow}>
-                    <span>characterId</span>
+                    <span>Персонаж</span>
                     <strong>{localPlayer.characterId}</strong>
                   </div>
                   <div className={styles.detailRow}>
-                    <span>mana</span>
+                    <span>Мана</span>
                     <strong>
                       {localPlayer.mana} / {localPlayer.maxMana}
                     </strong>
                   </div>
                   <div className={styles.detailRow}>
-                    <span>actionPoints</span>
+                    <span>Очки действия</span>
                     <strong>{localPlayer.actionPoints}</strong>
                   </div>
                   <div className={styles.detailRow}>
-                    <span>creatures</span>
+                    <span>Существа</span>
                     <strong>{alliedCreatures.length} / 2</strong>
                   </div>
                 </div>
@@ -3030,7 +3216,7 @@ export const PlayPvpPage = () => {
                 {activeResolvedTimelineEntry ? (
                   <div className={styles.indicatorRail}>
                     <div className={styles.indicatorPill}>
-                      <span className={styles.indicatorKicker}>Playback</span>
+                      <span className={styles.indicatorKicker}>Резолв</span>
                       <strong className={styles.indicatorValue} data-testid="resolution-playback-status">
                         {resolvedPlaybackComplete ? 'Завершён' : 'Идёт'}
                       </strong>
@@ -3046,7 +3232,7 @@ export const PlayPvpPage = () => {
                       <span className={styles.indicatorSubvalue}>{activeResolvedTimelineEntry.subtitle}</span>
                     </div>
                     <div className={styles.indicatorPill}>
-                      <span className={styles.indicatorKicker}>Итог шага</span>
+                      <span className={styles.indicatorKicker}>Результат шага</span>
                       <strong className={styles.indicatorValue}>{activeResolvedTimelineEntry.action.status}</strong>
                       <span className={styles.indicatorSubvalue} data-testid="resolution-playback-summary">
                         {activeResolvedTimelineEntry.action.summary}
@@ -3059,7 +3245,7 @@ export const PlayPvpPage = () => {
                     {resolvedTimelineEntries.map(({ order, action, title, subtitle, ownerLabel }, index) => (
                       <div
                         key={action.intentId}
-                        className={`${styles.roundQueueItem} ${index === resolvedPlaybackIndex ? styles.roundQueueItemActive : ''}`.trim()}
+                        className={`${styles.roundQueueItem} ${getRoundQueueToneClassName(action.layer)} ${index === resolvedPlaybackIndex ? styles.roundQueueItemActive : ''}`.trim()}
                       >
                         <div className={styles.roundQueueMain}>
                           <span className={styles.roundQueueIndex}>{order}</span>
@@ -3071,11 +3257,15 @@ export const PlayPvpPage = () => {
                         <div className={styles.roundQueueMeta}>
                           <div className={styles.roundQueueTagRow}>
                             <span className={styles.cardBadge}>{ownerLabel}</span>
-                            <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
+                            <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>
+                              {getResolutionLayerLabel(action.layer)}
+                            </span>
                             {index === resolvedPlaybackIndex ? <span className={styles.cardBadge}>Сейчас</span> : null}
                           </div>
                           <div className={styles.roundQueueOutcome}>
-                            <span className={styles.cardBadge}>{action.status}</span>
+                            <span className={styles.cardBadge}>
+                              {getRoundActionStatusDisplay(action.status)} · {action.status}
+                            </span>
                             <strong>{getRoundActionReasonLabel(action.reasonCode)}</strong>
                           </div>
                           {showDiagnostics ? <span className={styles.cardBadge}>{action.reasonCode}</span> : null}

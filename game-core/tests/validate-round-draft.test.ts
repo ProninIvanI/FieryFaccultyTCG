@@ -27,6 +27,27 @@ const cards: CardDefinition[] = [
     targetType: 'self',
     effects: [{ type: 'ShieldEffect', value: 3 }],
   },
+  {
+    id: 'resonance',
+    name: 'Resonance',
+    type: 'artifact',
+    manaCost: 1,
+    speed: 0,
+    targetType: 'self',
+    resolutionRole: 'modifier',
+    modifierKind: 'resource',
+    effects: [{ type: 'NextSpellManaDiscountEffect', value: 1 }],
+  },
+  {
+    id: 'fireball',
+    name: 'Fireball',
+    type: 'spell',
+    manaCost: 3,
+    speed: 4,
+    targetType: 'enemyCharacter',
+    resolutionRole: 'offensive_spell',
+    effects: [{ type: 'DamageEffect', value: 2, attackType: 'spell' }],
+  },
 ];
 
 const buildDeck = (ownerId: string, definitions: string[]): CardInstance[] =>
@@ -43,7 +64,7 @@ const createDraftState = () => {
     {
       playerId: 'player_1',
       characterId: 'char_1',
-      deck: buildDeck('player_1', ['sprite', 'barrier', 'sprite']),
+      deck: buildDeck('player_1', ['sprite', 'barrier', 'sprite', 'resonance', 'fireball']),
     },
     {
       playerId: 'player_2',
@@ -183,5 +204,48 @@ describe('validateRoundDraft', () => {
       return;
     }
     expect(result.errors.some((error) => error.code === 'summoning_sickness')).toBe(true);
+  });
+
+  it('counts next-spell mana discount when validating draft budget', () => {
+    const { state, registry } = createDraftState();
+    state.players.player_1.mana = 3;
+    state.cardInstances.card_player_1_4.location = 'hand';
+    state.cardInstances.card_player_1_5.location = 'hand';
+
+    const draft: PlayerRoundDraft = {
+      playerId: 'player_1',
+      roundNumber: 1,
+      locked: false,
+      intents: [
+        {
+          intentId: 'resonance_1',
+          roundNumber: 1,
+          playerId: 'player_1',
+          actorId: 'char_1',
+          queueIndex: 0,
+          kind: 'PlayCard',
+          cardInstanceId: 'card_player_1_4',
+          target: {
+            targetId: 'char_1',
+            targetType: 'self',
+          },
+        },
+        {
+          intentId: 'fireball_1',
+          roundNumber: 1,
+          playerId: 'player_1',
+          actorId: 'char_1',
+          queueIndex: 1,
+          kind: 'CastSpell',
+          cardInstanceId: 'card_player_1_5',
+          target: {
+            targetId: 'char_2',
+            targetType: 'enemyCharacter',
+          },
+        },
+      ],
+    };
+
+    expect(validateRoundDraft(state, registry, draft)).toEqual({ ok: true });
   });
 });

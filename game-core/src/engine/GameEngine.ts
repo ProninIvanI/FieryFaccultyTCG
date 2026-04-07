@@ -38,6 +38,20 @@ import { ShieldEffect } from '../effects/ShieldEffect';
 import { BuffEffect } from '../effects/BuffEffect';
 import { DebuffEffect } from '../effects/DebuffEffect';
 import { SummonEffect } from '../effects/SummonEffect';
+import { CannotEvadeEffect } from '../effects/CannotEvadeEffect';
+import { SkipActionEffect } from '../effects/SkipActionEffect';
+import { InterruptSlowSpellEffect } from '../effects/InterruptSlowSpellEffect';
+import { TrapOnOffensiveActionEffect } from '../effects/TrapOnOffensiveActionEffect';
+import { NextSpellDamageBoostEffect } from '../effects/NextSpellDamageBoostEffect';
+import { NextSpellSpeedBoostEffect } from '../effects/NextSpellSpeedBoostEffect';
+import { NextSpellIgnoreShieldEffect } from '../effects/NextSpellIgnoreShieldEffect';
+import { NextSpellIgnoreEvadeEffect } from '../effects/NextSpellIgnoreEvadeEffect';
+import { NextSpellManaDiscountEffect } from '../effects/NextSpellManaDiscountEffect';
+import { NextSpellRepeatEffect } from '../effects/NextSpellRepeatEffect';
+import { RestoreManaEffect } from '../effects/RestoreManaEffect';
+import { DrawCardEffect } from '../effects/DrawCardEffect';
+import { NextAttackDamageBoostEffect } from '../effects/NextAttackDamageBoostEffect';
+import { RoundSpeedBuffEffect } from '../effects/RoundSpeedBuffEffect';
 import { drawCards, STARTING_ACTION_POINTS } from './createInitialState';
 import { compileRoundActions } from '../rounds/compileRoundActions';
 import { sortRoundActions } from '../rounds/sortRoundActions';
@@ -78,6 +92,20 @@ export class GameEngine {
       ['BuffEffect', new BuffEffect()],
       ['DebuffEffect', new DebuffEffect()],
       ['SummonEffect', new SummonEffect()],
+      ['CannotEvadeEffect', new CannotEvadeEffect()],
+      ['SkipActionEffect', new SkipActionEffect()],
+      ['InterruptSlowSpellEffect', new InterruptSlowSpellEffect()],
+      ['TrapOnOffensiveActionEffect', new TrapOnOffensiveActionEffect()],
+      ['NextSpellDamageBoostEffect', new NextSpellDamageBoostEffect()],
+      ['NextSpellSpeedBoostEffect', new NextSpellSpeedBoostEffect()],
+      ['NextSpellIgnoreShieldEffect', new NextSpellIgnoreShieldEffect()],
+      ['NextSpellIgnoreEvadeEffect', new NextSpellIgnoreEvadeEffect()],
+      ['NextSpellManaDiscountEffect', new NextSpellManaDiscountEffect()],
+      ['NextSpellRepeatEffect', new NextSpellRepeatEffect()],
+      ['RestoreManaEffect', new RestoreManaEffect()],
+      ['DrawCardEffect', new DrawCardEffect()],
+      ['NextAttackDamageBoostEffect', new NextAttackDamageBoostEffect()],
+      ['RoundSpeedBuffEffect', new RoundSpeedBuffEffect()],
     ]);
 
     this.ctx.events.on('onDamage', (event) => this.log('damage', event.payload));
@@ -268,6 +296,15 @@ export class GameEngine {
     if (!command) {
       return { ok: false, errors: ['Unknown action'] };
     }
+    if (
+      action.type === 'CastSpell' &&
+      this.consumeInterruptedSpell(action.actorId, action.cardInstanceId)
+    ) {
+      return { ok: false, errors: ['Spell was interrupted'] };
+    }
+    if (action.type !== 'EndTurn' && this.consumeSkippedAction(action.actorId, action.playerId)) {
+      return { ok: false, errors: ['Actor skips this action'] };
+    }
     const errors = command.validate(action, this.state, this.ctx);
     if (errors.length > 0) {
       return { ok: false, errors };
@@ -278,13 +315,33 @@ export class GameEngine {
   }
 
   private resolveEffects(): void {
+    const deferredEffects = [];
     let effect = this.ctx.effects.dequeue();
     while (effect) {
+      const triggerOnTurn = Number(effect.data?.triggerOnTurn ?? 0);
+      if (triggerOnTurn > this.state.turn.number) {
+        deferredEffects.push(effect);
+        effect = this.ctx.effects.dequeue();
+        continue;
+      }
+
       const handler = this.effectHandlers.get(effect.type);
       if (handler) {
         handler.onApply(effect, this.state, this.ctx);
         handler.onResolve(effect, this.state, this.ctx);
         this.ctx.events.emit('onEffectTrigger', { effectId: effect.effectId });
+        if (effect.data?.repeatNextTurn === true) {
+          this.ctx.effects.enqueue({
+            ...effect,
+            effectId: this.ctx.ids.next('effect'),
+            createdAtTurn: this.state.turn.number + 1,
+            data: {
+              ...effect.data,
+              repeatNextTurn: false,
+              triggerOnTurn: this.state.turn.number + 1,
+            },
+          });
+        }
         if (effect.duration && effect.duration > 0) {
           effect.duration -= 1;
           if (effect.duration === 0) {
@@ -296,6 +353,10 @@ export class GameEngine {
       }
       effect = this.ctx.effects.dequeue();
     }
+
+    deferredEffects.forEach((deferredEffect) => {
+      this.ctx.effects.enqueue(deferredEffect);
+    });
 
     const snapshot = this.ctx.effects.snapshot();
     this.state.effectQueue = snapshot.queue;
@@ -341,7 +402,9 @@ export class GameEngine {
       playerRoundState.draftCount = 0;
     });
     this.state.round.lastResolution = undefined;
+    this.cleanupRoundSpeedBonuses(this.state.turn.number);
     this.prepareTurn();
+    this.resolveEffects();
   }
 
   private prepareTurn(): void {
@@ -359,6 +422,7 @@ export class GameEngine {
     this.state.actionLog.push(action);
     this.ctx.events.emit('onAction', { action });
 
+    this.applyTrapOnOffensiveAction(action);
     command.execute(action, this.state, this.ctx);
     this.resolveEffects();
     this.handleEndOfPhase();
@@ -486,6 +550,9 @@ export class GameEngine {
   ): Exclude<RoundActionReasonCode, 'resolved' | 'invalid_intent' | 'command_unavailable'> | null {
     switch (intent.kind) {
       case 'Summon': {
+        if (this.consumeSkippedAction(String(intent.actorId), intent.playerId)) {
+          return 'action_skipped';
+        }
         const instance = this.state.cardInstances[intent.cardInstanceId];
         if (!instance || instance.ownerId !== intent.playerId || instance.location !== 'hand') {
           return 'card_unavailable';
@@ -500,6 +567,9 @@ export class GameEngine {
       }
       case 'CastSpell':
       case 'PlayCard': {
+        if (this.consumeSkippedAction(String(intent.actorId), intent.playerId)) {
+          return 'action_skipped';
+        }
         const instance = this.state.cardInstances[intent.cardInstanceId];
         if (!instance || instance.ownerId !== intent.playerId || instance.location !== 'hand') {
           return 'card_unavailable';
@@ -507,6 +577,12 @@ export class GameEngine {
         const definition = this.ctx.cards.get(instance.definitionId);
         if (!definition) {
           return 'card_definition_missing';
+        }
+        if (
+          intent.kind === 'CastSpell' &&
+          this.consumeInterruptedSpell(String(intent.actorId), intent.cardInstanceId)
+        ) {
+          return 'interrupted';
         }
         return validateTargetType(
           this.state,
@@ -518,6 +594,9 @@ export class GameEngine {
           : 'target_invalidated';
       }
       case 'Attack': {
+        if (this.consumeSkippedAction(String(intent.actorId), intent.playerId)) {
+          return 'action_skipped';
+        }
         const source = this.state.creatures[intent.sourceCreatureId];
         const targetId = intent.target.targetId;
         if (!source || source.ownerId !== intent.playerId) {
@@ -537,16 +616,147 @@ export class GameEngine {
           : 'target_invalidated';
       }
       case 'Evade': {
+        if (this.consumeSkippedAction(String(intent.actorId), intent.playerId)) {
+          return 'action_skipped';
+        }
         const character = this.state.characters[String(intent.actorId)];
         const creature = this.state.creatures[String(intent.actorId)];
-        return (
+        if (
           (character && character.ownerId === intent.playerId) ||
           (creature && creature.ownerId === intent.playerId)
-        )
-          ? null
-          : 'actor_unavailable';
+        ) {
+          if (
+            character &&
+            typeof character.cannotEvadeUntilTurn === 'number' &&
+            this.state.turn.number <= character.cannotEvadeUntilTurn
+          ) {
+            return 'evade_disabled';
+          }
+
+          return null;
+        }
+        return 'actor_unavailable';
       }
     }
+  }
+
+  private consumeSkippedAction(actorId: string, playerId: string): boolean {
+    const character = this.state.characters[actorId];
+    if (character && character.ownerId === playerId && character.skipNextAction === true) {
+      character.skipNextAction = false;
+      const player = this.state.players[playerId];
+      if (player) {
+        player.actionPoints = Math.max(0, player.actionPoints - 1);
+      }
+      return true;
+    }
+
+    const creature = this.state.creatures[actorId];
+    if (creature && creature.ownerId === playerId && creature.skipNextAction === true) {
+      creature.skipNextAction = false;
+      return true;
+    }
+
+    return false;
+  }
+
+  private consumeInterruptedSpell(actorId: string, cardInstanceId: string): boolean {
+    const character = this.state.characters[actorId];
+    if (!character) {
+      return false;
+    }
+
+    if (
+      character.interruptSpellUntilRound !== this.state.round.number ||
+      Number(character.interruptSpellCharges ?? 0) <= 0
+    ) {
+      return false;
+    }
+
+    const instance = this.state.cardInstances[cardInstanceId];
+    const definition = instance ? this.ctx.cards.get(instance.definitionId) : undefined;
+    if (!definition) {
+      return false;
+    }
+
+    const threshold = Number(character.interruptSpellBelowSpeed ?? 0);
+    if (definition.speed >= threshold) {
+      return false;
+    }
+
+    character.interruptSpellCharges = Math.max(0, Number(character.interruptSpellCharges ?? 0) - 1);
+    if (character.interruptSpellCharges === 0) {
+      character.interruptSpellBelowSpeed = undefined;
+      character.interruptSpellUntilRound = undefined;
+    }
+
+    return true;
+  }
+
+  private applyTrapOnOffensiveAction(action: Action): void {
+    if (action.type !== 'CastSpell' && action.type !== 'PlayCard') {
+      return;
+    }
+
+    const character = this.state.characters[action.actorId];
+    if (
+      !character ||
+      Number(character.trapOnOffensiveActionCharges ?? 0) <= 0 ||
+      !this.isOffensiveAction(action)
+    ) {
+      return;
+    }
+
+    const damage = Number(character.trapOnOffensiveActionDamage ?? 0);
+    if (damage > 0) {
+      this.ctx.effects.enqueue({
+        effectId: this.ctx.ids.next('effect'),
+        type: 'DamageEffect',
+        sourceId: action.actorId,
+        targetId: action.actorId,
+        createdAtTurn: this.state.turn.number,
+        data: {
+          value: damage,
+          attackType: 'spell',
+        },
+      });
+    }
+
+    character.trapOnOffensiveActionCharges = Math.max(
+      0,
+      Number(character.trapOnOffensiveActionCharges ?? 0) - 1,
+    );
+    if (character.trapOnOffensiveActionCharges === 0) {
+      character.trapOnOffensiveActionDamage = undefined;
+    }
+  }
+
+  private isOffensiveAction(action: Extract<Action, { type: 'CastSpell' | 'PlayCard' }>): boolean {
+    const instance = this.state.cardInstances[action.cardInstanceId];
+    const definition = instance ? this.ctx.cards.get(instance.definitionId) : undefined;
+    if (!definition) {
+      return false;
+    }
+
+    if (action.type === 'CastSpell') {
+      return definition.resolutionRole === 'offensive_spell';
+    }
+
+    return definition.modifierKind === 'offense' || definition.artKind === 'attack_art';
+  }
+
+  private cleanupRoundSpeedBonuses(currentRound: number): void {
+    Object.values(this.state.creatures).forEach((creature) => {
+      if (
+        typeof creature.roundSpeedBonusUntilRound === 'number' &&
+        creature.roundSpeedBonusUntilRound < currentRound &&
+        Number(creature.roundSpeedBonus ?? 0) !== 0
+      ) {
+        creature.speed = Math.max(0, creature.speed - Number(creature.roundSpeedBonus ?? 0));
+        creature.roundSpeedBonus = undefined;
+        creature.roundSpeedBonusUntilRound = undefined;
+      }
+    });
   }
 
   private cleanupDefeatedCreatures(): void {
@@ -579,6 +789,8 @@ export class GameEngine {
     this.state.round.lastResolution = result;
     this.state.turn.number = nextRoundNumber;
     this.state.turn.activePlayerId = nextInitiativePlayerId;
+    this.cleanupRoundSpeedBonuses(nextRoundNumber);
+    this.resolveEffects();
   }
 
   private refreshRoundStatus(): void {

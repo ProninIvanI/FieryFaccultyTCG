@@ -129,3 +129,22 @@ export const validateActionBase = (action: Action, state: GameState): string[] =
   errors.push(...validateActivePlayer(state, action.playerId));
   return errors;
 };
+
+export const validateCanEvade = (
+  state: Pick<GameState, 'characters' | 'turn'>,
+  actorId: string,
+): string[] => {
+  const character = state.characters[actorId];
+  if (!character) {
+    return ['Actor not found'];
+  }
+
+  if (
+    typeof character.cannotEvadeUntilTurn === 'number' &&
+    state.turn.number <= character.cannotEvadeUntilTurn
+  ) {
+    return ['Actor cannot evade'];
+  }
+
+  return [];
+};

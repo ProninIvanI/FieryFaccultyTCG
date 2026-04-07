@@ -27,6 +27,12 @@ export class AttackActionCommand implements ActionCommand<AttackAction> {
       return;
     }
 
+    const player = state.players[action.playerId];
+    const attackBonus = Number(player?.pendingAttackDamageBonus ?? 0);
+    if (player) {
+      player.pendingAttackDamageBonus = undefined;
+    }
+
     const effectId = ctx.ids.next('effect');
     ctx.effects.enqueue({
       effectId,
@@ -35,7 +41,7 @@ export class AttackActionCommand implements ActionCommand<AttackAction> {
       targetId,
       createdAtTurn: state.turn.number,
       data: {
-        value: action.power,
+        value: action.power + attackBonus,
         attackType: action.attackType,
       },
     });

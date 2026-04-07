@@ -5,15 +5,39 @@ import {
   EffectType,
   GameState,
   ResolutionLayer,
+  ResolutionRole,
   RoundActionIntent,
 } from '../types';
 
 const hasAnyEffect = (definition: CardDefinition, effectTypes: EffectType[]): boolean =>
   definition.effects.some((effect) => effectTypes.includes(effect.type));
 
+const getResolutionLayerFromRole = (role: ResolutionRole): ResolutionLayer => {
+  switch (role) {
+    case 'summon':
+      return 'summon';
+    case 'defensive_spell':
+      return 'defensive_spells';
+    case 'offensive_spell':
+      return 'offensive_control_spells';
+    case 'control_spell':
+      return 'other_modifiers';
+    case 'support_spell':
+      return 'other_modifiers';
+    case 'modifier':
+      return 'other_modifiers';
+    case 'artifact':
+      return 'other_modifiers';
+  }
+};
+
 export const getResolutionLayerForCardDefinition = (definition: CardDefinition): ResolutionLayer => {
   if (definition.type === 'creature') {
     return 'summon';
+  }
+
+  if (definition.resolutionRole) {
+    return getResolutionLayerFromRole(definition.resolutionRole);
   }
 
   if (hasAnyEffect(definition, ['ShieldEffect', 'HealEffect'])) {
@@ -92,15 +116,82 @@ export const getPriorityForIntent = (
   return 0;
 };
 
+const getSpeedBonusForCardDefinition = (definition: CardDefinition): number =>
+  definition.effects.reduce((sum, effect) => (
+    effect.type === 'NextSpellSpeedBoostEffect'
+      ? sum + Number(effect.value ?? 0)
+      : sum
+  ), 0);
+
+const buildPriorityOverrides = (
+  intents: RoundActionIntent[],
+  state: Pick<GameState, 'cardInstances' | 'creatures'>,
+  cards: CardRegistry,
+): Map<string, number> => {
+  const overrides = new Map<string, number>();
+  const pendingSpeedBonusByPlayer = new Map<string, number>();
+
+  const sortedIntents = [...intents].sort((left, right) => {
+    const playerDelta = left.playerId.localeCompare(right.playerId);
+    if (playerDelta !== 0) {
+      return playerDelta;
+    }
+
+    const queueDelta = left.queueIndex - right.queueIndex;
+    if (queueDelta !== 0) {
+      return queueDelta;
+    }
+
+    return left.intentId.localeCompare(right.intentId);
+  });
+
+  sortedIntents.forEach((intent) => {
+    const basePriority = getPriorityForIntent(intent, state, cards);
+    if (intent.kind !== 'Summon' && intent.kind !== 'CastSpell' && intent.kind !== 'PlayCard') {
+      overrides.set(intent.intentId, basePriority);
+      return;
+    }
+
+    const instance = state.cardInstances[intent.cardInstanceId];
+    const definition = instance ? cards.get(instance.definitionId) : undefined;
+    if (!definition) {
+      overrides.set(intent.intentId, basePriority);
+      return;
+    }
+
+    if (intent.kind === 'CastSpell') {
+      const pendingBonus = Number(pendingSpeedBonusByPlayer.get(intent.playerId) ?? 0);
+      overrides.set(intent.intentId, basePriority + pendingBonus);
+      pendingSpeedBonusByPlayer.set(intent.playerId, 0);
+      return;
+    }
+
+    overrides.set(intent.intentId, basePriority);
+
+    const speedBonus = getSpeedBonusForCardDefinition(definition);
+    if (speedBonus > 0) {
+      pendingSpeedBonusByPlayer.set(
+        intent.playerId,
+        Number(pendingSpeedBonusByPlayer.get(intent.playerId) ?? 0) + speedBonus,
+      );
+    }
+  });
+
+  return overrides;
+};
+
 export const compileRoundActions = (
   intents: RoundActionIntent[],
   state: Pick<GameState, 'cardInstances' | 'creatures'>,
   cards: CardRegistry,
   roundInitiativePlayerId: string,
-): CompiledRoundAction[] =>
-  intents.map((intent) => ({
+): CompiledRoundAction[] => {
+  const priorityOverrides = buildPriorityOverrides(intents, state, cards);
+
+  return intents.map((intent) => ({
     intent,
     layer: getResolutionLayerForIntent(intent, state, cards),
-    priority: getPriorityForIntent(intent, state, cards),
+    priority: priorityOverrides.get(intent.intentId) ?? getPriorityForIntent(intent, state, cards),
     roundInitiativePlayerId,
   }));
+};

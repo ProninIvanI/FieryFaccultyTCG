@@ -5,6 +5,7 @@ import {
   validateActionBase,
   validateActionLimit,
   validatePhase,
+  validateCanEvade,
 } from '../validation/validators';
 
 export class EvadeActionCommand implements ActionCommand<EvadeAction> {
@@ -15,6 +16,7 @@ export class EvadeActionCommand implements ActionCommand<EvadeAction> {
     errors.push(...validatePhase(state, ['ActionPhase']));
     errors.push(...validateActionBase(action, state));
     errors.push(...validateActionLimit(state, action.playerId));
+    errors.push(...validateCanEvade(state, action.actorId));
     return errors;
   }
 

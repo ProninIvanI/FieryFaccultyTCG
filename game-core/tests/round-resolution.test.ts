@@ -27,6 +27,15 @@ const cards: CardDefinition[] = [
     targetType: 'enemyCharacter',
     effects: [{ type: 'DamageEffect', value: 2, attackType: 'spell' }],
   },
+  {
+    id: 'lava-flow',
+    name: 'Lava Flow',
+    type: 'spell',
+    manaCost: 1,
+    speed: 5,
+    targetType: 'enemyCharacter',
+    effects: [{ type: 'DamageEffect', value: 5, attackType: 'spell', ignoreShield: 2 }],
+  },
 ];
 
 const buildDeck = (ownerId: string, definitions: string[]): CardInstance[] =>
@@ -335,5 +344,72 @@ describe('game-core round resolution pipeline', () => {
     expect(state.cardInstances.draw_player_2.location).toBe('hand');
     expect(state.decks.player_1.cards).not.toContain('draw_player_1');
     expect(state.decks.player_2.cards).not.toContain('draw_player_2');
+  });
+
+  it('lets damage partially bypass shield when effect ignores shield points', () => {
+    const registry = new CardRegistry(cards);
+    const state = createInitialState(123, [
+      {
+        playerId: 'player_1',
+        characterId: 'char_1',
+        deck: buildDeck('player_1', ['barrier']),
+      },
+      {
+        playerId: 'player_2',
+        characterId: 'char_2',
+        deck: buildDeck('player_2', ['lava-flow']),
+      },
+    ]);
+
+    state.players.player_1.mana = 5;
+    state.players.player_2.mana = 5;
+    state.players.player_1.actionPoints = 3;
+    state.players.player_2.actionPoints = 3;
+
+    const engine = new GameEngine(state, registry);
+
+    expect(
+      engine.submitRoundDraft('player_1', 1, [
+        {
+          intentId: 'barrier_1',
+          roundNumber: 1,
+          playerId: 'player_1',
+          actorId: 'char_1',
+          queueIndex: 0,
+          kind: 'CastSpell',
+          cardInstanceId: 'card_player_1_1',
+          target: {
+            targetId: 'char_1',
+            targetType: 'self',
+          },
+        },
+      ]),
+    ).toEqual({ ok: true });
+
+    expect(
+      engine.submitRoundDraft('player_2', 1, [
+        {
+          intentId: 'lava_1',
+          roundNumber: 1,
+          playerId: 'player_2',
+          actorId: 'char_2',
+          queueIndex: 0,
+          kind: 'CastSpell',
+          cardInstanceId: 'card_player_2_1',
+          target: {
+            targetId: 'char_1',
+            targetType: 'enemyCharacter',
+          },
+        },
+      ]),
+    ).toEqual({ ok: true });
+
+    expect(engine.lockRoundDraft('player_1', 1)).toEqual({ ok: true });
+    expect(engine.lockRoundDraft('player_2', 1)).toEqual({ ok: true });
+    expect(engine.resolveRoundIfReady()).not.toBeNull();
+
+    expect(state.characters.char_1.hp).toBe(16);
+    expect(state.characters.char_1.shield).toBeUndefined();
+    expect(state.characters.char_1.concentration).toBe(0);
   });
 });

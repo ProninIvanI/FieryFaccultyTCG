@@ -16,6 +16,7 @@ const cards: CardDefinition[] = [
     manaCost: 1,
     speed: 2,
     targetType: 'self',
+    resolutionRole: 'summon',
     effects: [],
   },
   {
@@ -25,6 +26,7 @@ const cards: CardDefinition[] = [
     manaCost: 1,
     speed: 4,
     targetType: 'self',
+    resolutionRole: 'defensive_spell',
     effects: [{ type: 'ShieldEffect', value: 3 }],
   },
   {
@@ -34,7 +36,19 @@ const cards: CardDefinition[] = [
     manaCost: 1,
     speed: 3,
     targetType: 'enemyCharacter',
+    resolutionRole: 'offensive_spell',
     effects: [{ type: 'DamageEffect', value: 2, attackType: 'spell' }],
+  },
+  {
+    id: 'wide-flow',
+    name: 'Wide Flow',
+    type: 'artifact',
+    manaCost: 1,
+    speed: 0,
+    targetType: 'self',
+    resolutionRole: 'modifier',
+    artKind: 'support_art',
+    effects: [{ type: 'NextSpellSpeedBoostEffect', value: 1 }],
   },
 ];
 
@@ -135,5 +149,71 @@ describe('compileRoundActions', () => {
       'attacks',
     ]);
     expect(compiled.map((item) => item.priority)).toEqual([2, 4, 3, 5]);
+  });
+
+  it('applies queued next-spell speed bonuses to the nearest following spell during compilation', () => {
+    const registry = new CardRegistry(cards);
+    const state = createInitialState(123, [
+      {
+        playerId: 'player_1',
+        characterId: 'char_1',
+        deck: buildDeck([
+          { instanceId: 'art_1', definitionId: 'wide-flow', ownerId: 'player_1' },
+          { instanceId: 'spell_1', definitionId: 'fireball', ownerId: 'player_1' },
+          { instanceId: 'spell_2', definitionId: 'fireball', ownerId: 'player_1' },
+        ]),
+      },
+      {
+        playerId: 'player_2',
+        characterId: 'char_2',
+        deck: buildDeck([]),
+      },
+    ]);
+
+    const intents: RoundActionIntent[] = [
+      {
+        intentId: 'intent_flow',
+        roundNumber: 1,
+        playerId: 'player_1',
+        actorId: 'char_1',
+        queueIndex: 0,
+        kind: 'PlayCard',
+        cardInstanceId: 'art_1',
+        target: {
+          targetId: 'char_1',
+          targetType: 'self',
+        },
+      },
+      {
+        intentId: 'intent_fireball_1',
+        roundNumber: 1,
+        playerId: 'player_1',
+        actorId: 'char_1',
+        queueIndex: 1,
+        kind: 'CastSpell',
+        cardInstanceId: 'spell_1',
+        target: {
+          targetId: 'char_2',
+          targetType: 'enemyCharacter',
+        },
+      },
+      {
+        intentId: 'intent_fireball_2',
+        roundNumber: 1,
+        playerId: 'player_1',
+        actorId: 'char_1',
+        queueIndex: 2,
+        kind: 'CastSpell',
+        cardInstanceId: 'spell_2',
+        target: {
+          targetId: 'char_2',
+          targetType: 'enemyCharacter',
+        },
+      },
+    ];
+
+    const compiled = compileRoundActions(intents, state, registry, 'player_1');
+
+    expect(compiled.map((item) => item.priority)).toEqual([0, 4, 3]);
   });
 });

@@ -7,7 +7,21 @@ export type EffectType =
   | 'ShieldEffect'
   | 'BuffEffect'
   | 'DebuffEffect'
-  | 'SummonEffect';
+  | 'SummonEffect'
+  | 'CannotEvadeEffect'
+  | 'SkipActionEffect'
+  | 'InterruptSlowSpellEffect'
+  | 'TrapOnOffensiveActionEffect'
+  | 'NextSpellDamageBoostEffect'
+  | 'NextSpellSpeedBoostEffect'
+  | 'NextSpellIgnoreShieldEffect'
+  | 'NextSpellIgnoreEvadeEffect'
+  | 'NextSpellManaDiscountEffect'
+  | 'NextSpellRepeatEffect'
+  | 'RestoreManaEffect'
+  | 'DrawCardEffect'
+  | 'NextAttackDamageBoostEffect'
+  | 'RoundSpeedBuffEffect';
 
 export interface EffectDefinition {
   type: EffectType;
@@ -15,6 +29,13 @@ export interface EffectDefinition {
   attackType?: AttackType;
   duration?: number;
   creatureDefinitionId?: string;
+  stat?: 'attack' | 'speed' | 'shield' | 'hp' | 'agility';
+  targetCount?: number;
+  ignoreShield?: number;
+  ignoreEvade?: boolean;
+  repeatNextTurn?: boolean;
+  appliesToAllEnemies?: boolean;
+  appliesToAllCreatures?: boolean;
 }
 
 export interface EffectInstance {

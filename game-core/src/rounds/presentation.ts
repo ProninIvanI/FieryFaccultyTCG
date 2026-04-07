@@ -56,6 +56,12 @@ export const getRoundActionReasonLabel = (reasonCode: RoundActionReasonCode): st
       return 'РСЃС‚РѕС‡РЅРёРє РґРµР№СЃС‚РІРёСЏ Р±РѕР»СЊС€Рµ РЅРµРґРѕСЃС‚СѓРїРµРЅ';
     case 'command_unavailable':
       return 'РћР±СЂР°Р±РѕС‚С‡РёРє РґРµР№СЃС‚РІРёСЏ РЅРµ РЅР°Р№РґРµРЅ';
+    case 'evade_disabled':
+      return 'Уклонение запрещено эффектом контроля';
+    case 'action_skipped':
+      return 'Действие пропущено эффектом контроля';
+    case 'interrupted':
+      return 'Заклинание прервано эффектом контроля';
   }
 };
 

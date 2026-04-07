@@ -93,7 +93,10 @@ export type RoundActionReasonCode =
   | 'attack_source_unavailable'
   | 'summoning_sickness'
   | 'actor_unavailable'
-  | 'command_unavailable';
+  | 'command_unavailable'
+  | 'evade_disabled'
+  | 'action_skipped'
+  | 'interrupted';
 
 export interface ResolvedRoundAction {
   intentId: string;

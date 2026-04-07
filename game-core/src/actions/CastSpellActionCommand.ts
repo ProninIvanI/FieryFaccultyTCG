@@ -11,6 +11,23 @@ import {
   validateTargetType,
 } from '../validation/validators';
 import { moveCardInstance } from '../utils/cardZones';
+import { buildEffectTargetIds } from './effectTargets';
+import { shouldEnqueueEffectForTarget } from './effectResolution';
+
+function buildEffectData(effectDef: NonNullable<GameEngineContext['cards'] extends { get(id: string): infer T } ? T : never>['effects'][number]): Record<string, unknown> {
+  return {
+    value: effectDef.value,
+    attackType: effectDef.attackType,
+    creatureDefinitionId: effectDef.creatureDefinitionId,
+    stat: effectDef.stat,
+    targetCount: effectDef.targetCount,
+    ignoreShield: effectDef.ignoreShield,
+    ignoreEvade: effectDef.ignoreEvade,
+    repeatNextTurn: effectDef.repeatNextTurn,
+    appliesToAllEnemies: effectDef.appliesToAllEnemies,
+    appliesToAllCreatures: effectDef.appliesToAllCreatures,
+  };
+}
 
 export class CastSpellActionCommand implements ActionCommand<CastSpellAction> {
   readonly type = 'CastSpell' as const;
@@ -33,7 +50,8 @@ export class CastSpellActionCommand implements ActionCommand<CastSpellAction> {
     }
     errors.push(...validateCardOwnership(state, action.playerId, action.cardInstanceId));
     errors.push(...validateCardLocation(state, action.cardInstanceId, ['hand']));
-    errors.push(...validateMana(state, action.playerId, def.manaCost));
+    const spellManaDiscount = Number(state.players[action.playerId]?.pendingSpellManaDiscount ?? 0);
+    errors.push(...validateMana(state, action.playerId, Math.max(0, def.manaCost - spellManaDiscount)));
     errors.push(...validateTargetType(state, action.actorId, action.targetId, def.targetType));
     return errors;
   }
@@ -48,28 +66,63 @@ export class CastSpellActionCommand implements ActionCommand<CastSpellAction> {
       return;
     }
     const player = state.players[action.playerId];
-    player.mana = Math.max(0, player.mana - def.manaCost);
     player.actionPoints = Math.max(0, player.actionPoints - 1);
+    const spellDamageBonus = Number(player.pendingSpellDamageBonus ?? 0);
+    const spellSpeedBonus = Number(player.pendingSpellSpeedBonus ?? 0);
+    const spellIgnoreShield = Number(player.pendingSpellIgnoreShield ?? 0);
+    const spellIgnoreEvade = player.pendingSpellIgnoreEvade === true;
+    const spellManaDiscount = Number(player.pendingSpellManaDiscount ?? 0);
+    const spellRepeatNextTurn = player.pendingSpellRepeatNextTurn === true;
+
+    const manaCost = Math.max(0, def.manaCost - spellManaDiscount);
+    player.mana = Math.max(0, player.mana - manaCost);
+    player.pendingSpellDamageBonus = undefined;
+    player.pendingSpellSpeedBonus = undefined;
+    player.pendingSpellIgnoreShield = undefined;
+    player.pendingSpellIgnoreEvade = undefined;
+    player.pendingSpellManaDiscount = undefined;
+    player.pendingSpellRepeatNextTurn = undefined;
 
     moveCardInstance(state, instance.instanceId, 'discard');
 
     def.effects.forEach((effectDef) => {
-      const effectId = ctx.ids.next('effect');
-      ctx.effects.enqueue({
-        effectId,
-        type: effectDef.type,
-        sourceId: action.actorId,
-        ownerId: action.playerId,
-        sourceCardInstanceId: action.cardInstanceId,
-        definitionId: def.id,
-        targetId: action.targetId,
-        createdAtTurn: state.turn.number,
-        duration: effectDef.duration,
-        data: {
-          value: effectDef.value,
-          attackType: effectDef.attackType,
-          creatureDefinitionId: effectDef.creatureDefinitionId,
-        },
+      buildEffectTargetIds(state, action.actorId, action.targetId, effectDef).forEach((targetId) => {
+        if (!shouldEnqueueEffectForTarget(
+          state,
+          targetId,
+          effectDef,
+          def.speed + spellSpeedBonus,
+          { ignoreEvade: spellIgnoreEvade },
+        )) {
+          return;
+        }
+        const effectId = ctx.ids.next('effect');
+        const effectData = buildEffectData(effectDef);
+        if (effectDef.type === 'DamageEffect') {
+          effectData.value = Number(effectData.value ?? 0) + spellDamageBonus;
+          effectData.ignoreShield = Math.max(
+            Number(effectData.ignoreShield ?? 0),
+            spellIgnoreShield,
+          );
+          if (spellIgnoreEvade) {
+            effectData.ignoreEvade = true;
+          }
+          if (spellRepeatNextTurn) {
+            effectData.repeatNextTurn = true;
+          }
+        }
+        ctx.effects.enqueue({
+          effectId,
+          type: effectDef.type,
+          sourceId: action.actorId,
+          ownerId: action.playerId,
+          sourceCardInstanceId: action.cardInstanceId,
+          definitionId: def.id,
+          targetId,
+          createdAtTurn: state.turn.number,
+          duration: effectDef.duration,
+          data: effectData,
+        });
       });
     });
   }

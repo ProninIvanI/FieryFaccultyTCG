@@ -21,6 +21,13 @@ export interface PlayerState {
   mana: number;
   maxMana: number;
   actionPoints: number;
+  pendingSpellDamageBonus?: number;
+  pendingSpellSpeedBonus?: number;
+  pendingSpellIgnoreShield?: number;
+  pendingSpellIgnoreEvade?: boolean;
+  pendingSpellManaDiscount?: number;
+  pendingSpellRepeatNextTurn?: boolean;
+  pendingAttackDamageBonus?: number;
 }
 
 export interface CharacterState {
@@ -31,6 +38,13 @@ export interface CharacterState {
   dexterity: number;
   concentration: number;
   shield?: ShieldState;
+  cannotEvadeUntilTurn?: number;
+  skipNextAction?: boolean;
+  interruptSpellBelowSpeed?: number;
+  interruptSpellCharges?: number;
+  interruptSpellUntilRound?: number;
+  trapOnOffensiveActionDamage?: number;
+  trapOnOffensiveActionCharges?: number;
 }
 
 export interface CreatureState {
@@ -43,6 +57,9 @@ export interface CreatureState {
   attack: number;
   speed: number;
   summonedAtRound?: number;
+  skipNextAction?: boolean;
+  roundSpeedBonus?: number;
+  roundSpeedBonusUntilRound?: number;
 }
 
 export interface DeckState {
