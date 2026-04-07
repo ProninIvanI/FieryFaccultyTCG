@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { DeckCardRecord, DeckRecord, deckModel } from '../models/deckModel';
 
@@ -28,7 +28,12 @@ type DeckMutationResult =
 
 const DECK_NAME_LIMIT = 128;
 const MAX_CARD_QUANTITY = 99;
-const cardCatalogPath = path.resolve(process.cwd(), '..', 'game-core', 'data', 'cards.json');
+const cardCatalogCandidates = [
+  path.resolve(__dirname, '..', '..', '..', 'game-core', 'data', 'cards.json'),
+  path.resolve(process.cwd(), '..', 'game-core', 'data', 'cards.json'),
+  path.resolve(process.cwd(), 'game-core', 'data', 'cards.json'),
+];
+const cardCatalogPath = cardCatalogCandidates.find((candidate) => existsSync(candidate)) ?? cardCatalogCandidates[0];
 
 let deckCatalogCache: { cardIds: Set<string>; characterIds: Set<string> } | null = null;
 
@@ -49,6 +54,10 @@ const stripUtf8Bom = (value: string): string => value.replace(/^\uFEFF/, '');
 const getDeckCatalog = (): { cardIds: Set<string>; characterIds: Set<string> } => {
   if (deckCatalogCache) {
     return deckCatalogCache;
+  }
+
+  if (!existsSync(cardCatalogPath)) {
+    throw new Error(`Card catalog not found at ${cardCatalogCandidates.join(' | ')}`);
   }
 
   const rawCatalog = stripUtf8Bom(readFileSync(cardCatalogPath, 'utf-8'));
