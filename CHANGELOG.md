@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-07 update: backend deck save/update no longer hard-fails when `game-core/data/cards.json` is absent in deployment/runtime. The deck service now resolves the catalog from multiple locations and, if the shared catalog is unavailable, falls back to structural validation (`name`, `characterId`, positive card quantities) instead of returning `500` for otherwise valid deck edits.
+
 > 2026-04-07 update: made backend deck catalog lookup resilient across local root-run, backend-run, and deployed/server runtimes by resolving `game-core/data/cards.json` from multiple known locations instead of assuming a single process working directory. This removes another save-only failure mode where `GET /api/decks` worked but `POST /api/decks` crashed during payload validation.
 
 > 2026-04-07 update: hardened legacy deck HTTP routes in `backend`: protected deck endpoints now forward async failures into Express error handling instead of dropping the socket, `requireAuth` no longer turns storage/auth lookup failures into empty responses, and deck catalog loading was aligned with the current backend runtime so deck save/load failures surface as real API errors instead of `ERR_EMPTY_RESPONSE`.

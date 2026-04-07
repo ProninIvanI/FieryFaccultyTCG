@@ -33,9 +33,9 @@ const cardCatalogCandidates = [
   path.resolve(process.cwd(), '..', 'game-core', 'data', 'cards.json'),
   path.resolve(process.cwd(), 'game-core', 'data', 'cards.json'),
 ];
-const cardCatalogPath = cardCatalogCandidates.find((candidate) => existsSync(candidate)) ?? cardCatalogCandidates[0];
 
 let deckCatalogCache: { cardIds: Set<string>; characterIds: Set<string> } | null = null;
+let skipCatalogValidation = false;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -51,19 +51,35 @@ const isRawCatalog = (value: unknown): value is RawCatalog =>
 
 const stripUtf8Bom = (value: string): string => value.replace(/^\uFEFF/, '');
 
-const getDeckCatalog = (): { cardIds: Set<string>; characterIds: Set<string> } => {
+const resolveDeckCatalogPath = (): string | null => {
+  for (const candidate of cardCatalogCandidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
+const getDeckCatalog = (): { cardIds: Set<string>; characterIds: Set<string> } | null => {
   if (deckCatalogCache) {
     return deckCatalogCache;
   }
 
-  if (!existsSync(cardCatalogPath)) {
-    throw new Error(`Card catalog not found at ${cardCatalogCandidates.join(' | ')}`);
+  if (skipCatalogValidation) {
+    return null;
   }
 
-  const rawCatalog = stripUtf8Bom(readFileSync(cardCatalogPath, 'utf-8'));
+  const catalogPath = resolveDeckCatalogPath();
+  if (!catalogPath) {
+    skipCatalogValidation = true;
+    return null;
+  }
+
+  const rawCatalog = stripUtf8Bom(readFileSync(catalogPath, 'utf-8'));
   const raw = JSON.parse(rawCatalog) as unknown;
   if (!isRawCatalog(raw)) {
-    throw new Error('Некорректный card catalog');
+    throw new Error('Invalid card catalog');
   }
 
   const cards = Array.isArray(raw.cards) ? raw.cards.filter(isRawCatalogCard) : [];
@@ -91,10 +107,9 @@ const normalizeCards = (cards: DeckCardRecord[]): DeckCardRecord[] => {
     .sort((left, right) => left.cardId.localeCompare(right.cardId, 'en'));
 };
 
-const validateDeckPayload = (payload: DeckPayload): { ok: true; payload: DeckPayload } | {
-  ok: false;
-  error: string;
-} => {
+const validateDeckPayload = (
+  payload: DeckPayload,
+): { ok: true; payload: DeckPayload } | { ok: false; error: string } => {
   const name = payload.name.trim();
   if (!name) {
     return { ok: false, error: 'Название колоды обязательно' };
@@ -104,19 +119,19 @@ const validateDeckPayload = (payload: DeckPayload): { ok: true; payload: DeckPay
     return { ok: false, error: 'Название колоды слишком длинное' };
   }
 
-  const { cardIds, characterIds } = getDeckCatalog();
-
   if (!payload.characterId.trim()) {
     return { ok: false, error: 'Для колоды нужно выбрать персонажа' };
   }
 
-  if (!characterIds.has(payload.characterId)) {
+  const normalizedCards = normalizeCards(payload.cards);
+  const catalog = getDeckCatalog();
+
+  if (catalog && !catalog.characterIds.has(payload.characterId)) {
     return { ok: false, error: 'Неизвестный персонаж для колоды' };
   }
 
-  const normalizedCards = normalizeCards(payload.cards);
   for (const card of normalizedCards) {
-    if (!cardIds.has(card.cardId)) {
+    if (catalog && !catalog.cardIds.has(card.cardId)) {
       return { ok: false, error: `Неизвестная карта: ${card.cardId}` };
     }
 
