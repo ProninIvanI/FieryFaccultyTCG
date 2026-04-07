@@ -1216,7 +1216,7 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    const targetButton = await screen.findByRole('button', { name: /Маг (Соперник Ник|user_2)/i });
+    const targetButton = await screen.findByRole('button', { name: /Выбрать цель: Маг (Соперник Ник|user_2)/i });
     await act(async () => {
       fireEvent.click(targetButton);
       await flushMicrotasks();
