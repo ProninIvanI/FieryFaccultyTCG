@@ -114,6 +114,8 @@ interface RoundRibbonActionSummary {
   statusLabel: string;
   targetLabel?: string;
   focusLabel: string;
+  effectSummary?: string;
+  cardSpeed?: number;
   targetType?: TargetType | null;
   targetId?: string | null;
   layer: ResolutionLayer;
@@ -1959,10 +1961,16 @@ export const PlayPvpPage = () => {
         .sort((left, right) => left.placement.orderIndex - right.placement.orderIndex)
         .map((action) => {
           const matchingDraft = roundDraft.find((intent) => intent.intentId === action.id) ?? null;
+          const matchingCard =
+            matchingDraft && 'cardInstanceId' in matchingDraft
+              ? getIntentCardSummary(matchingDraft.cardInstanceId)
+              : null;
 
           return {
             id: action.id,
-            title: matchingDraft ? getIntentLabel(matchingDraft) : `${action.kind} ${action.id}`,
+            title:
+              matchingCard?.name ??
+              (matchingDraft ? getIntentLabel(matchingDraft) : `${action.kind} ${action.id}`),
             subtitle: matchingDraft
               ? getIntentTargetLabel(matchingDraft)
               : action.summary ?? `Слой ${getResolutionLayerLabel(action.placement.layer)}`,
@@ -1973,6 +1981,8 @@ export const PlayPvpPage = () => {
               getRoundActionModeLabel(action.placement.layer),
               matchingDraft ? getActionTargetPreview(getIntentTargetLabel(matchingDraft)) : undefined,
             ),
+            effectSummary: matchingCard?.effect,
+            cardSpeed: matchingCard?.speed,
             targetType: matchingDraft && 'target' in matchingDraft ? matchingDraft.target.targetType ?? null : null,
             targetId: matchingDraft && 'target' in matchingDraft ? matchingDraft.target.targetId ?? null : null,
             layer: action.placement.layer,
@@ -1996,10 +2006,14 @@ export const PlayPvpPage = () => {
           : intent.kind === 'Evade'
             ? localBoardItemIdByRuntimeId.get(String(intent.actorId))
             : undefined;
+      const intentCard =
+        'cardInstanceId' in intent && typeof intent.cardInstanceId === 'string'
+          ? getIntentCardSummary(intent.cardInstanceId)
+          : null;
 
       return {
         id: intent.intentId,
-        title: getIntentLabel(intent),
+        title: intentCard?.name ?? getIntentLabel(intent),
         subtitle: getIntentTargetLabel(intent),
         modeLabel: getRoundActionModeLabel(previewLayerByIntentId.get(intent.intentId) ?? 'other_modifiers'),
         statusLabel: getRoundActionStatusDisplay(roundSync?.selfLocked ? 'locked' : 'draft'),
@@ -2008,6 +2022,8 @@ export const PlayPvpPage = () => {
           getRoundActionModeLabel(previewLayerByIntentId.get(intent.intentId) ?? 'other_modifiers'),
           getActionTargetPreview(getIntentTargetLabel(intent)),
         ),
+        effectSummary: intentCard?.effect,
+        cardSpeed: intentCard?.speed,
         targetType: 'target' in intent ? intent.target.targetType ?? null : null,
         targetId: 'target' in intent ? intent.target.targetId ?? null : null,
         layer: previewLayerByIntentId.get(intent.intentId) ?? 'other_modifiers',
@@ -2024,7 +2040,7 @@ export const PlayPvpPage = () => {
         sourceBoardItemId: fallbackSourceBoardItemId,
       };
     });
-  }, [getIntentLabel, getIntentTargetLabel, localBoardItemIdByRuntimeId, previewLayerByIntentId, roundDraft, roundSync?.selfLocked, selfBoardModel]);
+  }, [getIntentCardSummary, getIntentLabel, getIntentTargetLabel, localBoardItemIdByRuntimeId, previewLayerByIntentId, roundDraft, roundSync?.selfLocked, selfBoardModel]);
   const localBattleRibbonEntries = useMemo<LocalBattleRibbonEntrySummary[]>(() => {
     const actionById = new Map(localRoundRibbonItems.map((action) => [action.id, action] as const));
 
@@ -3101,6 +3117,14 @@ export const PlayPvpPage = () => {
                                         ) : null}
                                       </div>
                                     </div>
+                                    {action.cardSpeed || action.effectSummary ? (
+                                      <div className={styles.ribbonActionDetails}>
+                                        {action.cardSpeed ? <span className={styles.handStatPill}>SPD {action.cardSpeed}</span> : null}
+                                        {action.effectSummary ? (
+                                          <span className={styles.ribbonActionEffect}>{action.effectSummary}</span>
+                                        ) : null}
+                                      </div>
+                                    ) : null}
                                     {showDiagnostics ? (
                                       <div className={`${styles.ribbonActionCallout} ${getActionCalloutToneClassName(action.layer)}`.trim()}>
                                         <span className={styles.ribbonActionCalloutMode}>

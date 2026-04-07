@@ -1,5 +1,6 @@
 ﻿import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { within } from '@testing-library/react';
 import {
   getRoundActionReasonLabel,
   getResolutionLayerLabel,
@@ -448,7 +449,9 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByText('Огненный элементаль')).not.toBeInTheDocument();
+      const handSection = screen.getByText('Карты для текущего раунда').closest('section');
+      expect(handSection).toBeTruthy();
+      expect(within(handSection!).queryByText('Огненный элементаль')).not.toBeInTheDocument();
     });
 
     await act(async () => {
@@ -473,7 +476,9 @@ describe('PlayPvpPage', () => {
           );
         }),
       ).toBe(true);
-      expect(screen.getByText('Огненный элементаль')).toBeInTheDocument();
+      const handSection = screen.getByText('Карты для текущего раунда').closest('section');
+      expect(handSection).toBeTruthy();
+      expect(within(handSection!).getByText('Огненный элементаль')).toBeInTheDocument();
     });
   });
 
@@ -872,7 +877,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByText(/Заклинание: Огненный шар/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
       expect(
         screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
       ).toBeGreaterThan(0);
@@ -1259,7 +1264,7 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/Скрытое действие соперника/i)).toBeInTheDocument();
       expect(screen.queryByTestId('enemy-resolution-playback-card')).not.toBeInTheDocument();
-      expect(screen.getAllByText(/Заклинание: Огненный шар/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(getRoundActionReasonLabel('target_invalidated'), 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Цель исчезла до резолва/i).length).toBeGreaterThan(0);
@@ -1405,7 +1410,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByText(/Заклинание: Огненный шар/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
     });
 
     await act(async () => {
