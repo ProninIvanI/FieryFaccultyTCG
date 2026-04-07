@@ -27,18 +27,22 @@ export const requireAuth = async (
   res: Response<ApiResponse>,
   next: NextFunction,
 ): Promise<void> => {
-  const token = readBearerToken(req);
-  if (!token) {
-    res.status(401).json({ success: false, error: 'Не авторизован' });
-    return;
-  }
+  try {
+    const token = readBearerToken(req);
+    if (!token) {
+      res.status(401).json({ success: false, error: 'Не авторизован' });
+      return;
+    }
 
-  const user = await authService.getUserByToken(token);
-  if (!user) {
-    res.status(401).json({ success: false, error: 'Не авторизован' });
-    return;
-  }
+    const user = await authService.getUserByToken(token);
+    if (!user) {
+      res.status(401).json({ success: false, error: 'Не авторизован' });
+      return;
+    }
 
-  (req as AuthenticatedRequest).authUser = user;
-  next();
+    (req as AuthenticatedRequest).authUser = user;
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
