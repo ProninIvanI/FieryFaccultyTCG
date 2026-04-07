@@ -446,6 +446,35 @@ describe('PlayPvpPage', () => {
         }),
       ).toBe(true);
     });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Огненный элементаль')).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Убрать из ленты/i }));
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as {
+            type?: string;
+            roundNumber?: number;
+            intents?: Array<Record<string, unknown>>;
+          };
+
+          return (
+            message.type === 'roundDraft.replace' &&
+            message.roundNumber === 1 &&
+            Array.isArray(message.intents) &&
+            message.intents.length === 0
+          );
+        }),
+      ).toBe(true);
+      expect(screen.getByText('Огненный элементаль')).toBeInTheDocument();
+    });
   });
 
   it('builds and sends CastSpell roundDraft through target draft UI', async () => {
@@ -515,6 +544,7 @@ describe('PlayPvpPage', () => {
         }),
       ).toBe(true);
     });
+
   });
 
   it('builds and sends PlayCard roundDraft through self-target draft UI', async () => {

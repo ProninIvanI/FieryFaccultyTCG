@@ -265,6 +265,7 @@
 .battleLane,
 .handTray,
 .deckRail,
+.turnActionRail,
 .playerSideCard,
 .heroPanel,
 .summaryTile,
@@ -620,6 +621,41 @@
   display: grid;
   gap: 8px;
   position: relative;
+}
+
+.turnActionRail {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 12px 10px;
+  text-align: center;
+}
+
+.turnActionRail::before,
+.turnActionRail::after {
+  content: "";
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.22), transparent);
+}
+
+.turnActionButton {
+  width: 100%;
+  justify-content: center;
+}
+
+.turnActionStatus {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  color: var(--pvp-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.turnActionStatus strong {
+  color: var(--pvp-text);
 }
 
 .deckRailVertical {
@@ -1705,6 +1741,10 @@
   .boardSideColumn {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-content: stretch;
+  }
+
+  .turnActionRail {
+    grid-column: 1 / -1;
   }
 
   .deckRailVertical {

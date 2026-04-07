@@ -16,7 +16,7 @@ import {
   createInitialCardRoundIntent,
   createInitialCreatureRoundIntent,
 } from '@game-core/rounds/createInitialRoundIntent';
-import type { PlayerBoardModel, ResolutionLayer, RoundResolutionResult, TargetType } from '@game-core/types';
+import type { PlayerBoardModel, ResolutionLayer, RoundDraftValidationError, RoundResolutionResult, TargetType } from '@game-core/types';
 import {
   getResolutionLayerLabel,
   getRoundDraftRejectCodeLabel,
@@ -172,6 +172,9 @@ interface RoundSyncSummary {
 type RoundDraftRejectedSummary = Omit<RoundDraftRejectedServerMessage, 'type'>;
 type JoinRejectedSummary = Omit<JoinRejectedServerMessage, 'type'>;
 type TransportRejectedSummary = Omit<TransportRejectedServerMessage, 'type'>;
+
+const isPendingTargetSelectionError = (entry: RoundDraftValidationError): boolean =>
+  entry.code === 'target_type' && /Target is required/i.test(entry.message);
 
 const getCardTypeLabel = (cardType: string): string => {
   const catalogType = toCatalogCardUiType(cardType);
@@ -1241,12 +1244,23 @@ export const PlayPvpPage = () => {
   const currentRoundNumber = roundSync?.roundNumber ?? matchSummary?.roundNumber ?? 0;
   const isEnemySideActive = Boolean(roundSync?.opponentLocked);
   const isLocalSideActive = Boolean(roundSync?.selfLocked);
+  const pendingTargetSelectionCount = useMemo(
+    () =>
+      roundDraft.filter(
+        (intent) =>
+          'target' in intent &&
+          intent.target?.targetType &&
+          !intent.target?.targetId,
+      ).length,
+    [roundDraft],
+  );
   const canLockRound = Boolean(
     currentRoundNumber > 0 &&
       localPlayer &&
       localPlayer.characterId &&
       status === 'connected' &&
-      !roundSync?.selfLocked
+      !roundSync?.selfLocked &&
+      pendingTargetSelectionCount === 0
   );
   const canActFromHand = Boolean(
     currentRoundNumber > 0 &&
@@ -1282,28 +1296,17 @@ export const PlayPvpPage = () => {
       ),
     [roundDraft]
   );
-  const handCardIntentByInstanceId = useMemo(
-    () =>
-      new Map(
-        roundDraft.flatMap((intent) =>
-          'cardInstanceId' in intent && typeof intent.cardInstanceId === 'string'
-            ? [[intent.cardInstanceId, intent] as const]
-            : []
-        )
-      ),
-    [roundDraft]
+  const stagedHandCardIds = useMemo(
+    () => new Set(handCardIntentIdsByInstanceId.keys()),
+    [handCardIntentIdsByInstanceId],
+  );
+  const availableHandCards = useMemo(
+    () => localHandCards.filter((card) => !stagedHandCardIds.has(card.instanceId)),
+    [localHandCards, stagedHandCardIds],
   );
   const selectedCreature = useMemo(
     () => (selection?.kind === 'creature' ? creatures.find((creature) => creature.creatureId === selection.creatureId) ?? null : null),
     [creatures, selection]
-  );
-  const canPlaySelectedCard = Boolean(
-    selectedHandCard &&
-      selectedHandCard.cardType === 'summon' &&
-      canActFromHand &&
-      localPlayer &&
-      localPlayer.mana >= selectedHandCard.mana &&
-      canSummonMoreCreatures
   );
   const selectedCardTargetType = useMemo(() => {
     if (!selectedHandCard) {
@@ -1316,7 +1319,6 @@ export const PlayPvpPage = () => {
 
     return roundIntentCardRegistry.get(selectedHandCard.cardId)?.targetType ?? null;
   }, [selectedHandCard, selectedHandCardIntent]);
-  const isSelectedCardTargetedAction = Boolean(selectedHandCard && selectedHandCard.cardType !== 'summon' && localPlayer);
   const isSelectedCreatureOwnedByLocalPlayer = Boolean(selectedCreature && selectedCreature.ownerId === playerId);
   const selectedCreatureHasSummoningSickness = Boolean(
     selectedCreature && currentRoundNumber > 0 && selectedCreature.summonedAtRound === currentRoundNumber
@@ -1355,17 +1357,6 @@ export const PlayPvpPage = () => {
     playerId,
     selectedCreature,
   ]);
-  const targetDraft = useMemo<TargetDraft | null>(() => {
-    if (!selectedHandCard || !isSelectedCardTargetedAction || !selectedCardTargetType || !draftTargetId) {
-      return null;
-    }
-
-    return {
-      sourceInstanceId: selectedHandCard.instanceId,
-      targetType: selectedCardTargetType,
-      targetId: draftTargetId,
-    };
-  }, [draftTargetId, isSelectedCardTargetedAction, selectedCardTargetType, selectedHandCard]);
   const attackTargetDraft = useMemo<TargetDraft | null>(() => {
     if (
       !selectedCreature ||
@@ -1469,9 +1460,6 @@ export const PlayPvpPage = () => {
 
     return labelMap;
   }, [creatures, enemyBoards, getPlayerDisplayName, localPlayer, playerId]);
-  const selectedTargetLabel = targetDraft
-    ? `${getTargetTypeLabel(targetDraft.targetType)} -> ${knownTargetLabelsById.get(targetDraft.targetId) ?? targetDraft.targetId}`
-    : 'цель ещё не выбрана';
   const selectedAttackTargetLabel = attackTargetDraft
     ? `${getTargetTypeLabel(attackTargetDraft.targetType)} -> ${knownTargetLabelsById.get(attackTargetDraft.targetId) ?? attackTargetDraft.targetId}`
     : selectedCreatureHasSummoningSickness
@@ -1657,6 +1645,11 @@ export const PlayPvpPage = () => {
   const handleLockRound = () => {
     if (!localPlayer || !currentRoundNumber) {
       setError('Локальный игрок или раунд ещё не синхронизированы.');
+      return;
+    }
+
+    if (pendingTargetSelectionCount > 0) {
+      setError('Сначала выбери цель для всех карт в ленте.');
       return;
     }
 
@@ -2088,6 +2081,10 @@ export const PlayPvpPage = () => {
     }
 
     roundDraftRejected.errors.forEach((entry) => {
+      if (isPendingTargetSelectionError(entry)) {
+        return;
+      }
+
       if (!entry.intentId) {
         return;
       }
@@ -2101,9 +2098,18 @@ export const PlayPvpPage = () => {
   }, [roundDraftRejected]);
 
   const draftRejectionCommonErrors = useMemo(
-    () => roundDraftRejected?.errors.filter((entry) => !entry.intentId) ?? [],
+    () =>
+      roundDraftRejected?.errors.filter((entry) => !entry.intentId && !isPendingTargetSelectionError(entry)) ?? [],
     [roundDraftRejected],
   );
+  const shouldShowRoundDraftRejected = Boolean(
+    roundDraftRejected &&
+      (
+        roundDraftRejected.code !== 'validation_failed' ||
+        roundDraftRejected.errors.some((entry) => !isPendingTargetSelectionError(entry))
+      ),
+  );
+  const visibleRoundDraftRejected = shouldShowRoundDraftRejected ? roundDraftRejected : null;
   const renderIntentValidationErrors = (intentId: string) =>
     draftRejectionErrorsByIntentId.get(intentId)?.map((entry) => (
       <div key={`${intentId}_${entry.code}_${entry.message}`} className={styles.roundQueueError}>
@@ -2405,47 +2411,6 @@ export const PlayPvpPage = () => {
           >
             {matchSummary ? (
               <div className={styles.matchOverview}>
-                <div className={styles.matchSpotlight}>
-                  <div className={styles.matchSpotlightHeader}>
-                    <div>
-                      <span className={styles.summaryLabel}>Скрытый раунд</span>
-                      <strong className={styles.spotlightValue}>
-                        {roundSync?.selfLocked ? 'Твой выбор зафиксирован' : 'Собери боевую ленту'}
-                      </strong>
-                    </div>
-                    <button
-                      className={styles.primaryButton}
-                      type="button"
-                      onClick={handleLockRound}
-                      disabled={!canLockRound}
-                    >
-                      {roundSync?.selfLocked ? 'Ждём ход соперника' : 'Завершить ход'}
-                    </button>
-                  </div>
-                  <p className={styles.paragraph}>
-                    Раунд {matchSummary.roundNumber}, статус {getRoundStatusLabel(matchSummary.roundStatus)}. Инициатива у{' '}
-                    {matchSummary.initiativePlayerId ? getPlayerDisplayName(matchSummary.initiativePlayerId) : 'не определена'}.
-                  </p>
-                  <div className={styles.summaryGrid}>
-                    <div className={styles.summaryTile}>
-                      <span className={styles.summaryLabel}>Раунд</span>
-                      <strong>{matchSummary.roundNumber}</strong>
-                    </div>
-                    <div className={styles.summaryTile}>
-                      <span className={styles.summaryLabel}>Статус</span>
-                      <strong>{getRoundStatusLabel(matchSummary.roundStatus)}</strong>
-                    </div>
-                    <div className={styles.summaryTile}>
-                      <span className={styles.summaryLabel}>Ты</span>
-                        <strong>{roundSync?.selfLocked ? 'Готово' : 'Собираешь ленту'}</strong>
-                    </div>
-                    <div className={styles.summaryTile}>
-                      <span className={styles.summaryLabel}>Соперник</span>
-                        <strong>{roundSync?.opponentLocked ? 'Готово' : 'Выбирает'}</strong>
-                    </div>
-                  </div>
-                </div>
-
                 <div className={styles.battlefield}>
                   <section className={styles.boardShell}>
                     <aside className={styles.boardSideColumn}>
@@ -2497,6 +2462,33 @@ export const PlayPvpPage = () => {
                               className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
                             />
                           ))}
+                        </div>
+                      </div>
+                      <div className={styles.turnActionRail}>
+                        <span className={styles.summaryLabel}>
+                          Раунд {matchSummary.roundNumber} · {getRoundStatusLabel(matchSummary.roundStatus)}
+                        </span>
+                        <button
+                          className={`${styles.primaryButton} ${styles.turnActionButton}`.trim()}
+                          type="button"
+                          onClick={handleLockRound}
+                          disabled={!canLockRound}
+                        >
+                          {roundSync?.selfLocked ? 'Ждём ход соперника' : 'Завершить ход'}
+                        </button>
+                        <div className={styles.turnActionStatus}>
+                          <span>
+                            Ты: <strong>{roundSync?.selfLocked ? 'Готово' : 'Собираешь ленту'}</strong>
+                          </span>
+                          <span>
+                            Соперник: <strong>{roundSync?.opponentLocked ? 'Готово' : 'Выбирает'}</strong>
+                          </span>
+                          {pendingTargetSelectionCount > 0 ? (
+                            <span>
+                              Выбери цель для <strong>{pendingTargetSelectionCount}</strong>{' '}
+                              {pendingTargetSelectionCount === 1 ? 'карты' : 'карт'}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                       <div className={`${styles.deckRail} ${styles.deckRailVertical} ${isLocalSideActive ? styles.deckRailActive : ''}`.trim()}>
@@ -2967,19 +2959,19 @@ export const PlayPvpPage = () => {
                     )}
                   </section>
 
-                  {roundDraftRejected ? (
+                  {visibleRoundDraftRejected ? (
                     <div className={styles.roundRejectBox}>
                       <strong>
-                        Сервер отклонил: {roundDraftRejected.operation === 'lock' ? 'завершение хода' : 'обновление'}{' '}
-                        {roundDraftRejected.roundNumber > 0
-                          ? `раунда ${roundDraftRejected.roundNumber}`
+                        Сервер отклонил: {visibleRoundDraftRejected.operation === 'lock' ? 'завершение хода' : 'обновление'}{' '}
+                        {visibleRoundDraftRejected.roundNumber > 0
+                          ? `раунда ${visibleRoundDraftRejected.roundNumber}`
                           : 'текущей ленты'}
                       </strong>
                       <div className={styles.roundQueueError}>
-                        <span className={styles.cardBadge}>{roundDraftRejected.code}</span>
-                        <span>{getRoundDraftRejectCodeLabel(roundDraftRejected.code)}</span>
+                        <span className={styles.cardBadge}>{visibleRoundDraftRejected.code}</span>
+                        <span>{getRoundDraftRejectCodeLabel(visibleRoundDraftRejected.code)}</span>
                       </div>
-                      <span>{roundDraftRejected.error}</span>
+                      <span>{visibleRoundDraftRejected.error}</span>
                       {draftRejectionCommonErrors.map((entry) => (
                         <div key={`${entry.code}_${entry.message}`} className={styles.roundQueueError}>
                           <span className={styles.cardBadge}>{entry.code}</span>
@@ -2998,11 +2990,11 @@ export const PlayPvpPage = () => {
                           <span className={styles.summaryLabel}>Твоя рука</span>
                           <strong>Карты для текущего раунда</strong>
                         </div>
-                        <span className={styles.battleCount}>{localHandCards.length} карт</span>
+                        <span className={styles.battleCount}>{availableHandCards.length} карт</span>
                       </div>
-                      {localHandCards.length > 0 ? (
+                      {availableHandCards.length > 0 ? (
                         <div className={styles.handFanGrid}>
-                          {localHandCards.map((card) => (
+                          {availableHandCards.map((card) => (
                             <div
                               key={card.instanceId}
                               className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''} ${getCardAccentClassName(card.cardType)}`.trim()}
@@ -3070,83 +3062,15 @@ export const PlayPvpPage = () => {
                                   ) : null}
                                 </div>
                               </button>
-                              {selection?.kind === 'hand' && selection.instanceId === card.instanceId ? (
-                                <div className={styles.inlineConfigurator}>
-                                  {card.effect ? (
-                                    <div className={styles.handCardEffectPanel}>
-                                      <span className={styles.summaryLabel}>Эффект</span>
-                                      <p className={styles.paragraph}>{card.effect}</p>
-                                    </div>
-                                  ) : null}
-                                  {card.cardType === 'summon' ? (
-                                    <>
-                                      <div className={styles.indicatorRail}>
-                                        <div className={styles.indicatorPill}>
-                                          <span className={styles.indicatorKicker}>Режим</span>
-                                          <strong className={styles.indicatorValue}>
-                                            {selectedHandCardIntent
-                                              ? 'Призыв уже в ленте'
-                                              : canPlaySelectedCard
-                                                ? 'Готов к призыву'
-                                                : 'Сейчас недоступно'}
-                                          </strong>
-                                        </div>
-                                      </div>
-                                      {selectedHandCardIntent ? (
-                                        <div className={styles.inlineActions}>
-                                          <button
-                                            className={styles.secondaryButton}
-                                            type="button"
-                                            onClick={() => handleRemoveRoundIntent(selectedHandCardIntent.intentId)}
-                                            disabled={Boolean(roundSync?.selfLocked)}
-                                          >
-                                            Убрать из ленты
-                                          </button>
-                                        </div>
-                                      ) : null}
-                                    </>
-                                  ) : handCardIntentByInstanceId.get(card.instanceId) ? (
-                                    <>
-                                      <div className={styles.indicatorRail}>
-                                        <div className={styles.indicatorPill}>
-                                          <span className={styles.indicatorKicker}>Тип цели</span>
-                                          <strong className={styles.indicatorValue}>{getTargetTypeLabel(selectedCardTargetType ?? 'any')}</strong>
-                                        </div>
-                                        <div className={styles.indicatorPill}>
-                                          <span className={styles.indicatorKicker}>Текущая цель</span>
-                                          <strong className={styles.indicatorValue}>{selectedTargetLabel}</strong>
-                                        </div>
-                                      </div>
-                                      <div className={styles.inlineActions}>
-                                        <button
-                                          className={styles.secondaryButton}
-                                          type="button"
-                                          onClick={() => handleRemoveRoundIntent(handCardIntentByInstanceId.get(card.instanceId)!.intentId)}
-                                          disabled={Boolean(roundSync?.selfLocked)}
-                                        >
-                                          Убрать из ленты
-                                        </button>
-                                        <button
-                                          className={styles.secondaryButton}
-                                          type="button"
-                                          onClick={() => setDraftTargetId('')}
-                                          disabled={!draftTargetId}
-                                        >
-                                          Сбросить цель
-                                        </button>
-                                      </div>
-                                      <div className={styles.hint}>
-                                        Разрешённые цели подсвечены прямо на поле. Выбери одну из них кликом по магу или существу.
-                                      </div>
-                                    </>
-                                  ) : null}
-                                </div>
-                              ) : null}
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className={styles.emptyState}>После старта матча здесь появятся реальные карты из руки.</div>
+                        <div className={styles.emptyState}>
+                          {localHandCards.length > 0
+                            ? 'Все карты из руки уже перенесены в боевую ленту.'
+                            : 'После старта матча здесь появятся реальные карты из руки.'}
+                        </div>
                       )}
                     </section>
                     </section>

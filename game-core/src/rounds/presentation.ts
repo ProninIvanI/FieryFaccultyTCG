@@ -3,17 +3,17 @@
 export const getTargetTypeLabel = (targetType: TargetType | null | undefined): string => {
   switch (targetType) {
     case 'enemyCharacter':
-      return 'Р’СЂР°Р¶РµСЃРєРёР№ РјР°Рі';
+      return 'Вражеский маг';
     case 'allyCharacter':
-      return 'РЎРѕСЋР·РЅС‹Р№ РјР°Рі';
+      return 'Союзный маг';
     case 'creature':
-      return 'РЎСѓС‰РµСЃС‚РІРѕ';
+      return 'Существо';
     case 'self':
-      return 'РЎРµР±СЏ';
+      return 'Себя';
     case 'any':
-      return 'Р›СЋР±Р°СЏ С†РµР»СЊ';
+      return 'Любая цель';
     default:
-      return 'Р¦РµР»СЊ РЅРµ РѕРїСЂРµРґРµР»РµРЅР°';
+      return 'Цель не определена';
   }
 };
 
@@ -39,23 +39,23 @@ export const getResolutionLayerLabel = (layer: ResolutionLayer): string => {
 export const getRoundActionReasonLabel = (reasonCode: RoundActionReasonCode): string => {
   switch (reasonCode) {
     case 'resolved':
-      return 'Р”РµР№СЃС‚РІРёРµ СѓСЃРїРµС€РЅРѕ РІС‹РїРѕР»РЅРµРЅРѕ';
+      return 'Действие успешно выполнено';
     case 'invalid_intent':
-      return 'РќР°РјРµСЂРµРЅРёРµ Р±РѕР»СЊС€Рµ РЅРµРІР°Р»РёРґРЅРѕ';
+      return 'Намерение больше невалидно';
     case 'card_unavailable':
-      return 'РљР°СЂС‚Р° СѓР¶Рµ РЅРµРґРѕСЃС‚СѓРїРЅР°';
+      return 'Карта уже недоступна';
     case 'card_definition_missing':
-      return 'РћРїРёСЃР°РЅРёРµ РєР°СЂС‚С‹ РЅРµ РЅР°Р№РґРµРЅРѕ';
+      return 'Описание карты не найдено';
     case 'target_invalidated':
-      return 'Р¦РµР»СЊ СЃС‚Р°Р»Р° РЅРµРґРѕСЃС‚СѓРїРЅР°';
+      return 'Цель стала недоступна';
     case 'attack_source_unavailable':
-      return 'РСЃС‚РѕС‡РЅРёРє Р°С‚Р°РєРё Р±РѕР»СЊС€Рµ РЅРµРґРѕСЃС‚СѓРїРµРЅ';
+      return 'Источник атаки больше недоступен';
     case 'summoning_sickness':
-      return 'РЎСѓС‰РµСЃС‚РІРѕ РїСЂРёР·РІР°РЅРѕ РІ СЌС‚РѕРј СЂР°СѓРЅРґРµ';
+      return 'Существо призвано в этом раунде';
     case 'actor_unavailable':
-      return 'РСЃС‚РѕС‡РЅРёРє РґРµР№СЃС‚РІРёСЏ Р±РѕР»СЊС€Рµ РЅРµРґРѕСЃС‚СѓРїРµРЅ';
+      return 'Источник действия больше недоступен';
     case 'command_unavailable':
-      return 'РћР±СЂР°Р±РѕС‚С‡РёРє РґРµР№СЃС‚РІРёСЏ РЅРµ РЅР°Р№РґРµРЅ';
+      return 'Обработчик действия не найден';
     case 'evade_disabled':
       return 'Уклонение запрещено эффектом контроля';
     case 'action_skipped':
@@ -70,45 +70,45 @@ export const getRoundDraftValidationCodeLabel = (code: string): string => {
     case 'player_not_in_session':
       return 'Игрок ещё не привязан к этой сессии';
     case 'player_not_found':
-      return 'РРіСЂРѕРє РґР»СЏ СЌС‚РѕРіРѕ С‡РµСЂРЅРѕРІРёРєР° РЅРµ РЅР°Р№РґРµРЅ';
+      return 'Игрок для этого черновика не найден';
     case 'round_resolving':
-      return 'Р Р°СѓРЅРґ СѓР¶Рµ РЅР°С…РѕРґРёС‚СЃСЏ РІ СЂРµР·РѕР»РІРµ';
+      return 'Раунд уже находится в резолве';
     case 'draft_locked':
-      return 'Р§РµСЂРЅРѕРІРёРє СѓР¶Рµ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅ';
+      return 'Черновик уже зафиксирован';
     case 'round_number':
-      return 'РќРѕРјРµСЂ СЂР°СѓРЅРґР° РЅРµ СЃРѕРІРїР°РґР°РµС‚';
+      return 'Номер раунда не совпадает';
     case 'actor_ownership':
-      return 'РСЃС‚РѕС‡РЅРёРє РґРµР№СЃС‚РІРёСЏ РЅРµ РїСЂРёРЅР°РґР»РµР¶РёС‚ РёРіСЂРѕРєСѓ';
+      return 'Источник действия не принадлежит игроку';
     case 'card_ownership':
-      return 'РљР°СЂС‚Р° РЅРµ РїСЂРёРЅР°РґР»РµР¶РёС‚ РёРіСЂРѕРєСѓ';
+      return 'Карта не принадлежит игроку';
     case 'card_location':
-      return 'РљР°СЂС‚Р° Р±РѕР»СЊС€Рµ РЅРµ РЅР°С…РѕРґРёС‚СЃСЏ РІ СЂСѓРєРµ';
+      return 'Карта больше не находится в руке';
     case 'card_definition':
-      return 'РћРїРёСЃР°РЅРёРµ РєР°СЂС‚С‹ РЅРµ РЅР°Р№РґРµРЅРѕ';
+      return 'Описание карты не найдено';
     case 'card_kind':
-      return 'РўРёРї РєР°СЂС‚С‹ РЅРµ РїРѕРґС…РѕРґРёС‚ РґР»СЏ СЌС‚РѕРіРѕ РґРµР№СЃС‚РІРёСЏ';
+      return 'Тип карты не подходит для этого действия';
     case 'target_type':
-      return 'Р¦РµР»СЊ РЅРµ РїРѕРґС…РѕРґРёС‚ РїРѕРґ РїСЂР°РІРёР»Р° РєР°СЂС‚С‹';
+      return 'Цель не подходит под правила карты';
     case 'intent_player':
-      return 'РРіСЂРѕРє РІ intent РЅРµ СЃРѕРІРїР°РґР°РµС‚ СЃ РІР»Р°РґРµР»СЊС†РµРј С‡РµСЂРЅРѕРІРёРєР°';
+      return 'Игрок в intent не совпадает с владельцем черновика';
     case 'intent_round':
-      return 'Р Р°СѓРЅРґ РІ intent РЅРµ СЃРѕРІРїР°РґР°РµС‚ СЃ С‡РµСЂРЅРѕРІРёРєРѕРј';
+      return 'Раунд в intent не совпадает с черновиком';
     case 'queue_index':
-      return 'РџРѕСЂСЏРґРѕРє РґРµР№СЃС‚РІРёР№ РІ С‡РµСЂРЅРѕРІРёРєРµ РЅРµРєРѕСЂСЂРµРєС‚РµРЅ';
+      return 'Порядок действий в черновике некорректен';
     case 'creature_limit':
-      return 'РџСЂРµРІС‹С€РµРЅ Р»РёРјРёС‚ СЃСѓС‰РµСЃС‚РІ РЅР° СЃС‚РѕР»Рµ';
+      return 'Превышен лимит существ на столе';
     case 'attack_source':
-      return 'РСЃС‚РѕС‡РЅРёРє Р°С‚Р°РєРё РЅРµРґРѕСЃС‚СѓРїРµРЅ';
+      return 'Источник атаки недоступен';
     case 'attack_target':
-      return 'Р¦РµР»СЊ Р°С‚Р°РєРё РЅРµРґРѕСЃС‚СѓРїРЅР°';
+      return 'Цель атаки недоступна';
     case 'summoning_sickness':
-      return 'РЎСѓС‰РµСЃС‚РІРѕ РїСЂРёР·РІР°РЅРѕ РІ СЌС‚РѕРј СЂР°СѓРЅРґРµ';
+      return 'Существо призвано в этом раунде';
     case 'mana_budget':
-      return 'РќРµ С…РІР°С‚Р°РµС‚ РјР°РЅС‹ РЅР° С‡РµСЂРЅРѕРІРёРє СЂР°СѓРЅРґР°';
+      return 'Не хватает маны на черновик раунда';
     case 'action_budget':
-      return 'РџСЂРµРІС‹С€РµРЅ Р»РёРјРёС‚ РґРµР№СЃС‚РІРёР№ РЅР° СЂР°СѓРЅРґ';
+      return 'Превышен лимит действий на раунд';
     default:
-      return 'РџСЂР°РІРёР»Рѕ СЂР°СѓРЅРґР° РЅР°СЂСѓС€РµРЅРѕ';
+      return 'Правило раунда нарушено';
   }
 };
 
