@@ -1,7 +1,21 @@
-// Константы приложения
+const getBrowserLocation = (): Location | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-export const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4000';
+  return window.location;
+};
+
+const location = getBrowserLocation();
+const protocol = location?.protocol === 'https:' ? 'https:' : 'http:';
+const wsProtocol = location?.protocol === 'https:' ? 'wss:' : 'ws:';
+const hostname = location?.hostname ?? 'localhost';
+
+export const API_URL =
+  import.meta.env.VITE_API_URL || `${protocol}//${hostname}:3001`;
+
+export const WS_URL =
+  import.meta.env.VITE_WS_URL || `${wsProtocol}//${hostname}:4000`;
 
 export const ROUTES = {
   HOME: '/',
@@ -19,9 +33,3 @@ export const ROUTES = {
   PLAY_PVE: '/play/pve',
   PLAY_SIM: '/play/sim',
 } as const;
-
-
-
-
-
-
