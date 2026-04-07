@@ -10,7 +10,7 @@
   --pvp-accent-strong: #0f172a;
   display: grid;
   grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-  gap: 24px;
+  gap: 20px;
   align-items: start;
 }
 
@@ -38,7 +38,7 @@
 
 .boardCardContent {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .formGrid {
@@ -237,13 +237,13 @@
 .matchOverview,
 .battlefield {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .boardShell {
   display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: minmax(168px, 204px) minmax(0, 1fr);
+  gap: 16px;
   align-items: stretch;
 }
 
@@ -269,9 +269,9 @@
 }
 
 .matchSpotlight {
-  padding: 20px;
+  padding: 18px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .roundQueueList {
@@ -428,8 +428,8 @@
 
 .fieldFrame {
   display: grid;
-  gap: 16px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px;
   position: relative;
   border-radius: 24px;
   border: 1px solid var(--pvp-border-strong);
@@ -475,10 +475,10 @@
 }
 
 .playerSideCard {
-  padding: 16px;
+  padding: 14px;
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: 10px;
 }
 
 .playerSideCardActive {
@@ -490,8 +490,8 @@
 }
 
 .playerPortraitFrame {
-  width: 88px;
-  height: 110px;
+  width: 76px;
+  height: 96px;
   position: relative;
   border-radius: 999px 999px 24px 24px;
   border: 2px solid #bfdbfe;
@@ -531,8 +531,8 @@
 .playerPortraitFrame::after {
   content: "";
   position: absolute;
-  inset: 8px 18px auto 18px;
-  height: 10px;
+  inset: 8px 16px auto 16px;
+  height: 8px;
   border-radius: 999px;
   background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.25), transparent);
 }
@@ -540,12 +540,12 @@
 .playerPortraitSilhouette,
 .playerPortraitSilhouetteLocal {
   display: inline-flex;
-  width: 68px;
-  height: 88px;
+  width: 58px;
+  height: 74px;
   align-items: center;
   justify-content: center;
   border-radius: 999px 999px 20px 20px;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: #ffffff;
@@ -608,14 +608,14 @@
 }
 
 .deckRail {
-  padding: 14px 16px;
+  padding: 12px 14px;
   display: grid;
-  gap: 14px;
+  gap: 10px;
   position: relative;
 }
 
 .deckRailVertical {
-  min-height: 260px;
+  min-height: 208px;
   align-content: start;
 }
 
@@ -640,13 +640,13 @@
 .deckRailCards {
   display: flex;
   gap: 6px;
-  min-height: 88px;
+  min-height: 72px;
   overflow: hidden;
   align-items: center;
 }
 
 .deckRailVertical .deckRailCards {
-  min-height: 180px;
+  min-height: 136px;
   flex-direction: column-reverse;
   justify-content: flex-start;
   align-items: center;
@@ -679,9 +679,9 @@
 
 .battleLane,
 .handTray {
-  padding: 16px;
+  padding: 14px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .ribbonSection {
@@ -692,10 +692,10 @@
 .ribbonGrid {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(208px, 244px);
+  grid-auto-columns: minmax(196px, 228px);
   justify-content: start;
   align-items: stretch;
-  gap: 12px;
+  gap: 10px;
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 4px;
@@ -1007,7 +1007,7 @@
 }
 
 .opponentHandTray {
-  min-height: 148px;
+  min-height: 132px;
   align-content: start;
   background:
     linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.94)),
@@ -1015,7 +1015,7 @@
 }
 
 .battleLane {
-  min-height: 164px;
+  min-height: 148px;
   position: relative;
   overflow: hidden;
   align-content: start;
@@ -1186,9 +1186,11 @@
   align-items: end;
   justify-content: flex-start;
   gap: 0;
-  padding: 10px 4px 4px;
+  padding: 12px 18px 8px 14px;
   overflow-x: auto;
   overflow-y: visible;
+  scrollbar-width: thin;
+  scroll-padding-left: 14px;
 }
 
 .opponentHandFanGrid {
@@ -1197,15 +1199,28 @@
   align-items: start;
   justify-content: flex-end;
   gap: 0;
-  padding: 4px 4px 10px;
+  padding: 8px 14px 12px 18px;
   overflow-x: auto;
   overflow-y: visible;
+  scrollbar-width: thin;
+  scroll-padding-right: 14px;
+}
+
+.handFanGrid::-webkit-scrollbar,
+.opponentHandFanGrid::-webkit-scrollbar {
+  height: 8px;
+}
+
+.handFanGrid::-webkit-scrollbar-thumb,
+.opponentHandFanGrid::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
 }
 
 .handFanGrid > .handCard {
-  width: 186px;
-  flex: 0 0 186px;
-  margin-left: -28px;
+  width: 164px;
+  flex: 0 0 164px;
+  margin-left: -18px;
   transform-origin: center bottom;
   transition: transform 0.18s ease, box-shadow 0.18s ease, margin 0.18s ease;
 }
@@ -1215,17 +1230,17 @@
 }
 
 .handFanGrid > .handCard:nth-child(odd) {
-  transform: translateY(8px) rotate(-3deg);
+  transform: translateY(6px) rotate(-2.4deg);
 }
 
 .handFanGrid > .handCard:nth-child(even) {
-  transform: translateY(2px) rotate(2.6deg);
+  transform: translateY(2px) rotate(2deg);
 }
 
 .opponentHandCard {
-  width: 186px;
-  flex: 0 0 186px;
-  margin-right: -28px;
+  width: 164px;
+  flex: 0 0 164px;
+  margin-right: -18px;
   transform-origin: center top;
   transition: transform 0.18s ease, box-shadow 0.18s ease, margin 0.18s ease;
 }
@@ -1235,17 +1250,17 @@
 }
 
 .opponentHandCard:nth-child(odd) {
-  transform: translateY(-8px) rotate(3deg);
+  transform: translateY(-6px) rotate(2.4deg);
 }
 
 .opponentHandCard:nth-child(even) {
-  transform: translateY(-2px) rotate(-2.6deg);
+  transform: translateY(-2px) rotate(-2deg);
 }
 
 .opponentHandCardBack {
   display: block;
   width: 100%;
-  min-height: 208px;
+  min-height: 188px;
   border-radius: 20px;
   border: 1px solid #bfdbfe;
   background:
@@ -1278,18 +1293,18 @@
 .handFanGrid > .handCard:hover,
 .handFanGrid > .handCard:focus-within {
   transform: translateY(-8px) scale(1.02);
-  margin-left: 8px;
-  margin-right: 8px;
+  margin-left: 4px;
+  margin-right: 4px;
   z-index: 2;
 }
 
 .handCard {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   position: relative;
   overflow: hidden;
-  min-height: 220px;
+  min-height: 196px;
   align-content: start;
 }
 
@@ -1335,45 +1350,125 @@
 .handCardTop {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   align-items: start;
+}
+
+.handCardArtwork {
+  position: relative;
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  min-height: 92px;
+  padding: 10px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.handCardArtwork::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.55), transparent 24%),
+    radial-gradient(circle at 82% 28%, rgba(255, 255, 255, 0.18), transparent 18%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(15, 23, 42, 0.18));
+  pointer-events: none;
+}
+
+.handCardArtworkNeutral {
+  background:
+    linear-gradient(145deg, #cbd5e1 0%, #94a3b8 55%, #334155 100%);
+}
+
+.handCardArtworkFire {
+  background:
+    linear-gradient(145deg, #fdba74 0%, #f97316 52%, #7c2d12 100%);
+}
+
+.handCardArtworkWater {
+  background:
+    linear-gradient(145deg, #7dd3fc 0%, #0ea5e9 50%, #0c4a6e 100%);
+}
+
+.handCardArtworkEarth {
+  background:
+    linear-gradient(145deg, #bef264 0%, #65a30d 50%, #365314 100%);
+}
+
+.handCardArtworkAir {
+  background:
+    linear-gradient(145deg, #c4b5fd 0%, #8b5cf6 50%, #4c1d95 100%);
+}
+
+.handCardArtworkFooter {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.handCardArtworkKicker {
+  font-size: 10px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.handCardArtworkLine {
+  font-size: 13px;
+  line-height: 1.25;
+  color: #ffffff;
 }
 
 .handCardBadgeStack {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   align-items: flex-end;
+  position: relative;
+  z-index: 1;
 }
 
 .handManaGem {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 14px;
   background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.96), rgba(191, 219, 254, 0.8) 35%, rgba(37, 99, 235, 0.92) 100%);
   color: #0f172a;
   font-weight: 800;
   box-shadow: 0 10px 18px rgba(37, 99, 235, 0.18);
+  position: relative;
+  z-index: 1;
 }
 
 .handCardBody {
   display: grid;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 4px;
   border-radius: 14px;
-  padding: 12px;
+  padding: 10px;
   background: rgba(248, 250, 252, 0.86);
   border: 1px solid transparent;
 }
 
+.handCardTitle {
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--pvp-text);
+}
+
 .handCardMeta {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--pvp-muted);
 }
 
@@ -1397,13 +1492,17 @@
 
 .handCardEffect {
   color: var(--pvp-text);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .handCardSubtitle {
   color: var(--pvp-soft);
-  font-size: 13px;
+  font-size: 12px;
   word-break: break-word;
 }
 
@@ -1433,7 +1532,7 @@
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 5px 10px;
+  padding: 4px 9px;
   background: #e2e8f0;
   color: #334155;
   font-size: 12px;
@@ -1537,22 +1636,22 @@
 }
 
 .boardEmpty {
-  min-height: 520px;
+  min-height: 420px;
   display: grid;
   align-items: center;
 }
 
 .emptyState {
   padding: 14px;
-  border: 1px dashed rgba(197, 148, 100, 0.45);
+  border: 1px dashed rgba(148, 163, 184, 0.45);
   border-radius: 14px;
-  background: rgba(24, 13, 9, 0.24);
-  color: #d4b18e;
+  background: rgba(241, 245, 249, 0.9);
+  color: var(--pvp-muted);
 }
 
 .debugSummary {
   cursor: pointer;
-  color: #f2dec6;
+  color: var(--pvp-text);
   font-weight: 700;
 }
 
@@ -1579,7 +1678,7 @@
   }
 
   .boardShell {
-    grid-template-columns: minmax(160px, 200px) minmax(0, 1fr);
+    grid-template-columns: minmax(156px, 188px) minmax(0, 1fr);
   }
 }
 
@@ -1653,7 +1752,7 @@
     margin-left: 0;
     margin-right: 0;
     transform: none;
-    width: 180px;
-    flex-basis: 180px;
+    width: 164px;
+    flex-basis: 164px;
   }
 }

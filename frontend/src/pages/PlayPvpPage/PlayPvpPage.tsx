@@ -191,6 +191,21 @@ const getCardAccentClassName = (cardType: string): string => {
   return styles.cardAccentNeutral;
 };
 
+const getCardSchoolAccentClassName = (school?: string): string => {
+  switch (school) {
+    case 'fire':
+      return styles.handCardArtworkFire;
+    case 'water':
+      return styles.handCardArtworkWater;
+    case 'earth':
+      return styles.handCardArtworkEarth;
+    case 'air':
+      return styles.handCardArtworkAir;
+    default:
+      return styles.handCardArtworkNeutral;
+  }
+};
+
 const getRoundActionStatusDisplay = (status: string): string => {
   switch (status) {
     case 'draft':
@@ -2954,51 +2969,64 @@ export const PlayPvpPage = () => {
                                 type="button"
                                 onClick={() => handleHandCardClick(card)}
                               >
-                              <div className={styles.handCardTop}>
-                                <span className={styles.handManaGem}>{card.mana}</span>
-                                <div className={styles.handCardBadgeStack}>
-                                  <span className={styles.cardBadge}>{getCardTypeLabel(card.cardType)}</span>
-                                  {card.school ? (
-                                    <span className={styles.cardBadge}>{getCatalogSchoolLabel(card.school)}</span>
-                                  ) : null}
-                                </div>
-                              </div>
-                              <div className={styles.handCardBody}>
-                                <strong>{card.name}</strong>
-                                <div className={styles.handCardMeta}>
-                                  <span>{getCardTypeLabel(card.cardType)}</span>
-                                  {card.speed ? <span>Скорость {card.speed}</span> : null}
-                                </div>
-                                {(card.hp || card.attack || card.speed) ? (
-                                  <div className={styles.handCardStats}>
-                                    {card.hp ? <span className={styles.handStatPill}>HP {card.hp}</span> : null}
-                                    {card.attack ? <span className={styles.handStatPill}>ATK {card.attack}</span> : null}
-                                    {card.speed ? <span className={styles.handStatPill}>SPD {card.speed}</span> : null}
+                                <div
+                                  className={`${styles.handCardArtwork} ${getCardSchoolAccentClassName(card.school)}`.trim()}
+                                >
+                                  <div className={styles.handCardTop}>
+                                    <span className={styles.handManaGem}>{card.mana}</span>
+                                    <div className={styles.handCardBadgeStack}>
+                                      <span className={styles.cardBadge}>{getCardTypeLabel(card.cardType)}</span>
+                                      {card.school ? (
+                                        <span className={styles.cardBadge}>{getCatalogSchoolLabel(card.school)}</span>
+                                      ) : null}
+                                    </div>
                                   </div>
-                                ) : null}
-                                {card.effect ? (
-                                  <span className={styles.handCardEffect}>{card.effect}</span>
-                                ) : (
-                                  <span className={styles.handCardSubtitle}>ID: {card.instanceId}</span>
-                                )}
-                              </div>
-                              <div className={styles.handCardFooter}>
-                                <div className={styles.handMetaRow}>
-                                  <span className={styles.cardBadge}>Мана {card.mana}</span>
-                                  <span className={styles.cardBadge}>
-                                    {card.cardType === 'summon' ? 'Призыв' : 'Розыгрыш'}
-                                  </span>
+                                  <div className={styles.handCardArtworkFooter}>
+                                    <span className={styles.handCardArtworkKicker}>
+                                      {card.school ? getCatalogSchoolLabel(card.school) : 'Нейтральная карта'}
+                                    </span>
+                                    <strong className={styles.handCardArtworkLine}>
+                                      {card.cardType === 'summon' ? 'Призыв существа' : 'Мгновенный розыгрыш'}
+                                    </strong>
+                                  </div>
+                                </div>
+                                <div className={styles.handCardBody}>
+                                  <strong className={styles.handCardTitle}>{card.name}</strong>
+                                  {(card.hp || card.attack || card.speed) ? (
+                                    <div className={styles.handCardStats}>
+                                      {card.hp ? <span className={styles.handStatPill}>HP {card.hp}</span> : null}
+                                      {card.attack ? <span className={styles.handStatPill}>ATK {card.attack}</span> : null}
+                                      {card.speed ? <span className={styles.handStatPill}>SPD {card.speed}</span> : null}
+                                    </div>
+                                  ) : null}
+                                  {card.effect ? (
+                                    <span className={styles.handCardEffect}>{card.effect}</span>
+                                  ) : (
+                                    <span className={styles.handCardSubtitle}>
+                                      {card.cardType === 'summon' ? 'Призыв существа' : 'Розыгрыш эффекта'}
+                                    </span>
+                                  )}
                                   {handCardIntentIdsByInstanceId.has(card.instanceId) ? (
-                                    <span className={styles.cardBadge}>В ленте</span>
+                                    <div className={styles.handCardFooter}>
+                                      <div className={styles.handMetaRow}>
+                                        <span className={styles.cardBadge}>В ленте</span>
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  {!handCardIntentIdsByInstanceId.has(card.instanceId) && card.speed ? (
+                                    <div className={styles.handMetaRow}>
+                                      <span className={styles.cardBadge}>Скорость {card.speed}</span>
+                                    </div>
+                                  ) : null}
+                                  {!handCardIntentIdsByInstanceId.has(card.instanceId) && !card.speed ? (
+                                    <div className={styles.handMetaRow}>
+                                      <span className={styles.cardBadge}>
+                                        {card.cardType === 'summon' ? 'Готов к призыву' : 'Готов к розыгрышу'}
+                                      </span>
+                                    </div>
                                   ) : null}
                                 </div>
-                              </div>
                               </button>
-                              <div className={styles.hint}>
-                                {card.cardType === 'summon'
-                                  ? 'Клик по карте сразу добавляет призыв в боевую ленту.'
-                                  : 'Клик по карте сразу добавляет действие в ленту и включает выбор цели.'}
-                              </div>
                               {selection?.kind === 'hand' && selection.instanceId === card.instanceId ? (
                                 <div className={styles.inlineConfigurator}>
                                   {card.effect ? (
@@ -3068,11 +3096,7 @@ export const PlayPvpPage = () => {
                                         Разрешённые цели подсвечены прямо на поле. Выбери одну из них кликом по магу или существу.
                                       </div>
                                     </>
-                                  ) : (
-                                    <div className={styles.hint}>
-                                      Клик по карте в руке сразу добавляет её в боевую ленту и выбирает стартовую цель по правилам боя.
-                                    </div>
-                                  )}
+                                  ) : null}
                                 </div>
                               ) : null}
                             </div>
