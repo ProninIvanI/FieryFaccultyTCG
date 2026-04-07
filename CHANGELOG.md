@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-07 update: Docker Compose frontend defaults no longer force `VITE_API_URL=http://localhost:3001` and `VITE_WS_URL=ws://localhost:4000`. In containerized/server runs the client can now fall back to the current browser host unless explicit public endpoints are provided via environment variables, preventing another deploy-only localhost regression.
+
 > 2026-04-07 update: frontend PvP transport no longer falls back to `ws://localhost:4000` / `http://localhost:3001` on deployed environments. When `VITE_WS_URL` or `VITE_API_URL` are not set, the client now derives the host from the current page location and switches between `ws`/`wss` based on the active protocol, so match connect no longer points to the player's own localhost by default.
 
 > 2026-04-07 update: backend deck save/update no longer hard-fails when `game-core/data/cards.json` is absent in deployment/runtime. The deck service now resolves the catalog from multiple locations and, if the shared catalog is unavailable, falls back to structural validation (`name`, `characterId`, positive card quantities) instead of returning `500` for otherwise valid deck edits.
