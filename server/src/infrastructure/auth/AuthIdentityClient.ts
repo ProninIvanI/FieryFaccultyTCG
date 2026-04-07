@@ -11,7 +11,7 @@ export type AuthIdentity = {
   userId: string;
 };
 
-const DEFAULT_AUTH_ME_URL = process.env.BACKEND_AUTH_ME_URL ?? 'http://backend:3001/api/auth/me';
+const DEFAULT_AUTH_ME_URL = process.env.BACKEND_AUTH_ME_URL ?? 'http://localhost:3001/api/auth/me';
 
 export const resolveAuthIdentity = async (token: string): Promise<AuthIdentity | null> => {
   const response = await fetch(DEFAULT_AUTH_ME_URL, {

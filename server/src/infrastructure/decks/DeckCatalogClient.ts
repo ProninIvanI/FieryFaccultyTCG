@@ -21,7 +21,7 @@ export type ResolvedDeck = {
   }>;
 };
 
-const DEFAULT_BACKEND_URL = process.env.BACKEND_API_URL ?? 'http://backend:3001';
+const DEFAULT_BACKEND_URL = process.env.BACKEND_API_URL ?? 'http://localhost:3001';
 
 export const resolvePlayerDeck = async (
   token: string,

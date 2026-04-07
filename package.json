@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n server,frontend \"npm.cmd --prefix server run dev\" \"npm.cmd --prefix frontend run dev\"",
+    "dev": "concurrently -n backend,server,frontend \"npm.cmd --prefix backend run dev\" \"npm.cmd --prefix server run dev\" \"npm.cmd --prefix frontend run dev\"",
+    "dev:backend": "npm.cmd --prefix backend run dev",
     "dev:server": "npm.cmd --prefix server run dev",
     "build:server": "npm.cmd --prefix server run build",
-    "typecheck": "npm.cmd --prefix game-core run type-check && npm.cmd --prefix server run type-check && npm.cmd --prefix frontend run type-check",
+    "typecheck": "npm.cmd --prefix game-core run type-check && npm.cmd --prefix backend run type-check && npm.cmd --prefix server run type-check && npm.cmd --prefix frontend run type-check",
     "lint": "npm.cmd --prefix backend run lint && npm.cmd --prefix frontend run lint",
     "test": "npm.cmd --prefix game-core run test && npm.cmd --prefix server run test",
-    "install:all": "npm.cmd --prefix server install && npm.cmd --prefix frontend install && npm.cmd --prefix game-core install"
+    "install:all": "npm.cmd --prefix backend install && npm.cmd --prefix server install && npm.cmd --prefix frontend install && npm.cmd --prefix game-core install"
   },
   "devDependencies": {
     "concurrently": "^9.0.1"

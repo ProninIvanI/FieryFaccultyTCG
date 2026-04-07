@@ -15,6 +15,7 @@ export interface EnvConfig {
   NODE_ENV: 'development' | 'production' | 'test';
   PORT: number;
   INTERNAL_API_TOKEN: string;
+  DATABASE_URL: string;
   
   // Database
   POSTGRES_USER: string;
@@ -54,10 +55,11 @@ export const config: EnvConfig = {
   NODE_ENV: (getEnvString('NODE_ENV', 'development') as 'development' | 'production' | 'test'),
   PORT: getEnvNumber('PORT', 3001),
   INTERNAL_API_TOKEN: getEnvString('INTERNAL_API_TOKEN', 'dev-internal-token'),
+  DATABASE_URL: getEnvString('DATABASE_URL', ''),
   
   // Database
   POSTGRES_USER: getEnvString('POSTGRES_USER', 'postgres'),
-  POSTGRES_HOST: getEnvString('POSTGRES_HOST', 'postgres'),
+  POSTGRES_HOST: getEnvString('POSTGRES_HOST', 'localhost'),
   POSTGRES_DB: getEnvString('POSTGRES_DB', 'projectbot'),
   POSTGRES_PASSWORD: getEnvString('POSTGRES_PASSWORD', 'postgres'),
   POSTGRES_PORT: getEnvNumber('POSTGRES_PORT', 5432),
@@ -116,6 +118,7 @@ export const serverConfig = {
 };
 
 export const databaseConfig = {
+  connectionString: config.DATABASE_URL || null,
   user: config.POSTGRES_USER,
   host: config.POSTGRES_HOST,
   database: config.POSTGRES_DB,
@@ -123,6 +126,9 @@ export const databaseConfig = {
   port: config.POSTGRES_PORT,
   // Формируем connection string
   getConnectionString: () => {
+    if (config.DATABASE_URL) {
+      return config.DATABASE_URL;
+    }
     return `postgresql://${config.POSTGRES_USER}:${config.POSTGRES_PASSWORD}@${config.POSTGRES_HOST}:${config.POSTGRES_PORT}/${config.POSTGRES_DB}`;
   },
 };
