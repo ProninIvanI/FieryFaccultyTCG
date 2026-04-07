@@ -1223,6 +1223,13 @@ export const PlayPvpPage = () => {
     () => playerBoards.find((playerBoard) => playerBoard.playerId === playerId) ?? null,
     [playerBoards, playerId]
   );
+  const playerRosterSignature = useMemo(
+    () => [...playerBoards]
+      .map((playerBoard) => `${playerBoard.playerId}:${playerBoard.characterId}`)
+      .sort((left, right) => left.localeCompare(right))
+      .join('|'),
+    [playerBoards],
+  );
   const resolvedPlayerLabels = useMemo(
     () => (playerId && session?.username ? { ...playerLabels, [playerId]: session.username } : playerLabels),
     [playerId, playerLabels, session?.username],
@@ -2160,17 +2167,22 @@ export const PlayPvpPage = () => {
     roundDraftRejected &&
       (
         roundDraftRejected.code !== 'validation_failed' ||
-        roundDraftRejected.errors.some((entry) => !isPendingTargetSelectionError(entry))
+        (
+          showDiagnostics &&
+          roundDraftRejected.errors.some((entry) => !isPendingTargetSelectionError(entry))
+        )
       ),
   );
   const visibleRoundDraftRejected = shouldShowRoundDraftRejected ? roundDraftRejected : null;
   const renderIntentValidationErrors = (intentId: string) =>
-    draftRejectionErrorsByIntentId.get(intentId)?.map((entry) => (
-      <div key={`${intentId}_${entry.code}_${entry.message}`} className={styles.roundQueueError}>
-        <span className={styles.cardBadge}>{entry.code}</span>
-        <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
-      </div>
-    )) ?? null;
+    !showDiagnostics
+      ? null
+      : draftRejectionErrorsByIntentId.get(intentId)?.map((entry) => (
+          <div key={`${intentId}_${entry.code}_${entry.message}`} className={styles.roundQueueError}>
+            <span className={styles.cardBadge}>{entry.code}</span>
+            <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
+          </div>
+        )) ?? null;
 
   useEffect(() => {
     if (!selection) {
@@ -2191,6 +2203,32 @@ export const PlayPvpPage = () => {
       setSelection(null);
     }
   }, [creatures, localHandCards, selection]);
+
+  const lastDraftRosterSignatureRef = useRef('');
+
+  useEffect(() => {
+    if (!playerRosterSignature) {
+      lastDraftRosterSignatureRef.current = '';
+      return;
+    }
+
+    if (!lastDraftRosterSignatureRef.current) {
+      lastDraftRosterSignatureRef.current = playerRosterSignature;
+      return;
+    }
+
+    if (lastDraftRosterSignatureRef.current !== playerRosterSignature) {
+      setRoundDraft([]);
+      setRoundDraftRejected(null);
+      setDraftTargetId('');
+      setSelection(null);
+      setError('');
+      lastDraftRosterSignatureRef.current = playerRosterSignature;
+      return;
+    }
+
+    lastDraftRosterSignatureRef.current = playerRosterSignature;
+  }, [playerRosterSignature]);
 
   useEffect(() => {
     if (!draftTargetId) {
@@ -2981,7 +3019,6 @@ export const PlayPvpPage = () => {
                                           disabled={Boolean(roundSync?.selfLocked)}
                                         >
                                           <span className={styles.ribbonTargetTabIcon}>{candidate.compactLabel}</span>
-                                          <span className={styles.ribbonTargetTabLabel}>{candidate.label}</span>
                                         </button>
                                       ))}
                                     </div>

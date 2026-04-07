@@ -1753,6 +1753,11 @@ describe('PlayPvpPage', () => {
     });
 
     await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
       socket.emitMessage({
         type: 'roundDraft.rejected',
         operation: 'lock',
