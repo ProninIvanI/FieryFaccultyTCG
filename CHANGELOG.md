@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-07 update: staging `server` startup was corrected after the first deploy fix exposed an ESM/runtime mismatch. The current `server` TypeScript build emits extensionless ESM imports that Node cannot resolve directly from `dist`, so the deploy/start script now runs the server through `tsx` again while keeping the explicit build step for compile-time validation.
+
 > 2026-04-07 update: staging/VPS deploy wiring was corrected for the split frontend/backend/server stack. `docker-compose.staging.yml` no longer forces public frontend URLs to `localhost`, the WebSocket server now receives explicit internal backend URLs plus the shared internal token inside the container network, backend staging env now includes a concrete `DATABASE_URL`, the staging env example documents the internal token, and the server `start` script now runs the compiled build output instead of re-running `tsx` sources after build.
 
 > 2026-04-07 update: Docker Compose frontend defaults no longer force `VITE_API_URL=http://localhost:3001` and `VITE_WS_URL=ws://localhost:4000`. In containerized/server runs the client can now fall back to the current browser host unless explicit public endpoints are provided via environment variables, preventing another deploy-only localhost regression.
