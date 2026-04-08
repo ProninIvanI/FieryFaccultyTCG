@@ -1420,6 +1420,18 @@ export const PlayPvpPage = () => {
     () => localHandCards.filter((card) => !stagedHandCardIds.has(card.instanceId)),
     [localHandCards, stagedHandCardIds],
   );
+  const isSelfBoardModelDraftSynced = useMemo(() => {
+    if (!selfBoardModel) {
+      return false;
+    }
+
+    if (roundDraft.length === 0) {
+      return (selfBoardModel.roundActions?.length ?? 0) === 0;
+    }
+
+    const boardModelActionIds = new Set(selfBoardModel.roundActions.map((action) => action.id));
+    return roundDraft.every((intent) => boardModelActionIds.has(intent.intentId));
+  }, [roundDraft, selfBoardModel]);
   const selectedCreature = useMemo(
     () => (selection?.kind === 'creature' ? creatures.find((creature) => creature.creatureId === selection.creatureId) ?? null : null),
     [creatures, selection]
@@ -2068,7 +2080,7 @@ export const PlayPvpPage = () => {
     [knownTargetLabelsById],
   );
   const localRoundRibbonItems = useMemo<RoundRibbonActionSummary[]>(() => {
-    if (selfBoardModel?.roundActions?.length) {
+    if (selfBoardModel?.roundActions?.length && isSelfBoardModelDraftSynced) {
       return [...selfBoardModel.roundActions]
         .sort((left, right) => left.placement.orderIndex - right.placement.orderIndex)
         .map((action) => {
@@ -2152,11 +2164,21 @@ export const PlayPvpPage = () => {
         sourceBoardItemId: fallbackSourceBoardItemId,
       };
     });
-  }, [getIntentCardSummary, getIntentLabel, getIntentTargetLabel, localBoardItemIdByRuntimeId, previewLayerByIntentId, roundDraft, roundSync?.selfLocked, selfBoardModel]);
+  }, [
+    getIntentCardSummary,
+    getIntentLabel,
+    getIntentTargetLabel,
+    isSelfBoardModelDraftSynced,
+    localBoardItemIdByRuntimeId,
+    previewLayerByIntentId,
+    roundDraft,
+    roundSync?.selfLocked,
+    selfBoardModel,
+  ]);
   const localBattleRibbonEntries = useMemo<LocalBattleRibbonEntrySummary[]>(() => {
     const actionById = new Map(localRoundRibbonItems.map((action) => [action.id, action] as const));
 
-    if (selfBoardModel?.ribbonEntries?.length) {
+    if (selfBoardModel?.ribbonEntries?.length && isSelfBoardModelDraftSynced) {
       const orderedEntries = selfBoardModel.ribbonEntries.flatMap<LocalBattleRibbonEntrySummary>((entry) => {
         if (entry.kind === 'boardItem') {
           const item = localBoardItemsById.get(entry.boardItemId);
@@ -2227,7 +2249,7 @@ export const PlayPvpPage = () => {
         action,
       })),
     ];
-  }, [localBoardItems, localBoardItemsById, localRoundRibbonItems, selfBoardModel]);
+  }, [isSelfBoardModelDraftSynced, localBoardItems, localBoardItemsById, localRoundRibbonItems, selfBoardModel]);
   const hasLocalBattleRibbonEntries = localBattleRibbonEntries.length > 0;
 
   const resolvedTimelineEntries = !lastResolvedRound

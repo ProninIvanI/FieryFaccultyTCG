@@ -764,6 +764,126 @@ describe('PlayPvpPage', () => {
     });
   });
 
+  it('keeps all queued actions visible when roundDraft snapshot boardModel lags behind intents', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_modifier_snapshot_lag', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 10, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 10, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['modifier_card_1', 'water_shield_1', 'water_heal_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            modifier_card_1: { id: 'modifier_card_1', definitionId: '46', ownerId: 'user_1', zone: 'hand' },
+            water_shield_1: { id: 'water_shield_1', definitionId: '17', ownerId: 'user_1', zone: 'hand' },
+            water_heal_1: { id: 'water_heal_1', definitionId: '19', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_modifier_1',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 0,
+            kind: 'PlayCard',
+            cardInstanceId: 'modifier_card_1',
+            target: {
+              targetType: 'self',
+              targetId: 'char_1',
+            },
+          },
+          {
+            intentId: 'draft_water_shield_1',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 1,
+            kind: 'CastSpell',
+            cardInstanceId: 'water_shield_1',
+            target: {
+              targetType: 'self',
+              targetId: 'char_1',
+            },
+          },
+          {
+            intentId: 'draft_water_heal_1',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 2,
+            kind: 'CastSpell',
+            cardInstanceId: 'water_heal_1',
+            target: {
+              targetType: 'self',
+              targetId: 'char_1',
+            },
+          },
+        ],
+        boardModel: {
+          playerId: 'user_1',
+          boardItems: [],
+          ribbonEntries: [
+            {
+              id: 'roundAction:draft_modifier_1',
+              kind: 'roundAction',
+              orderIndex: 0,
+              layer: 'other_modifiers',
+              roundActionId: 'draft_modifier_1',
+            },
+          ],
+          roundActions: [
+            {
+              id: 'draft_modifier_1',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'char_1',
+              kind: 'PlayCard',
+              source: { type: 'card', cardInstanceId: 'modifier_card_1', definitionId: '46' },
+              target: {
+                targetType: 'self',
+                targetId: 'char_1',
+              },
+              placement: { layer: 'other_modifiers', orderIndex: 0, queueIndex: 0 },
+              status: 'draft',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Концентрация силы/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Сфера воды/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Водное исцеление/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('button', { name: /Убрать из ленты/i }).length).toBe(3);
+      expect(screen.queryByText(/Все карты из руки уже перенесены в боевую ленту/i)).toBeInTheDocument();
+    });
+  });
+
   it('sends roundDraft.replace with Evade intent for selected allied creature', async () => {
     await renderPage('char_1', 'user_1');
 

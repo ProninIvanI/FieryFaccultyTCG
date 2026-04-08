@@ -110,3 +110,4 @@
 
 - Обновлены `docs/data-architecture.md`, `frontend/ARCHITECTURE.md` и `FUTURE_TODO.md` под текущий статус server-backed decks и PvP UI.
 - Документация по PvP UI синхронизирована с новым battlefield-слоем и cleanup в тестах `PlayPvpPage`: `act(...)` и React Router warnings больше не считаются открытым техдолгом.
+> 2026-04-08 update: fixed another PvP draft-ribbon desync in `PlayPvpPage` where a stale personal `roundDraft.snapshot.boardModel` could lag behind the newer `intents` list and visually hide queued follow-up spells after opening with `Концентрация силы`. The local pre-lock battle ribbon now falls back to the canonical local `roundDraft` whenever `boardModel.roundActions/ribbonEntries` do not fully cover the current draft, and frontend coverage includes a regression for lagging snapshot-vs-intents payloads.
