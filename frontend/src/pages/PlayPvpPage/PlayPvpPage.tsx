@@ -470,6 +470,15 @@ const getIntentPreviewLayer = (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
+const getRuntimeIdFromBoardItemId = (boardItemId: string): string | null => {
+  const separatorIndex = boardItemId.indexOf(':');
+  if (separatorIndex < 0 || separatorIndex === boardItemId.length - 1) {
+    return null;
+  }
+
+  return boardItemId.slice(separatorIndex + 1);
+};
+
 const cardCatalogById = new Map(normalizeCatalog(rawCardData).cards.map((card) => [card.id, card] as const));
 const roundIntentCardRegistry = new CardRegistry(
   Array.isArray(rawCardData.cards)
@@ -1238,6 +1247,18 @@ export const PlayPvpPage = () => {
     () => new Map(localBoardItems.map((item) => [item.id, item] as const)),
     [localBoardItems],
   );
+  const allResolvedBoardItems = useMemo(
+    () => playerBoards.flatMap((playerBoard) => getPlayerBoardItemSummaries(matchState, playerBoard.playerId)),
+    [matchState, playerBoards],
+  );
+  const resolvedBoardItemsById = useMemo(
+    () => new Map(allResolvedBoardItems.map((item) => [item.id, item] as const)),
+    [allResolvedBoardItems],
+  );
+  const resolvedBoardItemIdByRuntimeId = useMemo(
+    () => new Map(allResolvedBoardItems.map((item) => [item.runtimeId, item.id] as const)),
+    [allResolvedBoardItems],
+  );
   const canSummonMoreCreatures = alliedCreatures.length < 2;
   const enemyBoards = useMemo(() => playerBoards.filter((playerBoard) => playerBoard.playerId !== playerId), [playerBoards, playerId]);
   const localBoard = useMemo(
@@ -1265,12 +1286,50 @@ export const PlayPvpPage = () => {
     },
     [resolvedPlayerLabels],
   );
+  const getResolvedCharacterLabel = useCallback(
+    (characterId?: string | null): string | null => {
+      if (!characterId) {
+        return null;
+      }
+
+      if (characterId === localPlayer?.characterId) {
+        return 'Твой маг';
+      }
+
+      const ownerBoard = playerBoards.find((playerBoard) => playerBoard.characterId === characterId);
+      if (ownerBoard) {
+        return `Маг ${getPlayerDisplayName(ownerBoard.playerId)}`;
+      }
+
+      const character = characterCatalogById.get(characterId);
+      return character ? `Маг ${character.name}` : null;
+    },
+    [getPlayerDisplayName, localPlayer?.characterId, playerBoards],
+  );
+  const getResolvedBoardItemLabel = useCallback(
+    (boardItemId?: string | null, runtimeId?: string | null): string | null => {
+      const boardItem =
+        (boardItemId ? resolvedBoardItemsById.get(boardItemId) : undefined) ??
+        (runtimeId ? resolvedBoardItemsById.get(resolvedBoardItemIdByRuntimeId.get(runtimeId) ?? '') : undefined);
+      if (boardItem) {
+        return boardItem.title;
+      }
+
+      const fallbackRuntimeId = runtimeId ?? (boardItemId ? getRuntimeIdFromBoardItemId(boardItemId) : null);
+      return fallbackRuntimeId ? `Существо ${fallbackRuntimeId}` : null;
+    },
+    [resolvedBoardItemIdByRuntimeId, resolvedBoardItemsById],
+  );
   const localDisplayName = getPlayerDisplayName(playerId);
   const primaryEnemyBoard = enemyBoards[0] ?? null;
   const primaryEnemyDisplayName = getPlayerDisplayName(primaryEnemyBoard?.playerId);
   const enemyRibbonBoardItems = useMemo(
     () => (primaryEnemyBoard?.playerId ? getPlayerPublicRibbonBoardItems(matchState, primaryEnemyBoard.playerId) : []),
     [matchState, primaryEnemyBoard?.playerId],
+  );
+  const enemyRibbonBoardItemIdByRuntimeId = useMemo(
+    () => new Map(enemyRibbonBoardItems.map((item) => [item.runtimeId, item.id] as const)),
+    [enemyRibbonBoardItems],
   );
   const localCharacter = useMemo(
     () => (localPlayer?.characterId ? characterCatalogById.get(localPlayer.characterId) ?? null : null),
@@ -1524,12 +1583,12 @@ export const PlayPvpPage = () => {
     creatures.forEach((creature) => {
       labelMap.set(
         creature.creatureId,
-        creature.ownerId === playerId ? `Твое существо ${creature.creatureId}` : `Существо ${creature.creatureId}`,
+        getResolvedBoardItemLabel(null, creature.creatureId) ?? `Существо ${creature.creatureId}`,
       );
     });
 
     return labelMap;
-  }, [creatures, enemyBoards, getPlayerDisplayName, localPlayer, playerId]);
+  }, [creatures, enemyBoards, getPlayerDisplayName, getResolvedBoardItemLabel, localPlayer]);
   const getRibbonTargetOptions = useCallback((targetType: TargetType | null | undefined): RibbonTargetOptionSummary[] =>
     getTargetCandidatesForType(targetType).map((candidate) => ({
       ...candidate,
@@ -1961,22 +2020,30 @@ export const PlayPvpPage = () => {
   );
   const getResolvedActionTitle = useCallback(
     (action: ResolvedRoundAction): string => {
-      const cardName = action.definitionId ? cardCatalogById.get(action.definitionId)?.name : undefined;
+      const cardName = (action.source.type === 'card' && action.source.definitionId
+        ? cardCatalogById.get(action.source.definitionId)?.name
+        : undefined) ?? (action.definitionId ? cardCatalogById.get(action.definitionId)?.name : undefined);
+      const sourceLabel =
+        action.source.type === 'boardItem'
+          ? getResolvedBoardItemLabel(action.source.boardItemId, action.actorId)
+          : action.source.type === 'actor'
+            ? getResolvedCharacterLabel(action.source.actorId) ?? getResolvedBoardItemLabel(null, action.source.actorId)
+            : cardName ?? null;
 
       switch (action.kind) {
         case 'Summon':
-          return cardName ? `Призыв: ${cardName}` : `Призыв ${action.cardInstanceId ?? action.intentId}`;
+          return cardName ? `Призыв: ${cardName}` : `Призыв: ${sourceLabel ?? action.cardInstanceId ?? action.intentId}`;
         case 'CastSpell':
-          return cardName ? `Заклинание: ${cardName}` : `Заклинание ${action.cardInstanceId ?? action.intentId}`;
+          return cardName ? `Заклинание: ${cardName}` : `Заклинание: ${sourceLabel ?? action.cardInstanceId ?? action.intentId}`;
         case 'PlayCard':
-          return cardName ? `Розыгрыш: ${cardName}` : `Розыгрыш ${action.cardInstanceId ?? action.intentId}`;
+          return cardName ? `Розыгрыш: ${cardName}` : `Розыгрыш: ${sourceLabel ?? action.cardInstanceId ?? action.intentId}`;
         case 'Attack':
-          return `Атака: ${action.actorId}`;
+          return `Атака: ${sourceLabel ?? action.actorId}`;
         case 'Evade':
-          return 'Уклонение';
+          return sourceLabel ? `Уклонение: ${sourceLabel}` : 'Уклонение';
       }
     },
-    [],
+    [getResolvedBoardItemLabel, getResolvedCharacterLabel],
   );
   const getResolvedActionTargetLabel = useCallback(
     (action: ResolvedRoundAction): string => {
@@ -2186,14 +2253,38 @@ export const PlayPvpPage = () => {
   const isEnemyLaneEmpty = !enemyPlaybackEntry && enemyRibbonBoardItems.length === 0;
   const isLocalLaneEmpty = !localPlaybackEntry && !hasLocalBattleRibbonEntries;
   const activeLocalPlaybackIntentId = localPlaybackEntry?.action.intentId ?? null;
-  const activeLocalPlaybackRoundAction =
-    activeLocalPlaybackIntentId && selfBoardModel?.roundActions?.length
-      ? selfBoardModel.roundActions.find((action) => action.id === activeLocalPlaybackIntentId) ?? null
-      : null;
-  const activeLocalPlaybackSourceBoardItemId =
-    activeLocalPlaybackRoundAction?.source.type === 'boardItem'
-      ? activeLocalPlaybackRoundAction.source.boardItemId
-      : null;
+  const resolvePlaybackSourceBoardItemId = useCallback(
+    (
+      action: ResolvedRoundAction | null | undefined,
+      boardItemIdByRuntimeId: ReadonlyMap<string, string>,
+      boardItems: BoardItemSummary[],
+    ): string | null => {
+      if (!action) {
+        return null;
+      }
+
+      if (action.source.type === 'boardItem') {
+        return action.source.boardItemId;
+      }
+
+      if (action.source.type === 'actor') {
+        return boardItemIdByRuntimeId.get(action.source.actorId) ?? null;
+      }
+
+      if (action.kind === 'Summon') {
+        const matchingItems = boardItems.filter((item) => item.placementLayer === action.layer);
+        return matchingItems.length === 1 ? matchingItems[0].id : null;
+      }
+
+      return boardItemIdByRuntimeId.get(action.actorId) ?? null;
+    },
+    [],
+  );
+  const activeLocalPlaybackSourceBoardItemId = resolvePlaybackSourceBoardItemId(
+    localPlaybackEntry?.action,
+    localBoardItemIdByRuntimeId,
+    localBoardItems,
+  );
   const resolvedPlaybackStepLabel = activeResolvedTimelineEntry
     ? `Шаг ${resolvedPlaybackIndex + 1} из ${resolvedTimelineEntries.length}`
     : 'Ожидание playback';
@@ -2201,14 +2292,11 @@ export const PlayPvpPage = () => {
   const enemyResolvedActionCount = resolvedTimelineEntries.length - localResolvedActionCount;
   const hasActiveMatchConnection = Boolean(joinedSessionId || matchState);
   const selectedDeckName = savedDecks.find((deck) => deck.id === deckId)?.name ?? 'не выбрана';
-  const activeEnemyPlaybackBoardItemId = useMemo(() => {
-    if (!enemyPlaybackEntry) {
-      return null;
-    }
-
-    const matchingItems = enemyRibbonBoardItems.filter((item) => item.placementLayer === enemyPlaybackEntry.action.layer);
-    return matchingItems.length === 1 ? matchingItems[0].id : null;
-  }, [enemyPlaybackEntry, enemyRibbonBoardItems]);
+  const activeEnemyPlaybackBoardItemId = resolvePlaybackSourceBoardItemId(
+    enemyPlaybackEntry?.action,
+    enemyRibbonBoardItemIdByRuntimeId,
+    enemyRibbonBoardItems,
+  );
 
   const draftRejectionErrorsByIntentId = useMemo(() => {
     const errorMap = new Map<string, RoundDraftRejectedSummary['errors']>();
@@ -3521,7 +3609,7 @@ export const PlayPvpPage = () => {
                 )}
                 {resolvedTimelineEntries.length > 0 ? (
                   <div className={styles.hint}>
-                    Шаги показаны в фактическом порядке server-side резолва. Для твоих intent локальные label и target восстановлены по `intentId`.
+                    Шаги показаны в фактическом порядке общего server-side резолва. После `roundResolved` и твои, и вражеские действия отображаются как публичная лента раунда.
                   </div>
                 ) : null}
               </div>

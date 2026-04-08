@@ -209,6 +209,9 @@
 - добить rule-completeness для edge cases и cleanup/end-of-round;
 - расширить UI на все action kinds;
 - расширить уже внедрённые structured reason/reject contracts на оставшиеся UX-кейсы по мере появления;
+- удерживать границу между private и public round-представлениями:
+  - `roundDraft.snapshot.boardModel` и `PlayerBoardModel.ribbonEntries` остаются private draft/board view владельца;
+  - `roundResolved.orderedActions` остаётся единственным каноническим public source of truth для resolved order и playback;
 - развить уже внедрённый reveal timeline поверх `roundResolved` в staged-resolve UX:
   - центральная зона должна показывать раунд как последовательность слоёв резолва, а не как сырой лог;
   - каждый этап раскрывает только карты и эффекты текущего слоя;

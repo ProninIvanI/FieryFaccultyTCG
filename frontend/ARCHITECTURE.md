@@ -190,6 +190,9 @@ components/      (рендеринг компонентов)
   - выбор цели;
   - lock-in;
   - восстановление собственного draft после reconnect через `roundDraft.snapshot`.
+- В round-loop есть явное разделение двух представлений:
+  - до `roundResolved` основной UX работает с private draft ribbon владельца через `roundDraft.snapshot` и `PlayerBoardModel`;
+  - после `roundResolved` основной публичный UX и playback читают только `lastResolvedRound.orderedActions`.
 - До появления уникальных runtime-id для персонажей PvP-join дополнительно валидирует выбор мага на сервере: второй игрок с тем же `characterId` получает ранний `join.rejected` с понятным сообщением и не заходит в матч в полусломанном состоянии.
 - PvP presentation-layer оформлен как единая tabletop-сцена: player/deck widgets собраны в один общий вертикальный side-column в порядке `оппонент -> колода соперника -> твоя колода -> ты`, а центральный arena-frame и hand zone собираются только из derived UI-данных и не становятся source of truth.
 - Линии существ на поле намеренно компактные и горизонтальные, а рука локального игрока занимает нижнюю центральную зону арены; эти visual affordance помогают читать ход и темп матча, но не добавляют новой игровой логики поверх server snapshot.
@@ -201,8 +204,9 @@ components/      (рендеринг компонентов)
   - клик по карте из руки сразу добавляет `Summon`, target-спелл или `PlayCard` в ленту;
   - действия закреплённых объектов конфигурируются inline в карточке ленты;
   - UI показывает placement и preview слоя резолва, но не обещает FIFO-исполнение;
-  - после `roundResolved` результат связывается с локальными intent по `intentId`;
-  - для последнего резолва UI показывает `resolved/fizzled`, reason code, summary и reveal timeline в фактическом server-side порядке.
+  - после `roundResolved` UI не пересчитывает порядок сам, а использует публичный `orderedActions` как каноническую resolution ribbon;
+  - связь с локальными intent по `intentId` остаётся только вспомогательной для локального UX и подсветки, а не для построения публичной ленты;
+  - для последнего резолва UI показывает `resolved/fizzled`, reason code, summary и reveal/playback в фактическом server-side порядке.
 - Draft и post-round presentation больше не опираются на сырой `targetId`: PvP UI резолвит человекочитаемые target label’ы (`Твой маг`, `Маг user_2`, `Твое существо ...`) из актуального snapshot и использует их в очереди, snapshot restore и timeline.
 - Правой contextual-панели в основном PvP UX больше нет: action/target indicators живут прямо в карточках боевой ленты, а смена цели происходит кликом по подсвеченным сущностям на поле.
 - PvP UI всё ещё остаётся минимальным playable-срезом: bootstrap ручной, lobby/matchmaking и ручной smoke в двух реальных клиентах остаются следующими итерациями.
@@ -256,10 +260,11 @@ components/      (рендеринг компонентов)
   - подсвечивать возможные цели и стоимость;
   - визуально маркировать защитные, атакующие и summon-действия;
   - восстанавливать собственный draft после reconnect;
-  - связывать результат `roundResolved` с локальными intent по `intentId`.
+  - связывать результат `roundResolved` с локальными intent по `intentId` только как secondary UX-механику.
 - Frontend не должен:
   - сам вычислять, какая карта сработает раньше в итоговом раунде;
   - сам решать спорные tie-break кейсы;
+  - трактовать `PlayerBoardModel.ribbonEntries` как канонический публичный порядок общего раунда;
   - менять outcome на основе локального порядка, если `game-core` решил иначе.
 - Если UI показывает прогноз порядка, этот прогноз должен быть derived из правил `game-core`, а не из ad-hoc frontend логики.
 

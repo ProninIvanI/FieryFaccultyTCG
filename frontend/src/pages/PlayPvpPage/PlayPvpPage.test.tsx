@@ -1295,7 +1295,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Атака: enemy_creature_1/i)).toBeInTheDocument();
+      expect(screen.getByText(/Атака: Существо enemy_creature_1/i)).toBeInTheDocument();
       expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Твой маг`, 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length).toBeGreaterThan(0);
@@ -1303,7 +1303,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/Цель исчезла до резолва/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(getResolutionLayerLabel('offensive_control_spells'), 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/fizzled/i).length).toBeGreaterThan(0);
-      expect(screen.getByText(/Шаги показаны в фактическом порядке server-side резолва/i)).toBeInTheDocument();
+      expect(screen.getByText(/Шаги показаны в фактическом порядке общего server-side резолва/i)).toBeInTheDocument();
     });
   });
 

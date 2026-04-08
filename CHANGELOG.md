@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-08 update: completed the next public-resolve ribbon cleanup across frontend and docs. `PlayPvpPage` now renders more readable public resolved actions from board/character state instead of raw ids, playback highlights are tied to `roundResolved.orderedActions[].source` with a summon-safe fallback, and architecture docs now explicitly lock the private/public boundary: `roundDraft.snapshot.boardModel` stays owner-only draft/board view while post-lock public order and playback come only from `roundResolved.orderedActions`.
+
 > 2026-04-07 update: removed computed `DATABASE_URL` from Docker Compose backend environments. The backend already supports discrete Postgres host/user/password settings, and interpolating a URL from raw `POSTGRES_PASSWORD` created a deploy-time footgun where passwords with reserved URL characters could make all auth/deck DB requests fail with `500` even though the HTTP server itself still started.
 
 > 2026-04-07 update: staging `server` startup was corrected after the first deploy fix exposed an ESM/runtime mismatch. The current `server` TypeScript build emits extensionless ESM imports that Node cannot resolve directly from `dist`, so the deploy/start script now runs the server through `tsx` again while keeping the explicit build step for compile-time validation.

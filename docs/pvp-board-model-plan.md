@@ -402,7 +402,8 @@ Frontend не должен:
 
 - server rebroadcast'ит post-resolve personal/public snapshots;
 - `boardView` и `boardModel` уже используются в живом PvP-контуре;
-- frontend ориентируется на resolved snapshot, а не на локальный draft после завершения раунда.
+- frontend ориентируется на resolved snapshot, а не на локальный draft после завершения раунда;
+- публичный порядок post-lock теперь читается из `roundResolved.orderedActions`, а `roundDraft.snapshot.boardModel` остаётся private draft/board view.
 
 Что остаётся:
 
@@ -424,6 +425,7 @@ Frontend не должен:
 
 - playback опирается на `roundResolved.orderedActions`;
 - frontend проигрывает упорядоченные шаги резолва и показывает summary/status;
+- active source/target highlight уже привязывается к `orderedActions[].source/target`, а не к отдельному локальному порядку;
 - live match UI уже смещён в сторону replay-focused HUD/panels.
 
 Что остаётся:
