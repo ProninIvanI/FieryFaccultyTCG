@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-09 update: migrated live frontend card consumers from the legacy `frontend/src/data/cards.json` file to the shared `game-core/data/cards.json` catalog. `CardsPage`, `DeckPage`, and `PlayPvpPage` now read the same card definitions as the engine through a frontend catalog shim, the outdated local card catalog was removed, and frontend architecture docs now explicitly point card-name resolution at the shared game-core catalog.
+
 > 2026-04-08 update: fixed a PvP draft-queue race in `PlayPvpPage` where quickly queuing an auto-target modifier (for example `Концентрация силы`) and then another hand card could overwrite the newer draft with a stale one. Draft append/update/remove operations now read from the latest local draft ref instead of a stale render closure, and frontend coverage includes a rapid-click regression for modifier-then-spell queueing.
 
 > 2026-04-08 update: completed the next public-resolve ribbon cleanup across frontend and docs. `PlayPvpPage` now renders more readable public resolved actions from board/character state instead of raw ids, playback highlights are tied to `roundResolved.orderedActions[].source` with a summon-safe fallback, and architecture docs now explicitly lock the private/public boundary: `roundDraft.snapshot.boardModel` stays owner-only draft/board view while post-lock public order and playback come only from `roundResolved.orderedActions`.

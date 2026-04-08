@@ -12,7 +12,7 @@ import {
 } from "@game-core/cards/catalog";
 import { Card, HomeLinkButton, PageShell } from "@/components";
 import { ROUTES } from "@/constants";
-import rawCardData from "@/data/cards.json";
+import rawCardData from "@/data/cardCatalog";
 import styles from "./CardsPage.module.css";
 
 type CardType = CatalogCardUiType;

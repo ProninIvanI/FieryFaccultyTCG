@@ -26,7 +26,7 @@ import {
 } from '@game-core/rounds/presentation';
 import { Card, HomeLinkButton, PageShell } from '@/components';
 import { ROUTES } from '@/constants';
-import rawCardData from '@/data/cards.json';
+import rawCardData from '@/data/cardCatalog';
 import { authService, deckService, gameWsService } from '@/services';
 import {
   AuthSession,

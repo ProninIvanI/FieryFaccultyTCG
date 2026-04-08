@@ -10,7 +10,7 @@ import {
   type CatalogSchool,
 } from "@game-core/cards/catalog";
 import { Card, HomeLinkButton, PageShell } from "@/components";
-import rawCardData from "@/data/cards.json";
+import rawCardData from "@/data/cardCatalog";
 import { authService, deckService } from "@/services";
 import { DeckCardItem, UserDeck } from "@/types";
 import styles from "./DeckPage.module.css";
