@@ -654,6 +654,60 @@ describe('PlayPvpPage', () => {
     });
   });
 
+  it('uses card resolution metadata for local preview layer badges', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_preview_layer_metadata', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1', 'spell_card_2'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+            spell_card_2: { id: 'spell_card_2', definitionId: '17', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click((await screen.findByText('Огненный шар')).closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Боевое заклинание/i).length).toBeGreaterThan(0);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Сфера воды').closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Защита/i).length).toBeGreaterThan(0);
+    });
+  });
+
   it('builds and sends PlayCard roundDraft through self-target draft UI', async () => {
     await renderPage('char_1', 'user_1');
 
@@ -1383,6 +1437,129 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByRole('button', { name: /Убрать из ленты/i }).length).toBeGreaterThan(0);
       expect(screen.getByText(/Ходы: 2/i)).toBeInTheDocument();
       expect(screen.queryByText(/Модификаторы/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows synced action targets from boardModel even when draft snapshot targetId is missing', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_synced_action_targets', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1', 'spell_card_2'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+            spell_card_2: { id: 'spell_card_2', definitionId: '17', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_fireball',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 0,
+            kind: 'CastSpell',
+            cardInstanceId: 'spell_card_1',
+            target: { targetType: 'enemyCharacter' },
+          },
+          {
+            intentId: 'draft_water_sphere',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 1,
+            kind: 'CastSpell',
+            cardInstanceId: 'spell_card_2',
+            target: { targetType: 'allyCharacter' },
+          },
+        ],
+        boardModel: {
+          playerId: 'user_1',
+          boardItems: [],
+          ribbonEntries: [
+            {
+              id: 'roundAction:draft_fireball',
+              kind: 'roundAction',
+              orderIndex: 0,
+              layer: 'offensive_control_spells',
+              roundActionId: 'draft_fireball',
+            },
+            {
+              id: 'roundAction:draft_water_sphere',
+              kind: 'roundAction',
+              orderIndex: 1,
+              layer: 'defensive_spells',
+              roundActionId: 'draft_water_sphere',
+            },
+          ],
+          roundActions: [
+            {
+              id: 'draft_fireball',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'char_1',
+              kind: 'CastSpell',
+              source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              placement: { layer: 'offensive_control_spells', orderIndex: 0, queueIndex: 0 },
+              status: 'draft',
+            },
+            {
+              id: 'draft_water_sphere',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'char_1',
+              kind: 'CastSpell',
+              source: { type: 'card', cardInstanceId: 'spell_card_2', definitionId: '17' },
+              target: { targetType: 'allyCharacter', targetId: 'char_1' },
+              placement: { layer: 'defensive_spells', orderIndex: 1, queueIndex: 1 },
+              status: 'draft',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Сфера воды/i).length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(new RegExp(`Цель: ${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(new RegExp(`Цель: ${getTargetTypeLabel('allyCharacter')} -> Твой маг`, 'i')).length,
+      ).toBeGreaterThan(0);
     });
   });
 

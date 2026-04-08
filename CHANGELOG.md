@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-09 update: fixed two more `PlayPvpPage` PvP ribbon regressions after the target-isolation change. Synced round-action cards now keep showing target badges by falling back to `boardModel.roundActions[].target` when the local draft snapshot is temporarily incomplete, and local preview-layer badges now come from the shared card definition via `game-core` resolution metadata instead of a frontend `targetType` guess, so cards like `Сфера воды` render as `Защита` instead of `Боевое заклинание`.
+
 > 2026-04-09 update: fixed a PvP target-draft leak in `PlayPvpPage` where a selected enemy target from one card could carry over into another hand card with a different target contract. Draft targeting is now stored per source card/attack instead of as a shared screen-level target, so cards like `Сфера воды` re-initialize to their own valid ally/self target instead of inheriting an old enemy target. Frontend coverage now includes a regression for cross-card target isolation.
 
 > 2026-04-09 update: migrated live frontend card consumers from the legacy `frontend/src/data/cards.json` file to the shared `game-core/data/cards.json` catalog. `CardsPage`, `DeckPage`, and `PlayPvpPage` now read the same card definitions as the engine through a frontend catalog shim, the outdated local card catalog was removed, and frontend architecture docs now explicitly point card-name resolution at the shared game-core catalog.

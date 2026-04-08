@@ -16,7 +16,8 @@ import {
   createInitialCardRoundIntent,
   createInitialCreatureRoundIntent,
 } from '@game-core/rounds/createInitialRoundIntent';
-import type { PlayerBoardModel, ResolutionLayer, ResolvedRoundAction, RoundDraftValidationError, RoundResolutionResult, TargetType } from '@game-core/types';
+import { getResolutionLayerForCardDefinition } from '@game-core/rounds/compileRoundActions';
+import type { CardDefinition, PlayerBoardModel, ResolutionLayer, ResolvedRoundAction, RoundDraftValidationError, RoundResolutionResult, TargetType } from '@game-core/types';
 import {
   getResolutionLayerLabel,
   getRoundDraftRejectCodeLabel,
@@ -277,6 +278,28 @@ const getActionTargetPreview = (subtitle: string): string | undefined => {
   return subtitle;
 };
 
+const getRoundActionTargetSubtitle = (
+  kind: RoundActionIntentDraft['kind'],
+  targetType?: TargetType | null,
+  targetId?: string | null,
+  knownTargetLabelsById?: ReadonlyMap<string, string>,
+): string => {
+  if (kind === 'Summon' || kind === 'Evade') {
+    return 'Без цели';
+  }
+
+  if (!targetType) {
+    return 'Цель не указана';
+  }
+
+  if (!targetId) {
+    return 'Цель уточняется';
+  }
+
+  const targetLabel = knownTargetLabelsById?.get(targetId);
+  return `${getTargetTypeLabel(targetType)} -> ${targetLabel ?? targetId}`;
+};
+
 const getRoundActionFocusLabel = (modeLabel: string, targetLabel?: string): string =>
   targetLabel ? `${modeLabel} -> ${targetLabel}` : modeLabel;
 
@@ -447,6 +470,7 @@ const getTransportRejectCodeLabel = (code: TransportRejectedServerMessage['code'
 
 const getIntentPreviewLayer = (
   intent: RoundActionIntentDraft,
+  cardDefinition: CardDefinition | null,
   selectedTargetType?: TargetType
 ): ResolutionLayer => {
   switch (intent.kind) {
@@ -457,13 +481,19 @@ const getIntentPreviewLayer = (
     case 'Attack':
       return 'attacks';
     case 'CastSpell':
-      return selectedTargetType === 'self' || selectedTargetType === 'allyCharacter'
-        ? 'defensive_spells'
-        : 'offensive_control_spells';
-    case 'PlayCard':
-      return selectedTargetType === 'self' || selectedTargetType === 'allyCharacter'
-        ? 'defensive_modifiers'
-        : 'other_modifiers';
+    case 'PlayCard': {
+      if (cardDefinition) {
+        return getResolutionLayerForCardDefinition(cardDefinition);
+      }
+
+      return intent.kind === 'CastSpell'
+        ? selectedTargetType === 'self' || selectedTargetType === 'allyCharacter'
+          ? 'defensive_spells'
+          : 'offensive_control_spells'
+        : selectedTargetType === 'self' || selectedTargetType === 'allyCharacter'
+          ? 'defensive_modifiers'
+          : 'other_modifiers';
+    }
   }
 };
 
@@ -1682,18 +1712,25 @@ export const PlayPvpPage = () => {
 
     roundDraft.forEach((intent) => {
       const coreRoundAction = coreRoundActionByIntentId.get(intent.intentId);
+      const intentCardDefinition =
+        'cardInstanceId' in intent
+          ? (() => {
+              const handCard = localHandCards.find((card) => card.instanceId === intent.cardInstanceId);
+              return handCard ? roundIntentCardRegistry.get(handCard.cardId) ?? null : null;
+            })()
+          : null;
       const selectedTargetType =
         intent.kind === 'CastSpell' || intent.kind === 'PlayCard' || intent.kind === 'Attack'
           ? intent.target.targetType
           : undefined;
       layerMap.set(
         intent.intentId,
-        coreRoundAction?.placement.layer ?? getIntentPreviewLayer(intent, selectedTargetType),
+        coreRoundAction?.placement.layer ?? getIntentPreviewLayer(intent, intentCardDefinition, selectedTargetType),
       );
     });
 
     return layerMap;
-  }, [coreRoundActionByIntentId, roundDraft]);
+  }, [coreRoundActionByIntentId, localHandCards, roundDraft]);
 
   const syncRoundDraft = useCallback((nextDraft: RoundActionIntentDraft[]): void => {
     if (!currentRoundNumber) {
@@ -2089,17 +2126,16 @@ export const PlayPvpPage = () => {
 
   const getIntentTargetLabel = useCallback(
     (intent: RoundActionIntentDraft): string => {
-      if (intent.kind === 'Summon' || intent.kind === 'Evade') {
-        return 'Без цели';
+      if (!('target' in intent)) {
+        return getRoundActionTargetSubtitle(intent.kind, null, null, knownTargetLabelsById);
       }
 
-      const { targetId, targetType } = intent.target;
-      if (!targetId) {
-        return 'Цель уточняется';
-      }
-
-      const targetLabel = knownTargetLabelsById.get(targetId);
-      return `${getTargetTypeLabel(targetType ?? null)} -> ${targetLabel ?? targetId}`;
+      return getRoundActionTargetSubtitle(
+        intent.kind,
+        intent.target.targetType ?? null,
+        intent.target.targetId ?? null,
+        knownTargetLabelsById,
+      );
     },
     [knownTargetLabelsById],
   );
@@ -2155,26 +2191,47 @@ export const PlayPvpPage = () => {
             matchingDraft && 'cardInstanceId' in matchingDraft
               ? getIntentCardSummary(matchingDraft.cardInstanceId)
               : null;
+          const draftTargetLabel = matchingDraft ? getActionTargetPreview(getIntentTargetLabel(matchingDraft)) : undefined;
+          const actionTargetLabel = getActionTargetPreview(
+            getRoundActionTargetSubtitle(
+              action.kind,
+              action.target?.targetType ?? null,
+              action.target?.targetId ?? null,
+              knownTargetLabelsById,
+            ),
+          );
+          const resolvedTargetLabel = draftTargetLabel ?? actionTargetLabel;
+          const resolvedSubtitle =
+            matchingDraft && draftTargetLabel
+              ? getIntentTargetLabel(matchingDraft)
+              : actionTargetLabel ??
+                (matchingDraft
+                  ? getIntentTargetLabel(matchingDraft)
+                  : action.summary ?? `Слой ${getResolutionLayerLabel(action.placement.layer)}`);
 
           return {
             id: action.id,
             title:
               matchingCard?.name ??
               (matchingDraft ? getIntentLabel(matchingDraft) : `${action.kind} ${action.id}`),
-            subtitle: matchingDraft
-              ? getIntentTargetLabel(matchingDraft)
-              : action.summary ?? `Слой ${getResolutionLayerLabel(action.placement.layer)}`,
+            subtitle: resolvedSubtitle,
             modeLabel: getRoundActionModeLabel(action.placement.layer),
             statusLabel: getRoundActionStatusDisplay(action.status),
-            targetLabel: matchingDraft ? getActionTargetPreview(getIntentTargetLabel(matchingDraft)) : undefined,
+            targetLabel: resolvedTargetLabel,
             focusLabel: getRoundActionFocusLabel(
               getRoundActionModeLabel(action.placement.layer),
-              matchingDraft ? getActionTargetPreview(getIntentTargetLabel(matchingDraft)) : undefined,
+              resolvedTargetLabel,
             ),
             effectSummary: matchingCard?.effect,
             cardSpeed: matchingCard?.speed,
-            targetType: matchingDraft && 'target' in matchingDraft ? matchingDraft.target.targetType ?? null : null,
-            targetId: matchingDraft && 'target' in matchingDraft ? matchingDraft.target.targetId ?? null : null,
+            targetType:
+              matchingDraft && 'target' in matchingDraft
+                ? matchingDraft.target.targetType ?? action.target?.targetType ?? null
+                : action.target?.targetType ?? null,
+            targetId:
+              matchingDraft && 'target' in matchingDraft
+                ? matchingDraft.target.targetId ?? action.target?.targetId ?? null
+                : action.target?.targetId ?? null,
             layer: action.placement.layer,
             status: action.status,
             orderIndex: action.placement.orderIndex,
@@ -2231,6 +2288,7 @@ export const PlayPvpPage = () => {
       };
     });
   }, [
+    knownTargetLabelsById,
     getIntentCardSummary,
     getIntentLabel,
     getIntentTargetLabel,
