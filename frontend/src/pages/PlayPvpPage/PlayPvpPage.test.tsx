@@ -874,6 +874,95 @@ describe('PlayPvpPage', () => {
     });
   });
 
+  it('shows a default enemy target label for synced offensive spells while targetId is temporarily absent', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_default_enemy_target_label', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_fireball_missing_target',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 0,
+            kind: 'CastSpell',
+            cardInstanceId: 'spell_card_1',
+            target: { targetType: 'enemyCharacter' },
+          },
+        ],
+        boardModel: {
+          playerId: 'user_1',
+          boardItems: [],
+          ribbonEntries: [
+            {
+              id: 'roundAction:draft_fireball_missing_target',
+              kind: 'roundAction',
+              orderIndex: 0,
+              layer: 'offensive_control_spells',
+              roundActionId: 'draft_fireball_missing_target',
+            },
+          ],
+          roundActions: [
+            {
+              id: 'draft_fireball_missing_target',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'char_1',
+              kind: 'CastSpell',
+              source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
+              target: { targetType: 'enemyCharacter' },
+              placement: { layer: 'offensive_control_spells', orderIndex: 0, queueIndex: 0 },
+              status: 'draft',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByText(new RegExp(`Цель: ${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
+      ).toBeGreaterThan(0);
+    });
+  });
+
   it('builds and sends PlayCard roundDraft through self-target draft UI', async () => {
     await renderPage('char_1', 'user_1');
 

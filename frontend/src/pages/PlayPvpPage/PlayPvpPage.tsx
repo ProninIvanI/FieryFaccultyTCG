@@ -322,6 +322,7 @@ const getRoundActionTargetSubtitle = (
   targetType?: TargetType | null,
   targetId?: string | null,
   knownTargetLabelsById?: ReadonlyMap<string, string>,
+  fallbackTargetId?: string | null,
 ): string => {
   if (kind === 'Summon' || kind === 'Evade') {
     return 'Без цели';
@@ -331,12 +332,13 @@ const getRoundActionTargetSubtitle = (
     return 'Цель не указана';
   }
 
-  if (!targetId) {
+  const resolvedTargetId = targetId ?? fallbackTargetId ?? null;
+  if (!resolvedTargetId) {
     return 'Цель уточняется';
   }
 
-  const targetLabel = knownTargetLabelsById?.get(targetId);
-  return `${getTargetTypeLabel(targetType)} -> ${targetLabel ?? targetId}`;
+  const targetLabel = knownTargetLabelsById?.get(resolvedTargetId);
+  return `${getTargetTypeLabel(targetType)} -> ${targetLabel ?? resolvedTargetId}`;
 };
 
 const getRoundActionFocusLabel = (modeLabel: string, targetLabel?: string): string =>
@@ -2230,13 +2232,23 @@ export const PlayPvpPage = () => {
             matchingDraft && 'cardInstanceId' in matchingDraft
               ? getIntentCardSummary(matchingDraft.cardInstanceId)
               : null;
+          const resolvedTargetType =
+            matchingDraft && 'target' in matchingDraft
+              ? matchingDraft.target.targetType ?? action.target?.targetType ?? null
+              : action.target?.targetType ?? null;
+          const resolvedTargetId =
+            matchingDraft && 'target' in matchingDraft
+              ? matchingDraft.target.targetId ?? action.target?.targetId ?? null
+              : action.target?.targetId ?? null;
+          const fallbackTargetId = resolvedTargetId ?? getDefaultTargetIdForType(resolvedTargetType);
           const draftTargetLabel = matchingDraft ? getActionTargetPreview(getIntentTargetLabel(matchingDraft)) : undefined;
           const actionTargetLabel = getActionTargetPreview(
             getRoundActionTargetSubtitle(
               action.kind,
-              action.target?.targetType ?? null,
-              action.target?.targetId ?? null,
+              resolvedTargetType,
+              resolvedTargetId,
               knownTargetLabelsById,
+              fallbackTargetId,
             ),
           );
           const resolvedTargetLabel = draftTargetLabel ?? actionTargetLabel;
@@ -2263,14 +2275,8 @@ export const PlayPvpPage = () => {
             ),
             effectSummary: matchingCard?.effect,
             cardSpeed: matchingCard?.speed,
-            targetType:
-              matchingDraft && 'target' in matchingDraft
-                ? matchingDraft.target.targetType ?? action.target?.targetType ?? null
-                : action.target?.targetType ?? null,
-            targetId:
-              matchingDraft && 'target' in matchingDraft
-                ? matchingDraft.target.targetId ?? action.target?.targetId ?? null
-                : action.target?.targetId ?? null,
+            targetType: resolvedTargetType,
+            targetId: resolvedTargetId ?? fallbackTargetId,
             layer: action.placement.layer,
             status: action.status,
             orderIndex: action.placement.orderIndex,
@@ -2327,6 +2333,7 @@ export const PlayPvpPage = () => {
       };
     });
   }, [
+    getDefaultTargetIdForType,
     knownTargetLabelsById,
     getIntentCardSummary,
     getIntentLabel,
