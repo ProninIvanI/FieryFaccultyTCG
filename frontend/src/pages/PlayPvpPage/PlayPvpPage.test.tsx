@@ -708,6 +708,172 @@ describe('PlayPvpPage', () => {
     });
   });
 
+  it('keeps the enemy target on offensive spells after queueing defensive and self cards', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_spell_target_persistence', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_2', 'spell_card_1', 'modifier_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+            spell_card_2: { id: 'spell_card_2', definitionId: '17', ownerId: 'user_1', zone: 'hand' },
+            modifier_card_1: { id: 'modifier_card_1', definitionId: '41', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click((await screen.findByText('Сфера воды')).closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Огненный шар').closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Усиление').closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const replaceMessages = socket.sent
+        .map((payload) => JSON.parse(payload) as { type?: string; intents?: Array<Record<string, unknown>> })
+        .filter((message) => message.type === 'roundDraft.replace' && Array.isArray(message.intents));
+      const latestReplace = replaceMessages[replaceMessages.length - 1];
+      expect(latestReplace).toBeTruthy();
+
+      const fireballIntent = latestReplace?.intents?.find((intent: Record<string, unknown>) => intent.cardInstanceId === 'spell_card_1');
+      const sphereIntent = latestReplace?.intents?.find((intent: Record<string, unknown>) => intent.cardInstanceId === 'spell_card_2');
+      const boostIntent = latestReplace?.intents?.find((intent: Record<string, unknown>) => intent.cardInstanceId === 'modifier_card_1');
+
+      expect(fireballIntent?.target).toEqual({ targetType: 'enemyCharacter', targetId: 'char_2' });
+      expect(sphereIntent?.target).toEqual({ targetType: 'allyCharacter', targetId: 'char_1' });
+      expect(boostIntent?.target).toEqual({ targetType: 'self', targetId: 'char_1' });
+    });
+  });
+
+  it('preserves a richer local spell target when a synced snapshot arrives without targetId', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_snapshot_target_merge', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click((await screen.findByText('Огненный шар')).closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'user_1_round_1_CastSpell_1',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 0,
+            kind: 'CastSpell',
+            cardInstanceId: 'spell_card_1',
+            target: { targetType: 'enemyCharacter' },
+          },
+        ],
+        boardModel: {
+          playerId: 'user_1',
+          boardItems: [],
+          ribbonEntries: [
+            {
+              id: 'roundAction:user_1_round_1_CastSpell_1',
+              kind: 'roundAction',
+              orderIndex: 0,
+              layer: 'offensive_control_spells',
+              roundActionId: 'user_1_round_1_CastSpell_1',
+            },
+          ],
+          roundActions: [
+            {
+              id: 'user_1_round_1_CastSpell_1',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'char_1',
+              kind: 'CastSpell',
+              source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
+              target: { targetType: 'enemyCharacter' },
+              placement: { layer: 'offensive_control_spells', orderIndex: 0, queueIndex: 0 },
+              status: 'draft',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByText(new RegExp(`Цель: ${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
+      ).toBeGreaterThan(0);
+    });
+  });
+
   it('builds and sends PlayCard roundDraft through self-target draft UI', async () => {
     await renderPage('char_1', 'user_1');
 

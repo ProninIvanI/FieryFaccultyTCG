@@ -179,6 +179,45 @@ interface RoundSyncSummary {
 }
 
 type RoundDraftRejectedSummary = Omit<RoundDraftRejectedServerMessage, 'type'>;
+
+const mergeDraftIntentTargets = (
+  currentDraft: RoundActionIntentDraft[],
+  incomingDraft: RoundActionIntentDraft[],
+): RoundActionIntentDraft[] => {
+  const currentById = new Map(currentDraft.map((intent) => [intent.intentId, intent] as const));
+
+  return incomingDraft.map((incomingIntent) => {
+    if (!('target' in incomingIntent)) {
+      return incomingIntent;
+    }
+
+    const currentIntent = currentById.get(incomingIntent.intentId);
+    if (!currentIntent || !('target' in currentIntent)) {
+      return incomingIntent;
+    }
+
+    const incomingTargetType = incomingIntent.target?.targetType;
+    const incomingTargetId = incomingIntent.target?.targetId;
+    const currentTargetType = currentIntent.target?.targetType;
+    const currentTargetId = currentIntent.target?.targetId;
+
+    if (
+      incomingTargetId ||
+      (!currentTargetId && !currentTargetType) ||
+      (incomingTargetType && currentTargetType && incomingTargetType !== currentTargetType)
+    ) {
+      return incomingIntent;
+    }
+
+    return {
+      ...incomingIntent,
+      target: {
+        targetType: incomingTargetType ?? currentTargetType,
+        targetId: currentTargetId,
+      },
+    };
+  });
+};
 type JoinRejectedSummary = Omit<JoinRejectedServerMessage, 'type'>;
 type TransportRejectedSummary = Omit<TransportRejectedServerMessage, 'type'>;
 
@@ -1040,7 +1079,7 @@ const handleServiceEvent = (
 
   if (event.type === 'roundDraftSnapshot') {
     const sortedDraft = [...event.intents].sort((left, right) => left.queueIndex - right.queueIndex);
-    setRoundDraft(sortedDraft);
+    setRoundDraft((currentDraft) => mergeDraftIntentTargets(currentDraft, sortedDraft));
     setSelfBoardModel(event.boardModel ?? null);
     setRoundSync((current) => ({
       roundNumber: event.roundNumber,
