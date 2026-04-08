@@ -16,7 +16,7 @@ import {
   createInitialCardRoundIntent,
   createInitialCreatureRoundIntent,
 } from '@game-core/rounds/createInitialRoundIntent';
-import type { PlayerBoardModel, ResolutionLayer, RoundDraftValidationError, RoundResolutionResult, TargetType } from '@game-core/types';
+import type { PlayerBoardModel, ResolutionLayer, ResolvedRoundAction, RoundDraftValidationError, RoundResolutionResult, TargetType } from '@game-core/types';
 import {
   getResolutionLayerLabel,
   getRoundDraftRejectCodeLabel,
@@ -1062,7 +1062,6 @@ export const PlayPvpPage = () => {
   const [roundDraftRejected, setRoundDraftRejected] = useState<RoundDraftRejectedSummary | null>(null);
   const [lastResolvedRound, setLastResolvedRound] = useState<RoundResolutionResult | null>(null);
   const [selfBoardModel, setSelfBoardModel] = useState<PlayerBoardModel | null>(null);
-  const [lastResolvedDraft, setLastResolvedDraft] = useState<RoundActionIntentDraft[]>([]);
   const [resolvedPlaybackIndex, setResolvedPlaybackIndex] = useState(-1);
   const [resolvedPlaybackComplete, setResolvedPlaybackComplete] = useState(true);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -1071,11 +1070,6 @@ export const PlayPvpPage = () => {
   const pendingSessionIdRef = useRef('');
   const intentSequenceRef = useRef(0);
   const currentRoundRef = useRef<number | null>(null);
-  const currentRoundDraftRef = useRef<RoundActionIntentDraft[]>([]);
-
-  useEffect(() => {
-    currentRoundDraftRef.current = roundDraft;
-  }, [roundDraft]);
 
   useEffect(() => {
     if (!session || session.username) {
@@ -1114,10 +1108,6 @@ export const PlayPvpPage = () => {
         setJoinedSessionId('');
         setMatchState(null);
         setPlayerLabels({});
-      }
-
-      if (event.type === 'roundResolved') {
-        setLastResolvedDraft(currentRoundDraftRef.current.map((intent) => ({ ...intent })));
       }
 
       handleServiceEvent(
@@ -1698,7 +1688,6 @@ export const PlayPvpPage = () => {
     setRoundDraftRejected(null);
     setRoundSync(null);
     setLastResolvedRound(null);
-    setLastResolvedDraft([]);
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = normalizedSessionId;
     currentRoundRef.current = null;
@@ -1727,7 +1716,6 @@ export const PlayPvpPage = () => {
     setRoundDraftRejected(null);
     setRoundSync(null);
     setLastResolvedRound(null);
-    setLastResolvedDraft([]);
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = '';
     currentRoundRef.current = null;
@@ -1971,6 +1959,40 @@ export const PlayPvpPage = () => {
     },
     [knownTargetLabelsById],
   );
+  const getResolvedActionTitle = useCallback(
+    (action: ResolvedRoundAction): string => {
+      const cardName = action.definitionId ? cardCatalogById.get(action.definitionId)?.name : undefined;
+
+      switch (action.kind) {
+        case 'Summon':
+          return cardName ? `Призыв: ${cardName}` : `Призыв ${action.cardInstanceId ?? action.intentId}`;
+        case 'CastSpell':
+          return cardName ? `Заклинание: ${cardName}` : `Заклинание ${action.cardInstanceId ?? action.intentId}`;
+        case 'PlayCard':
+          return cardName ? `Розыгрыш: ${cardName}` : `Розыгрыш ${action.cardInstanceId ?? action.intentId}`;
+        case 'Attack':
+          return `Атака: ${action.actorId}`;
+        case 'Evade':
+          return 'Уклонение';
+      }
+    },
+    [],
+  );
+  const getResolvedActionTargetLabel = useCallback(
+    (action: ResolvedRoundAction): string => {
+      if (!action.target?.targetType) {
+        return action.kind === 'Summon' || action.kind === 'Evade' ? 'Без цели' : 'Цель не указана';
+      }
+
+      if (!action.target.targetId) {
+        return 'Цель уточняется';
+      }
+
+      const targetLabel = knownTargetLabelsById.get(action.target.targetId);
+      return `${getTargetTypeLabel(action.target.targetType)} -> ${targetLabel ?? action.target.targetId}`;
+    },
+    [knownTargetLabelsById],
+  );
   const localRoundRibbonItems = useMemo<RoundRibbonActionSummary[]>(() => {
     if (selfBoardModel?.roundActions?.length) {
       return [...selfBoardModel.roundActions]
@@ -2133,29 +2155,18 @@ export const PlayPvpPage = () => {
     ];
   }, [localBoardItems, localBoardItemsById, localRoundRibbonItems, selfBoardModel]);
   const hasLocalBattleRibbonEntries = localBattleRibbonEntries.length > 0;
-  const lastResolvedDraftByIntentId = new Map(lastResolvedDraft.map((intent) => [intent.intentId, intent] as const));
 
   const resolvedTimelineEntries = !lastResolvedRound
     ? []
-    : lastResolvedRound.orderedActions.map((action, index) => {
-        const draft = lastResolvedDraftByIntentId.get(action.intentId) ?? null;
+    : lastResolvedRound.orderedActions.map((action) => {
         const isLocalAction = action.playerId === playerId;
 
         return {
-          order: index + 1,
+          order: action.orderIndex + 1,
           action,
-          draft,
           ownerLabel: isLocalAction ? 'Ты' : `Игрок ${getPlayerDisplayName(action.playerId)}`,
-          title: draft
-            ? getIntentLabel(draft)
-            : isLocalAction
-              ? `Твоё действие ${action.intentId}`
-              : 'Скрытое действие соперника',
-          subtitle: draft
-            ? getIntentTargetLabel(draft)
-            : isLocalAction
-              ? 'Детали действия не восстановлены локально'
-              : 'Скрыто до раскрытия резолва',
+          title: getResolvedActionTitle(action),
+          subtitle: getResolvedActionTargetLabel(action),
         };
       });
   const activeResolvedTimelineEntry =

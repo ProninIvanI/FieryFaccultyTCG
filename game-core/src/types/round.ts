@@ -98,13 +98,37 @@ export type RoundActionReasonCode =
   | 'action_skipped'
   | 'interrupted';
 
+export type ResolvedRoundActionSource =
+  | {
+      type: 'card';
+      cardInstanceId: CardInstanceId;
+      definitionId?: string;
+    }
+  | {
+      type: 'boardItem';
+      boardItemId: string;
+    }
+  | {
+      type: 'actor';
+      actorId: CharacterId | CreatureId;
+    };
+
 export interface ResolvedRoundAction {
+  orderIndex: number;
   intentId: string;
   playerId: PlayerId;
+  kind: RoundActionIntent['kind'];
+  actorId: CharacterId | CreatureId;
   layer: ResolutionLayer;
+  queueIndex: number;
+  priority: number;
+  source: ResolvedRoundActionSource;
+  target?: RoundActionIntentTarget;
   status: 'resolved' | 'fizzled';
   reasonCode: RoundActionReasonCode;
   summary: string;
+  cardInstanceId?: CardInstanceId;
+  definitionId?: string;
 }
 
 export interface RoundResolutionResult {

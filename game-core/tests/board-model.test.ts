@@ -11,6 +11,7 @@ import {
   CardDefinition,
   CardInstance,
   PlayerRoundDraft,
+  ResolvedRoundAction,
   RoundResolutionResult,
   SummonAction,
 } from '../src/types';
@@ -35,6 +36,20 @@ const definitions: CardDefinition[] = [
     effects: [{ type: 'ShieldEffect', value: 3, duration: 2 }],
   },
 ];
+
+const createResolvedRoundAction = (
+  overrides: Partial<ResolvedRoundAction> &
+    Pick<
+      ResolvedRoundAction,
+      'intentId' | 'playerId' | 'kind' | 'actorId' | 'layer' | 'status' | 'reasonCode' | 'summary'
+    >,
+): ResolvedRoundAction => ({
+  orderIndex: 0,
+  queueIndex: 0,
+  priority: 0,
+  source: { type: 'actor', actorId: overrides.actorId },
+  ...overrides,
+});
 
 const buildDeck = (ownerId: string, cardIds: string[]): CardInstance[] =>
   cardIds.map((definitionId, index) => ({
@@ -121,22 +136,39 @@ describe('board model foundation', () => {
     const resolution: RoundResolutionResult = {
       roundNumber: 1,
       orderedActions: [
-        {
+        createResolvedRoundAction({
           intentId: 'draft_barrier',
           playerId: 'player_1',
+          kind: 'CastSpell',
+          actorId: 'char_1',
           layer: 'defensive_spells',
+          target: {
+            targetId: 'char_1',
+            targetType: 'self',
+          },
+          cardInstanceId: 'barrier_1',
+          definitionId: 'barrier',
+          source: { type: 'card', cardInstanceId: 'barrier_1', definitionId: 'barrier' },
           status: 'resolved',
           reasonCode: 'resolved',
           summary: 'Barrier resolved',
-        },
-        {
+        }),
+        createResolvedRoundAction({
+          orderIndex: 1,
           intentId: 'draft_attack',
           playerId: 'player_1',
+          kind: 'Attack',
+          actorId: 'wolf_1',
           layer: 'attacks',
+          target: {
+            targetId: 'char_2',
+            targetType: 'enemyCharacter',
+          },
+          source: { type: 'boardItem', boardItemId: toCreatureBoardItemId('wolf_1') },
           status: 'fizzled',
           reasonCode: 'target_invalidated',
           summary: 'Attack fizzled',
-        },
+        }),
       ],
     };
 

@@ -2,6 +2,7 @@ import {
   Action,
   AttackAction,
   CastSpellAction,
+  CompiledRoundAction,
   EvadeAction,
   GameState,
   GameLogEntry,
@@ -275,8 +276,8 @@ export class GameEngine {
       ),
     );
 
-    const orderedActions = compiled.map((compiledAction) =>
-      this.resolveCompiledRoundAction(compiledAction.intent, compiledAction.layer),
+    const orderedActions = compiled.map((compiledAction, orderIndex) =>
+      this.resolveCompiledRoundAction(compiledAction, orderIndex),
     );
 
     this.cleanupDefeatedCreatures();
@@ -430,15 +431,15 @@ export class GameEngine {
   }
 
   private resolveCompiledRoundAction(
-    intent: RoundActionIntent,
-    layer: ResolvedRoundAction['layer'],
+    compiledAction: CompiledRoundAction,
+    orderIndex: number,
   ): ResolvedRoundAction {
+    const { intent, layer } = compiledAction;
+    const baseAction = this.buildResolvedRoundActionBase(compiledAction, orderIndex);
     const fizzleReason = this.getIntentFizzleReason(intent);
     if (fizzleReason) {
       return {
-        intentId: intent.intentId,
-        playerId: intent.playerId,
-        layer,
+        ...baseAction,
         status: 'fizzled',
         reasonCode: fizzleReason,
         summary: `${intent.kind} fizzled before resolution`,
@@ -448,9 +449,7 @@ export class GameEngine {
     const action = this.buildActionFromIntent(intent);
     if (!action) {
       return {
-        intentId: intent.intentId,
-        playerId: intent.playerId,
-        layer,
+        ...baseAction,
         status: 'fizzled',
         reasonCode: 'invalid_intent',
         summary: `${intent.kind} fizzled before resolution`,
@@ -460,9 +459,7 @@ export class GameEngine {
     const command = this.commands.get(action.type);
     if (!command) {
       return {
-        intentId: intent.intentId,
-        playerId: intent.playerId,
-        layer,
+        ...baseAction,
         status: 'fizzled',
         reasonCode: 'command_unavailable',
         summary: `${intent.kind} has no command handler`,
@@ -471,13 +468,89 @@ export class GameEngine {
 
     this.executeValidatedAction(action, command);
     return {
-      intentId: intent.intentId,
-      playerId: intent.playerId,
-      layer,
+      ...baseAction,
       status: 'resolved',
       reasonCode: 'resolved',
       summary: `${intent.kind} resolved in layer ${layer}`,
     };
+  }
+
+  private buildResolvedRoundActionBase(
+    compiledAction: CompiledRoundAction,
+    orderIndex: number,
+  ): Omit<ResolvedRoundAction, 'status' | 'reasonCode' | 'summary'> {
+    const { intent, layer, priority } = compiledAction;
+    const source = this.resolveResolvedRoundActionSource(intent);
+    const target =
+      'target' in intent
+        ? {
+            targetId: intent.target.targetId,
+            targetType: intent.target.targetType,
+          }
+        : undefined;
+    const cardInstanceId =
+      'cardInstanceId' in intent
+        ? intent.cardInstanceId
+        : undefined;
+    const definitionId = this.resolveResolvedRoundActionDefinitionId(intent);
+
+    return {
+      orderIndex,
+      intentId: intent.intentId,
+      playerId: intent.playerId,
+      kind: intent.kind,
+      actorId: intent.actorId,
+      layer,
+      queueIndex: intent.queueIndex,
+      priority,
+      source,
+      target,
+      cardInstanceId,
+      definitionId,
+    };
+  }
+
+  private resolveResolvedRoundActionSource(intent: RoundActionIntent): ResolvedRoundAction['source'] {
+    switch (intent.kind) {
+      case 'Summon':
+      case 'CastSpell':
+      case 'PlayCard': {
+        const instance = this.state.cardInstances[intent.cardInstanceId];
+        return {
+          type: 'card',
+          cardInstanceId: intent.cardInstanceId,
+          definitionId: instance?.definitionId,
+        };
+      }
+      case 'Attack':
+        return {
+          type: 'boardItem',
+          boardItemId: `creature:${intent.sourceCreatureId}`,
+        };
+      case 'Evade':
+        return this.state.creatures[String(intent.actorId)]
+          ? {
+              type: 'boardItem',
+              boardItemId: `creature:${String(intent.actorId)}`,
+            }
+          : {
+              type: 'actor',
+              actorId: intent.actorId,
+            };
+    }
+  }
+
+  private resolveResolvedRoundActionDefinitionId(intent: RoundActionIntent): string | undefined {
+    switch (intent.kind) {
+      case 'Summon':
+      case 'CastSpell':
+      case 'PlayCard':
+        return this.state.cardInstances[intent.cardInstanceId]?.definitionId;
+      case 'Attack':
+        return this.state.creatures[intent.sourceCreatureId]?.definitionId;
+      case 'Evade':
+        return this.state.creatures[String(intent.actorId)]?.definitionId;
+    }
   }
 
   private buildActionFromIntent(intent: RoundActionIntent): Action | null {

@@ -15,6 +15,42 @@ type EventListener = (event: PvpServiceEvent) => void;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
+const isOptionalString = (value: unknown): value is string | undefined =>
+  value === undefined || typeof value === 'string';
+
+const isResolvedRoundActionSource = (value: unknown): boolean =>
+  isRecord(value) &&
+  (
+    (value.type === 'card' &&
+      typeof value.cardInstanceId === 'string' &&
+      isOptionalString(value.definitionId)) ||
+    (value.type === 'boardItem' && typeof value.boardItemId === 'string') ||
+    (value.type === 'actor' && typeof value.actorId === 'string')
+  );
+
+const isResolvedRoundActionTarget = (value: unknown): boolean =>
+  isRecord(value) &&
+  isOptionalString(value.targetId) &&
+  isOptionalString(value.targetType);
+
+const isResolvedRoundAction = (value: unknown): boolean =>
+  isRecord(value) &&
+  typeof value.orderIndex === 'number' &&
+  typeof value.intentId === 'string' &&
+  typeof value.playerId === 'string' &&
+  typeof value.kind === 'string' &&
+  typeof value.actorId === 'string' &&
+  typeof value.layer === 'string' &&
+  typeof value.queueIndex === 'number' &&
+  typeof value.priority === 'number' &&
+  isResolvedRoundActionSource(value.source) &&
+  (value.target === undefined || isResolvedRoundActionTarget(value.target)) &&
+  typeof value.status === 'string' &&
+  typeof value.reasonCode === 'string' &&
+  typeof value.summary === 'string' &&
+  isOptionalString(value.cardInstanceId) &&
+  isOptionalString(value.definitionId);
+
 const isStateMessage = (value: unknown): value is Extract<PvpServerMessage, { type: 'state' }> =>
   isRecord(value) && value.type === 'state' && isRecord(value.state);
 
@@ -80,16 +116,7 @@ const isRoundResolvedMessage = (value: unknown): value is Extract<PvpServerMessa
   isRecord(value.result) &&
   typeof value.result.roundNumber === 'number' &&
   Array.isArray(value.result.orderedActions) &&
-  value.result.orderedActions.every(
-    (action) =>
-      isRecord(action) &&
-      typeof action.intentId === 'string' &&
-      typeof action.playerId === 'string' &&
-      typeof action.layer === 'string' &&
-      typeof action.status === 'string' &&
-      typeof action.reasonCode === 'string' &&
-      typeof action.summary === 'string',
-  );
+  value.result.orderedActions.every(isResolvedRoundAction);
 
 const parseServerMessage = (raw: string): PvpServerMessage | null => {
   try {

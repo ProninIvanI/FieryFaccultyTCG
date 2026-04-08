@@ -365,6 +365,8 @@ export const buildPlayerBoardModel = (
     playerId: draft.playerId,
     boardItems,
     roundActions,
+    // This stays a private draft/board view for the owner. Public post-lock
+    // resolution order comes from RoundResolutionResult.orderedActions.
     ribbonEntries: buildPlayerRibbonEntries(boardItems, roundActions),
   };
 };

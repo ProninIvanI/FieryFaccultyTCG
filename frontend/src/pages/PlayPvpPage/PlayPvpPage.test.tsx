@@ -8,6 +8,7 @@ import {
   getRoundDraftValidationCodeLabel,
   getTargetTypeLabel,
 } from '@game-core/rounds/presentation';
+import type { ResolvedRoundAction } from '@game-core/types';
 import axiosInstance from '@/services/api/axiosInstance';
 import { gameWsService } from '@/services';
 import { PlayPvpPage } from './PlayPvpPage';
@@ -83,6 +84,20 @@ const createDeferred = <T,>(): Deferred<T> => {
 const flushMicrotasks = async (): Promise<void> => {
   await Promise.resolve();
 };
+
+const createResolvedRoundAction = (
+  overrides: Partial<ResolvedRoundAction> &
+    Pick<
+      ResolvedRoundAction,
+      'intentId' | 'playerId' | 'kind' | 'actorId' | 'layer' | 'status' | 'reasonCode' | 'summary'
+    >,
+): ResolvedRoundAction => ({
+  orderIndex: 0,
+  queueIndex: 0,
+  priority: 0,
+  source: { type: 'actor', actorId: overrides.actorId },
+  ...overrides,
+});
 
 const setAuthSession = (userId: string, username = userId): void => {
   localStorage.setItem(
@@ -262,14 +277,20 @@ describe('PlayPvpPage', () => {
         result: {
           roundNumber: 1,
           orderedActions: [
-            {
+            createResolvedRoundAction({
               intentId: 'draft_1',
               playerId: 'user_1',
+              kind: 'CastSpell',
+              actorId: 'char_1',
               layer: 'offensive_control_spells',
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              cardInstanceId: 'spell_card_1',
+              definitionId: '1',
+              source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
               status: 'resolved',
               reasonCode: 'resolved',
               summary: 'Огненный шар нанёс урон',
-            },
+            }),
           ],
         },
       });
@@ -1231,6 +1252,7 @@ describe('PlayPvpPage', () => {
       .find((message) => message.type === 'roundDraft.replace' && Array.isArray(message.intents));
 
     const firstIntent = draftReplacePayload?.intents?.[0];
+    const firstIntentId = typeof firstIntent?.intentId === 'string' ? firstIntent.intentId : 'draft_local_1';
     expect(firstIntent?.intentId).toBeTruthy();
 
     await act(async () => {
@@ -1239,22 +1261,33 @@ describe('PlayPvpPage', () => {
         result: {
           roundNumber: 1,
           orderedActions: [
-            {
+            createResolvedRoundAction({
               intentId: 'enemy_hidden_1',
               playerId: 'user_2',
+              kind: 'Attack',
+              actorId: 'enemy_creature_1',
               layer: 'attacks',
+              target: { targetType: 'enemyCharacter', targetId: 'char_1' },
+              source: { type: 'boardItem', boardItemId: 'creature:enemy_creature_1' },
               status: 'resolved',
               reasonCode: 'resolved',
               summary: 'Существо соперника нанесло удар',
-            },
-            {
-              intentId: firstIntent?.intentId,
+            }),
+            createResolvedRoundAction({
+              orderIndex: 1,
+              intentId: firstIntentId,
               playerId: 'user_1',
+              kind: 'CastSpell',
+              actorId: 'char_1',
               layer: 'offensive_control_spells',
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              cardInstanceId: 'spell_card_1',
+              definitionId: '1',
+              source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
               status: 'fizzled',
               reasonCode: 'target_invalidated',
               summary: 'Цель исчезла до резолва',
-            },
+            }),
           ],
         },
       });
@@ -1262,8 +1295,8 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Скрытое действие соперника/i)).toBeInTheDocument();
-      expect(screen.queryByTestId('enemy-resolution-playback-card')).not.toBeInTheDocument();
+      expect(screen.getByText(/Атака: enemy_creature_1/i)).toBeInTheDocument();
+      expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Твой маг`, 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(getRoundActionReasonLabel('target_invalidated'), 'i')).length).toBeGreaterThan(0);
@@ -1311,22 +1344,29 @@ describe('PlayPvpPage', () => {
         result: {
           roundNumber: 1,
           orderedActions: [
-            {
+            createResolvedRoundAction({
               intentId: 'enemy_hidden_1',
               playerId: 'user_2',
+              kind: 'Attack',
+              actorId: 'enemy_creature_1',
               layer: 'attacks',
+              source: { type: 'boardItem', boardItemId: 'creature:enemy_creature_1' },
               status: 'resolved',
               reasonCode: 'resolved',
               summary: 'Первый шаг резолва',
-            },
-            {
+            }),
+            createResolvedRoundAction({
+              orderIndex: 1,
               intentId: 'enemy_hidden_2',
               playerId: 'user_2',
+              kind: 'CastSpell',
+              actorId: 'char_2',
               layer: 'offensive_control_spells',
+              target: { targetType: 'enemyCharacter', targetId: 'char_1' },
               status: 'resolved',
               reasonCode: 'resolved',
               summary: 'Второй шаг резолва',
-            },
+            }),
           ],
         },
       });
@@ -1419,14 +1459,20 @@ describe('PlayPvpPage', () => {
         result: {
           roundNumber: 1,
           orderedActions: [
-            {
+            createResolvedRoundAction({
               intentId: 'draft_local_1',
               playerId: 'user_1',
+              kind: 'CastSpell',
+              actorId: 'char_1',
               layer: 'offensive_control_spells',
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              cardInstanceId: 'spell_card_1',
+              definitionId: '1',
+              source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
               status: 'resolved',
               reasonCode: 'resolved',
               summary: 'Локальный шаг резолва',
-            },
+            }),
           ],
         },
       });
@@ -1577,14 +1623,18 @@ describe('PlayPvpPage', () => {
         result: {
           roundNumber: 1,
           orderedActions: [
-            {
+            createResolvedRoundAction({
               intentId: 'draft_attack_1',
               playerId: 'user_1',
+              kind: 'Attack',
+              actorId: 'ally_creature_1',
               layer: 'attacks',
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              source: { type: 'boardItem', boardItemId: 'creature:ally_creature_1' },
               status: 'resolved',
               reasonCode: 'resolved',
               summary: 'Атака из ленты сейчас резолвится',
-            },
+            }),
           ],
         },
       });
@@ -1666,14 +1716,19 @@ describe('PlayPvpPage', () => {
         result: {
           roundNumber: 1,
           orderedActions: [
-            {
+            createResolvedRoundAction({
               intentId: 'enemy_hidden_1',
               playerId: 'user_2',
+              kind: 'Summon',
+              actorId: 'char_2',
               layer: 'summon',
+              cardInstanceId: 'enemy_summon_card_1',
+              definitionId: '81',
+              source: { type: 'card', cardInstanceId: 'enemy_summon_card_1', definitionId: '81' },
               status: 'resolved',
               reasonCode: 'resolved',
               summary: 'Соперник выставил существо на поле',
-            },
+            }),
           ],
         },
       });

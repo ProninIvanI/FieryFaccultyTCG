@@ -11,6 +11,11 @@ const waitForOpen = (socket: WebSocket): Promise<void> =>
     socket.once('error', (error) => reject(error));
   });
 
+const waitForMs = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
 type MessageCollector = {
   messages: Array<{ type: string; [key: string]: unknown }>;
   waitFor: <T extends { type: string }>(
@@ -252,6 +257,15 @@ describe('ws gateway integration', () => {
     expect(updatedDraftSnapshot.boardModel?.ribbonEntries?.some((entry) => entry.kind === 'roundAction')).toBe(true);
     expect((await playerOneMessages.waitFor((message): message is { type: 'roundStatus' } => message.type === 'roundStatus' && playerOneMessages.messages.indexOf(message) > 4)).type).toBe('roundStatus');
     expect((await playerTwoMessages.waitFor((message): message is { type: 'roundStatus' } => message.type === 'roundStatus' && playerTwoMessages.messages.indexOf(message) > 2)).type).toBe('roundStatus');
+    await waitForMs(100);
+    expect(
+      playerOneMessages.messages.some(
+        (message) =>
+          message.type === 'roundDraft.snapshot' &&
+          Array.isArray((message as { intents?: Array<{ intentId?: string }> }).intents) &&
+          (message as { intents: Array<{ intentId?: string }> }).intents.some((intent) => intent.intentId === 'draft_fireball'),
+      ),
+    ).toBe(false);
 
     playerOne.send(JSON.stringify({ type: 'roundDraft.lock', roundNumber: 1 }));
     const playerOneLockStatus = await playerOneMessages.waitFor<{ type: 'roundStatus'; selfLocked: boolean; opponentLocked: boolean }>(
@@ -270,19 +284,33 @@ describe('ws gateway integration', () => {
     expect(playerTwoLockStatus.opponentLocked).toBe(true);
 
     playerTwo.send(JSON.stringify({ type: 'roundDraft.lock', roundNumber: 1 }));
-    const resolvedOne = await playerOneMessages.waitFor<{ type: 'roundResolved'; result: { roundNumber: number } }>(
-      (message): message is { type: 'roundResolved'; result: { roundNumber: number } } =>
+    const resolvedOne = await playerOneMessages.waitFor<{
+      type: 'roundResolved';
+      result: { roundNumber: number; orderedActions: Array<{ intentId: string; orderIndex: number; kind: string; source: { type: string } }> };
+    }>(
+      (message): message is {
+        type: 'roundResolved';
+        result: { roundNumber: number; orderedActions: Array<{ intentId: string; orderIndex: number; kind: string; source: { type: string } }> };
+      } =>
         message.type === 'roundResolved' &&
         typeof message.result === 'object' &&
         message.result !== null &&
-        typeof (message.result as { roundNumber?: unknown }).roundNumber === 'number',
+        typeof (message.result as { roundNumber?: unknown }).roundNumber === 'number' &&
+        Array.isArray((message.result as { orderedActions?: unknown[] }).orderedActions),
     );
-    const resolvedTwo = await playerTwoMessages.waitFor<{ type: 'roundResolved'; result: { roundNumber: number } }>(
-      (message): message is { type: 'roundResolved'; result: { roundNumber: number } } =>
+    const resolvedTwo = await playerTwoMessages.waitFor<{
+      type: 'roundResolved';
+      result: { roundNumber: number; orderedActions: Array<{ intentId: string; orderIndex: number; kind: string; source: { type: string } }> };
+    }>(
+      (message): message is {
+        type: 'roundResolved';
+        result: { roundNumber: number; orderedActions: Array<{ intentId: string; orderIndex: number; kind: string; source: { type: string } }> };
+      } =>
         message.type === 'roundResolved' &&
         typeof message.result === 'object' &&
         message.result !== null &&
-        typeof (message.result as { roundNumber?: unknown }).roundNumber === 'number',
+        typeof (message.result as { roundNumber?: unknown }).roundNumber === 'number' &&
+        Array.isArray((message.result as { orderedActions?: unknown[] }).orderedActions),
     );
     const nextStateOne = await playerOneMessages.waitFor<{ type: 'state'; state: { round: { number: number } } }>(
       (message): message is { type: 'state'; state: { round: { number: number } } } =>
@@ -303,6 +331,24 @@ describe('ws gateway integration', () => {
 
     expect(resolvedOne.result.roundNumber).toBe(1);
     expect(resolvedTwo.result.roundNumber).toBe(1);
+    expect(resolvedOne.result.orderedActions).toEqual(resolvedTwo.result.orderedActions);
+    expect(resolvedOne.result.orderedActions).toEqual([
+      expect.objectContaining({
+        intentId: 'draft_fireball',
+        orderIndex: 0,
+        kind: 'CastSpell',
+        actorId: 'char_2',
+        queueIndex: 0,
+        source: expect.objectContaining({
+          type: 'card',
+          cardInstanceId: 'card_player_2_1',
+        }),
+        target: expect.objectContaining({
+          targetId: 'char_1',
+          targetType: 'enemyCharacter',
+        }),
+      }),
+    ]);
     expect(nextStateOne.state.round.number).toBe(2);
     expect(nextStateTwo.state.round.number).toBe(2);
 

@@ -83,6 +83,8 @@ export interface BoardItemRibbonEntry {
   orderIndex: number;
   layer: ResolutionLayer;
   boardItemId: BoardItemId;
+  // Private draft affordance: lets the local UI show which drafted actions
+  // are attached to an existing board item before the round is revealed.
   attachedRoundActionIds: string[];
 }
 
@@ -108,6 +110,8 @@ export interface PlayerBoardModel {
   playerId: PlayerId;
   boardItems: BoardItem[];
   roundActions: RoundAction[];
+  // Private per-player board/draft view. This is not the canonical public
+  // order of round resolution after lock-in.
   ribbonEntries: PlayerRibbonEntry[];
 }
 

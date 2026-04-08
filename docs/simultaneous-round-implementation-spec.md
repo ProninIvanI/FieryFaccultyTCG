@@ -35,6 +35,12 @@
   - `fizzle/reject` поведение;
   - cleanup и итоговый `GameState`.
 
+После `lock-in` источник истины для публичного порядка раунда только один:
+
+- `RoundResolutionResult.orderedActions` — каноническая `public resolution ribbon`;
+- `roundDraft.snapshot.boardModel` и `PlayerBoardModel.ribbonEntries` — только private draft/board view владельца;
+- playback не пересчитывает порядок сам, а проходит курсором по `orderedActions`.
+
 ## 3. Финальные правила раунда
 
 ### 3.1. Жизненный цикл раунда
@@ -210,18 +216,35 @@ export interface CompiledRoundAction {
   roundInitiativePlayerId: string;
 }
 
+export interface ResolvedRoundActionSource {
+  type: 'card' | 'boardItem' | 'actor';
+  cardInstanceId?: string;
+  definitionId?: string;
+  boardItemId?: string;
+  actorId?: string;
+}
+
 export interface ResolvedRoundAction {
+  orderIndex: number;
   intentId: string;
   playerId: string;
+  kind: 'Summon' | 'CastSpell' | 'PlayCard' | 'Attack' | 'Evade';
+  actorId: string;
   layer: ResolutionLayer;
+  queueIndex: number;
+  priority: number;
+  source: ResolvedRoundActionSource;
+  target?: RoundActionIntentTarget;
   status: 'resolved' | 'fizzled';
+  reasonCode: string;
   summary: string;
+  cardInstanceId?: string;
+  definitionId?: string;
 }
 
 export interface RoundResolutionResult {
   roundNumber: number;
   orderedActions: ResolvedRoundAction[];
-  state: GameState;
 }
 ```
 
@@ -337,6 +360,7 @@ type ServerMessageDto =
 - `state` не содержит скрытую очередь соперника;
 - `state` для локального игрока может содержать только его собственный draft;
 - `roundResolved` содержит уже открытый порядок фактического резолва;
+- `roundResolved.result.orderedActions` уже достаточно богат для прямого UI-рендера public resolution ribbon;
 - ошибки `lock-in` должны приходить до `roundResolved`.
 
 ### 6.3. Server-side сессия

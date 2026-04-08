@@ -9,6 +9,7 @@
 
 - базовый UX-переход на боевую ленту уже реализован;
 - `game-core`, `server` и `frontend` уже используют derived `BoardItem / RoundAction / ribbonEntries`;
+- `ribbonEntries` при этом остаются private draft/board affordance, а публичный post-lock порядок теперь живёт в `roundResolved.orderedActions`;
 - round lifecycle / public resolved snapshot / ordered playback уже прошли первую рабочую реализацию и больше не считаются только планом;
 - этот документ фиксирует не стартовую идею, а актуальный статус board-model ветки: что уже закрыто, что частично доведено и что остаётся следующим follow-up.
 
