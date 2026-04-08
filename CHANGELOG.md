@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-08 update: fixed a PvP draft-queue race in `PlayPvpPage` where quickly queuing an auto-target modifier (for example `Концентрация силы`) and then another hand card could overwrite the newer draft with a stale one. Draft append/update/remove operations now read from the latest local draft ref instead of a stale render closure, and frontend coverage includes a rapid-click regression for modifier-then-spell queueing.
+
 > 2026-04-08 update: completed the next public-resolve ribbon cleanup across frontend and docs. `PlayPvpPage` now renders more readable public resolved actions from board/character state instead of raw ids, playback highlights are tied to `roundResolved.orderedActions[].source` with a summon-safe fallback, and architecture docs now explicitly lock the private/public boundary: `roundDraft.snapshot.boardModel` stays owner-only draft/board view while post-lock public order and playback come only from `roundResolved.orderedActions`.
 
 > 2026-04-07 update: removed computed `DATABASE_URL` from Docker Compose backend environments. The backend already supports discrete Postgres host/user/password settings, and interpolating a URL from raw `POSTGRES_PASSWORD` created a deploy-time footgun where passwords with reserved URL characters could make all auth/deck DB requests fail with `500` even though the HTTP server itself still started.

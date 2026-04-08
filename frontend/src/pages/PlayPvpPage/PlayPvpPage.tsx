@@ -1009,9 +1009,8 @@ const handleServiceEvent = (
   }
 
   if (event.type === 'roundDraftSnapshot') {
-    setRoundDraft(
-      [...event.intents].sort((left, right) => left.queueIndex - right.queueIndex)
-    );
+    const sortedDraft = [...event.intents].sort((left, right) => left.queueIndex - right.queueIndex);
+    setRoundDraft(sortedDraft);
     setSelfBoardModel(event.boardModel ?? null);
     setRoundSync((current) => ({
       roundNumber: event.roundNumber,
@@ -1079,6 +1078,11 @@ export const PlayPvpPage = () => {
   const pendingSessionIdRef = useRef('');
   const intentSequenceRef = useRef(0);
   const currentRoundRef = useRef<number | null>(null);
+  const roundDraftRef = useRef<RoundActionIntentDraft[]>([]);
+
+  useEffect(() => {
+    roundDraftRef.current = roundDraft;
+  }, [roundDraft]);
 
   useEffect(() => {
     if (!session || session.username) {
@@ -1658,6 +1662,7 @@ export const PlayPvpPage = () => {
     try {
       gameWsService.replaceRoundDraft(currentRoundNumber, normalizedDraft);
       setRoundDraftRejected(null);
+      roundDraftRef.current = normalizedDraft;
       setRoundDraft(normalizedDraft);
       setError('');
     } catch (sendError) {
@@ -1676,23 +1681,24 @@ export const PlayPvpPage = () => {
       return;
     }
 
-    syncRoundDraft([...roundDraft, intent]);
-  }, [currentRoundNumber, roundDraft, syncRoundDraft]);
+    syncRoundDraft([...roundDraftRef.current, intent]);
+  }, [currentRoundNumber, syncRoundDraft]);
 
   const upsertRoundIntent = useCallback(
     (
       matcher: (intent: RoundActionIntentDraft) => boolean,
       buildNextIntent: (existingIntent: RoundActionIntentDraft | null) => RoundActionIntentDraft
     ): void => {
-      const existingIntent = roundDraft.find(matcher) ?? null;
+      const currentDraft = roundDraftRef.current;
+      const existingIntent = currentDraft.find(matcher) ?? null;
       if (existingIntent) {
-        syncRoundDraft(roundDraft.map((intent) => (intent.intentId === existingIntent.intentId ? buildNextIntent(existingIntent) : intent)));
+        syncRoundDraft(currentDraft.map((intent) => (intent.intentId === existingIntent.intentId ? buildNextIntent(existingIntent) : intent)));
         return;
       }
 
       appendRoundIntent(buildNextIntent(null));
     },
-    [appendRoundIntent, roundDraft, syncRoundDraft]
+    [appendRoundIntent, syncRoundDraft]
   );
 
   const submitJoin = async (event: FormEvent<HTMLFormElement>) => {
@@ -1816,7 +1822,7 @@ export const PlayPvpPage = () => {
       (existingIntent) => ({
         intentId: existingIntent?.intentId ?? buildIntentId('Summon'),
         roundNumber: currentRoundNumber,
-        queueIndex: existingIntent?.queueIndex ?? roundDraft.length,
+        queueIndex: existingIntent?.queueIndex ?? roundDraftRef.current.length,
         kind: 'Summon',
         actorId: localPlayer.characterId,
         playerId: localPlayer.playerId,
@@ -1833,7 +1839,8 @@ export const PlayPvpPage = () => {
       return;
     }
 
-    const existingIntent = roundDraft.find(
+    const currentDraft = roundDraftRef.current;
+    const existingIntent = currentDraft.find(
       (intent) => 'cardInstanceId' in intent && typeof intent.cardInstanceId === 'string' && intent.cardInstanceId === card.instanceId
     );
 
@@ -1869,7 +1876,7 @@ export const PlayPvpPage = () => {
       cards: roundIntentCardRegistry,
       intentId: buildIntentId(card.cardType === 'spell' ? 'CastSpell' : 'PlayCard'),
       roundNumber: currentRoundNumber,
-      queueIndex: roundDraft.length,
+      queueIndex: currentDraft.length,
       playerId: localPlayer.playerId,
       actorId: localPlayer.characterId,
       cardInstanceId: card.instanceId,
@@ -1905,7 +1912,7 @@ export const PlayPvpPage = () => {
       },
       intentId: buildIntentId('Attack'),
       roundNumber: currentRoundNumber,
-      queueIndex: roundDraft.length,
+      queueIndex: roundDraftRef.current.length,
       playerId,
       creatureId: selectedCreature.creatureId,
       actionKind: 'Attack',
@@ -1939,7 +1946,7 @@ export const PlayPvpPage = () => {
       },
       intentId: buildIntentId('Evade'),
       roundNumber: currentRoundNumber,
-      queueIndex: roundDraft.length,
+      queueIndex: roundDraftRef.current.length,
       playerId,
       creatureId: selectedCreature.creatureId,
       actionKind: 'Evade',
@@ -1954,12 +1961,12 @@ export const PlayPvpPage = () => {
   };
 
   const handleRemoveRoundIntent = (intentId: string) => {
-    syncRoundDraft(roundDraft.filter((intent) => intent.intentId !== intentId));
+    syncRoundDraft(roundDraftRef.current.filter((intent) => intent.intentId !== intentId));
   };
   const handleRoundIntentTargetSelect = useCallback((intentId: string, targetType: TargetType, targetId: string) => {
     setDraftTargetId(targetId);
     syncRoundDraft(
-      roundDraft.map((intent) =>
+      roundDraftRef.current.map((intent) =>
         intent.intentId === intentId && 'target' in intent
           ? {
               ...intent,
@@ -1971,7 +1978,7 @@ export const PlayPvpPage = () => {
           : intent,
       ),
     );
-  }, [roundDraft, syncRoundDraft]);
+  }, [syncRoundDraft]);
 
   const getIntentCardSummary = useCallback(
     (instanceId: string): HandCardSummary | null => localHandCards.find((card) => card.instanceId === instanceId) ?? null,

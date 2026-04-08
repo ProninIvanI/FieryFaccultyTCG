@@ -643,6 +643,127 @@ describe('PlayPvpPage', () => {
     });
   });
 
+  it('keeps the remaining hand cards visible after queuing concentration before water spells', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_modifier_hand_visibility', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 10, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 10, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['modifier_card_1', 'water_shield_1', 'water_heal_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            modifier_card_1: { id: 'modifier_card_1', definitionId: '46', ownerId: 'user_1', zone: 'hand' },
+            water_shield_1: { id: 'water_shield_1', definitionId: '17', ownerId: 'user_1', zone: 'hand' },
+            water_heal_1: { id: 'water_heal_1', definitionId: '19', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    const handSection = () => screen.getByText('Карты для текущего раунда').closest('section');
+
+    await waitFor(() => {
+      expect(within(handSection()!).getByText('Концентрация силы')).toBeInTheDocument();
+      expect(within(handSection()!).getByText('Сфера воды')).toBeInTheDocument();
+      expect(within(handSection()!).getByText('Водное исцеление')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Концентрация силы').closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(within(handSection()!).queryByText('Концентрация силы')).not.toBeInTheDocument();
+      expect(within(handSection()!).getByText('Сфера воды')).toBeInTheDocument();
+      expect(within(handSection()!).getByText('Водное исцеление')).toBeInTheDocument();
+      expect(screen.queryByText(/Все карты из руки уже перенесены в боевую ленту/i)).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Сфера воды').closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(within(handSection()!).queryByText('Концентрация силы')).not.toBeInTheDocument();
+      expect(within(handSection()!).queryByText('Сфера воды')).not.toBeInTheDocument();
+      expect(within(handSection()!).getByText('Водное исцеление')).toBeInTheDocument();
+      expect(screen.queryByText(/Все карты из руки уже перенесены в боевую ленту/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not lose queued hand cards when modifier and spell are clicked back to back', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_modifier_rapid_queue', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 10, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 10, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['modifier_card_1', 'water_shield_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            modifier_card_1: { id: 'modifier_card_1', definitionId: '46', ownerId: 'user_1', zone: 'hand' },
+            water_shield_1: { id: 'water_shield_1', definitionId: '17', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Концентрация силы').closest('button')!);
+      fireEvent.click(screen.getByText('Сфера воды').closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const replacePayloads = socket.sent
+        .map((payload) => JSON.parse(payload) as { type?: string; intents?: Array<{ cardInstanceId?: string }> })
+        .filter((message) => message.type === 'roundDraft.replace');
+      const lastReplace = replacePayloads[replacePayloads.length - 1];
+
+      expect(lastReplace?.intents).toHaveLength(2);
+      expect(lastReplace?.intents?.map((intent) => intent.cardInstanceId)).toEqual(['modifier_card_1', 'water_shield_1']);
+    });
+  });
+
   it('sends roundDraft.replace with Evade intent for selected allied creature', async () => {
     await renderPage('char_1', 'user_1');
 
