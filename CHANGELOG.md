@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-09 update: fixed a PvP target-draft leak in `PlayPvpPage` where a selected enemy target from one card could carry over into another hand card with a different target contract. Draft targeting is now stored per source card/attack instead of as a shared screen-level target, so cards like `Сфера воды` re-initialize to their own valid ally/self target instead of inheriting an old enemy target. Frontend coverage now includes a regression for cross-card target isolation.
+
 > 2026-04-09 update: migrated live frontend card consumers from the legacy `frontend/src/data/cards.json` file to the shared `game-core/data/cards.json` catalog. `CardsPage`, `DeckPage`, and `PlayPvpPage` now read the same card definitions as the engine through a frontend catalog shim, the outdated local card catalog was removed, and frontend architecture docs now explicitly point card-name resolution at the shared game-core catalog.
 
 > 2026-04-08 update: fixed a PvP draft-queue race in `PlayPvpPage` where quickly queuing an auto-target modifier (for example `Концентрация силы`) and then another hand card could overwrite the newer draft with a stale one. Draft append/update/remove operations now read from the latest local draft ref instead of a stale render closure, and frontend coverage includes a rapid-click regression for modifier-then-spell queueing.

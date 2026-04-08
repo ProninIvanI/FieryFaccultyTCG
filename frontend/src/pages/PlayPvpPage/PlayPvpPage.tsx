@@ -1064,7 +1064,7 @@ export const PlayPvpPage = () => {
   const [transportRejected, setTransportRejected] = useState<TransportRejectedSummary | null>(null);
   const [joinRejected, setJoinRejected] = useState<JoinRejectedSummary | null>(null);
   const [selection, setSelection] = useState<BattlefieldSelection>(null);
-  const [draftTargetId, setDraftTargetId] = useState('');
+  const [draftTarget, setDraftTarget] = useState<TargetDraft | null>(null);
   const [roundDraft, setRoundDraft] = useState<RoundActionIntentDraft[]>([]);
   const [roundSync, setRoundSync] = useState<RoundSyncSummary | null>(null);
   const [roundDraftRejected, setRoundDraftRejected] = useState<RoundDraftRejectedSummary | null>(null);
@@ -1226,7 +1226,7 @@ export const PlayPvpPage = () => {
         currentDraft.some((intent) => intent.roundNumber === nextRoundSync.roundNumber) ? currentDraft : []
       );
       setRoundDraftRejected(null);
-      setDraftTargetId('');
+      setDraftTarget(null);
       setRoundSync(nextRoundSync);
       return;
     }
@@ -1473,11 +1473,14 @@ export const PlayPvpPage = () => {
       playerId,
       creatureId: selectedCreature.creatureId,
       actionKind: 'Attack',
-      preferredTargetId: draftTargetId || undefined,
+      preferredTargetId:
+        draftTarget?.sourceInstanceId === selectedCreature.creatureId
+          ? draftTarget.targetId
+          : undefined,
     });
   }, [
     currentRoundNumber,
-    draftTargetId,
+    draftTarget,
     isSelectedCreatureOwnedByLocalPlayer,
     matchState?.characters,
     matchState?.creatures,
@@ -1503,6 +1506,31 @@ export const PlayPvpPage = () => {
       targetId: selectedCreatureSuggestedAttackIntent.target.targetId,
     };
   }, [isSelectedCreatureOwnedByLocalPlayer, selectedCreature, selectedCreatureSuggestedAttackIntent]);
+  const applyDraftTargetForSelection = useCallback((targetId: string) => {
+    if (selectedHandCard && selectedCardTargetType) {
+      setDraftTarget({
+        sourceInstanceId: selectedHandCard.instanceId,
+        targetType: selectedCardTargetType,
+        targetId,
+      });
+      return;
+    }
+
+    if (
+      selectedCreature &&
+      selectedCreatureSuggestedAttackIntent?.kind === 'Attack' &&
+      selectedCreatureSuggestedAttackIntent.target.targetType
+    ) {
+      setDraftTarget({
+        sourceInstanceId: selectedCreature.creatureId,
+        targetType: selectedCreatureSuggestedAttackIntent.target.targetType,
+        targetId,
+      });
+      return;
+    }
+
+    setDraftTarget(null);
+  }, [selectedCardTargetType, selectedCreature, selectedCreatureSuggestedAttackIntent, selectedHandCard]);
   const getTargetCandidatesForType = useCallback((targetType: TargetType | null | undefined): TargetCandidateSummary[] => {
     const candidates: TargetCandidateSummary[] = [];
 
@@ -1636,7 +1664,15 @@ export const PlayPvpPage = () => {
   );
 
   const isSelectableTarget = (candidateId: string): boolean => targetCandidates.some((candidate) => candidate.id === candidateId);
-  const isDraftTargetActive = (candidateId: string): boolean => draftTargetId === candidateId;
+  const activeDraftTargetId = useMemo(() => {
+    if (!selection || !draftTarget) {
+      return '';
+    }
+
+    const selectedSourceId = selection.kind === 'hand' ? selection.instanceId : selection.creatureId;
+    return draftTarget.sourceInstanceId === selectedSourceId ? draftTarget.targetId : '';
+  }, [draftTarget, selection]);
+  const isDraftTargetActive = (candidateId: string): boolean => activeDraftTargetId === candidateId;
   const coreRoundActionByIntentId = useMemo(
     () => new Map((selfBoardModel?.roundActions ?? []).map((action) => [action.id, action] as const)),
     [selfBoardModel],
@@ -1758,7 +1794,7 @@ export const PlayPvpPage = () => {
     setPlayerLabels({});
     setJoinedSessionId('');
     setSelection(null);
-    setDraftTargetId('');
+    setDraftTarget(null);
     setRoundDraft([]);
     setTransportRejected(null);
     setJoinRejected(null);
@@ -1786,7 +1822,7 @@ export const PlayPvpPage = () => {
     setMatchState(null);
     setPlayerLabels({});
     setSelection(null);
-    setDraftTargetId('');
+    setDraftTarget(null);
     setRoundDraft([]);
     setTransportRejected(null);
     setJoinRejected(null);
@@ -1857,10 +1893,14 @@ export const PlayPvpPage = () => {
     );
 
     if (existingIntent) {
-      if ('target' in existingIntent && existingIntent.target?.targetId) {
-        setDraftTargetId(String(existingIntent.target.targetId));
+      if ('target' in existingIntent && existingIntent.target?.targetId && existingIntent.target.targetType) {
+        setDraftTarget({
+          sourceInstanceId: card.instanceId,
+          targetType: existingIntent.target.targetType,
+          targetId: String(existingIntent.target.targetId),
+        });
       } else {
-        setDraftTargetId('');
+        setDraftTarget(null);
       }
       return;
     }
@@ -1898,7 +1938,15 @@ export const PlayPvpPage = () => {
       return;
     }
 
-    setDraftTargetId('target' in nextIntent && nextIntent.target.targetId ? String(nextIntent.target.targetId) : '');
+    setDraftTarget(
+      'target' in nextIntent && nextIntent.target.targetId && nextIntent.target.targetType
+        ? {
+            sourceInstanceId: card.instanceId,
+            targetType: nextIntent.target.targetType,
+            targetId: String(nextIntent.target.targetId),
+          }
+        : null
+    );
     upsertRoundIntent(
       (intent) => 'cardInstanceId' in intent && intent.cardInstanceId === card.instanceId,
       () => nextIntent
@@ -1928,7 +1976,10 @@ export const PlayPvpPage = () => {
       playerId,
       creatureId: selectedCreature.creatureId,
       actionKind: 'Attack',
-      preferredTargetId: draftTargetId || undefined,
+      preferredTargetId:
+        draftTarget?.sourceInstanceId === selectedCreature.creatureId
+          ? draftTarget.targetId
+          : undefined,
     });
     if (!nextIntent) {
       setError('Не удалось собрать стартовую атаку из правил game-core.');
@@ -1936,7 +1987,7 @@ export const PlayPvpPage = () => {
     }
 
     appendRoundIntent(nextIntent);
-    setDraftTargetId('');
+    setDraftTarget(null);
   };
 
   const handleQueueEvade = () => {
@@ -1969,14 +2020,29 @@ export const PlayPvpPage = () => {
     }
 
     appendRoundIntent(nextIntent);
-    setDraftTargetId('');
+    setDraftTarget(null);
   };
 
   const handleRemoveRoundIntent = (intentId: string) => {
     syncRoundDraft(roundDraftRef.current.filter((intent) => intent.intentId !== intentId));
   };
   const handleRoundIntentTargetSelect = useCallback((intentId: string, targetType: TargetType, targetId: string) => {
-    setDraftTargetId(targetId);
+    const matchingIntent = roundDraftRef.current.find((intent) => intent.intentId === intentId);
+    if (matchingIntent) {
+      if ('cardInstanceId' in matchingIntent) {
+        setDraftTarget({
+          sourceInstanceId: matchingIntent.cardInstanceId,
+          targetType,
+          targetId,
+        });
+      } else if (matchingIntent.kind === 'Attack') {
+        setDraftTarget({
+          sourceInstanceId: matchingIntent.sourceCreatureId,
+          targetType,
+          targetId,
+        });
+      }
+    }
     syncRoundDraft(
       roundDraftRef.current.map((intent) =>
         intent.intentId === intentId && 'target' in intent
@@ -2385,7 +2451,7 @@ export const PlayPvpPage = () => {
       const stillExists = localHandCards.some((card) => card.instanceId === selection.instanceId);
       if (!stillExists) {
         setSelection(null);
-        setDraftTargetId('');
+        setDraftTarget(null);
       }
       return;
     }
@@ -2443,7 +2509,7 @@ export const PlayPvpPage = () => {
     if (lastDraftRosterSignatureRef.current !== playerRosterSignature) {
       setRoundDraft([]);
       setRoundDraftRejected(null);
-      setDraftTargetId('');
+      setDraftTarget(null);
       setSelection(null);
       setError('');
       lastDraftRosterSignatureRef.current = playerRosterSignature;
@@ -2454,14 +2520,24 @@ export const PlayPvpPage = () => {
   }, [playerRosterSignature]);
 
   useEffect(() => {
-    if (!draftTargetId) {
+    if (!draftTarget) {
       return;
     }
 
-    if (!targetCandidates.some((candidate) => candidate.id === draftTargetId)) {
-      setDraftTargetId('');
+    if (!selection) {
+      setDraftTarget(null);
+      return;
     }
-  }, [draftTargetId, targetCandidates]);
+
+    const selectedSourceId = selection.kind === 'hand' ? selection.instanceId : selection.creatureId;
+    if (draftTarget.sourceInstanceId !== selectedSourceId) {
+      return;
+    }
+
+    if (!targetCandidates.some((candidate) => candidate.id === draftTarget.targetId)) {
+      setDraftTarget(null);
+    }
+  }, [draftTarget, selection, targetCandidates]);
 
   useEffect(() => {
     if (
@@ -2470,14 +2546,15 @@ export const PlayPvpPage = () => {
       selectedHandCardIntent.kind === 'Summon' ||
       !('target' in selectedHandCardIntent) ||
       !selectedCardTargetType ||
-      !draftTargetId ||
+      !draftTarget ||
+      draftTarget.sourceInstanceId !== selectedHandCard.instanceId ||
       Boolean(roundSync?.selfLocked)
     ) {
       return;
     }
 
     if (
-      selectedHandCardIntent.target.targetId === draftTargetId &&
+      selectedHandCardIntent.target.targetId === draftTarget.targetId &&
       selectedHandCardIntent.target.targetType === selectedCardTargetType
     ) {
       return;
@@ -2490,14 +2567,14 @@ export const PlayPvpPage = () => {
               ...intent,
               target: {
                 targetType: selectedCardTargetType,
-                targetId: draftTargetId,
+                targetId: draftTarget.targetId,
               },
             }
           : intent
       )
     );
   }, [
-    draftTargetId,
+    draftTarget,
     roundDraft,
     roundSync?.selfLocked,
     selectedCardTargetType,
@@ -2738,7 +2815,7 @@ export const PlayPvpPage = () => {
                           onClick={() => {
                             const enemyCharacterId = primaryEnemyBoard?.characterId;
                             if (enemyCharacterId && isSelectableTarget(enemyCharacterId)) {
-                              setDraftTargetId(enemyCharacterId);
+                              applyDraftTargetForSelection(enemyCharacterId);
                             }
                           }}
                         >
@@ -2847,7 +2924,7 @@ export const PlayPvpPage = () => {
                           type="button"
                           onClick={() => {
                             if (localPlayer && isSelectableTarget(localPlayer.characterId)) {
-                              setDraftTargetId(localPlayer.characterId);
+                              applyDraftTargetForSelection(localPlayer.characterId);
                             }
                           }}
                         >
@@ -2957,7 +3034,7 @@ export const PlayPvpPage = () => {
                                     type="button"
                                     onClick={() =>
                                       isSelectableTarget(item.runtimeId)
-                                        ? setDraftTargetId(item.runtimeId)
+                                        ? applyDraftTargetForSelection(item.runtimeId)
                                         : setSelection({ kind: 'creature', creatureId: item.runtimeId })
                                     }
                                   >
@@ -3066,7 +3143,7 @@ export const PlayPvpPage = () => {
                                     type="button"
                                     onClick={() =>
                                       isSelectableTarget(item.runtimeId)
-                                        ? setDraftTargetId(item.runtimeId)
+                                        ? applyDraftTargetForSelection(item.runtimeId)
                                         : setSelection({ kind: 'creature', creatureId: item.runtimeId })
                                     }
                                   >
@@ -3173,8 +3250,8 @@ export const PlayPvpPage = () => {
                                         <button
                                           className={styles.secondaryButton}
                                           type="button"
-                                          onClick={() => setDraftTargetId('')}
-                                          disabled={!draftTargetId}
+                                          onClick={() => setDraftTarget(null)}
+                                          disabled={!activeDraftTargetId}
                                         >
                                           Сбросить цель
                                         </button>

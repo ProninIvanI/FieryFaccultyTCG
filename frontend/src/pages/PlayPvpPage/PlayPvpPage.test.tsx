@@ -573,6 +573,87 @@ describe('PlayPvpPage', () => {
 
   });
 
+  it('does not carry an enemy target into another hand card with a different target contract', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_target_contract_isolation', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1', 'spell_card_2'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+            spell_card_2: { id: 'spell_card_2', definitionId: '17', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click((await screen.findByText('Огненный шар')).closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as {
+            type?: string;
+            intents?: Array<Record<string, unknown>>;
+          };
+          const firstIntent = Array.isArray(message.intents) ? message.intents[0] : null;
+
+          return (
+            message.type === 'roundDraft.replace' &&
+            firstIntent?.cardInstanceId === 'spell_card_1' &&
+            JSON.stringify(firstIntent?.target) === JSON.stringify({ targetType: 'enemyCharacter', targetId: 'char_2' })
+          );
+        }),
+      ).toBe(true);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Сфера воды').closest('button')!);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as {
+            type?: string;
+            intents?: Array<Record<string, unknown>>;
+          };
+          if (message.type !== 'roundDraft.replace' || !Array.isArray(message.intents)) {
+            return false;
+          }
+
+          const sphereIntent = message.intents.find((intent) => intent.cardInstanceId === 'spell_card_2');
+          return JSON.stringify(sphereIntent?.target) === JSON.stringify({ targetType: 'allyCharacter', targetId: 'char_1' });
+        }),
+      ).toBe(true);
+    });
+  });
+
   it('builds and sends PlayCard roundDraft through self-target draft UI', async () => {
     await renderPage('char_1', 'user_1');
 
