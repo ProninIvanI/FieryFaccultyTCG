@@ -2131,12 +2131,15 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(/Текущий шаг резолва/i)).toBeInTheDocument();
       expect(screen.getByText((_, element) => element?.textContent === 'Раунд#1')).toBeInTheDocument();
       expect(screen.getByText((_, element) => element?.textContent === 'Всего шагов2')).toBeInTheDocument();
-      expect(screen.getByText(/Соперник: 2/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Соперник: 2/i).length).toBeGreaterThan(0);
       expect(screen.getByTestId('resolution-playback-step')).toHaveTextContent('Шаг 1 из 2');
       expect(screen.getByTestId('resolution-playback-summary')).toHaveTextContent('Первый шаг резолва');
       expect(screen.getByTestId('resolution-playback-status')).toHaveTextContent('Идёт');
+      expect(screen.getByTestId('resolution-layer-playback-title')).toHaveTextContent('Атака');
+      expect(screen.getByTestId('resolution-layer-playback-step')).toHaveTextContent('Этап 1 из 2');
       expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Резолв сейчас');
       expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Первый шаг резолва');
+      expect(within(screen.getByTestId('resolution-stage-viewer')).queryByText('Второй шаг резолва')).not.toBeInTheDocument();
     });
 
     await waitFor(
@@ -2144,10 +2147,100 @@ describe('PlayPvpPage', () => {
         expect(screen.getByTestId('resolution-playback-step')).toHaveTextContent('Шаг 2 из 2');
         expect(screen.getByTestId('resolution-playback-summary')).toHaveTextContent('Второй шаг резолва');
         expect(screen.getByTestId('resolution-playback-status')).toHaveTextContent('Завершён');
+        expect(screen.getByTestId('resolution-layer-playback-title')).toHaveTextContent('Боевое заклинание');
+        expect(screen.getByTestId('resolution-layer-playback-step')).toHaveTextContent('Этап 2 из 2');
+        expect(within(screen.getByTestId('resolution-stage-viewer')).getByText('Второй шаг резолва')).toBeInTheDocument();
         expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Второй шаг резолва');
       },
       { timeout: 2500 },
     );
+  });
+
+  it('returns to the live draft after autoplay and reopens the last resolve by eye toggle', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_replay_toggle', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          round: {
+            number: 2,
+            status: 'draft',
+            initiativePlayerId: 'user_2',
+            players: {
+              user_1: { playerId: 'user_1', locked: false, draftCount: 0 },
+              user_2: { playerId: 'user_2', locked: false, draftCount: 0 },
+            },
+          },
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 1,
+          orderedActions: [
+            createResolvedRoundAction({
+              intentId: 'enemy_hidden_1',
+              playerId: 'user_2',
+              kind: 'Attack',
+              actorId: 'enemy_creature_1',
+              layer: 'attacks',
+              source: { type: 'boardItem', boardItemId: 'creature:enemy_creature_1' },
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Финальный шаг прошлого раунда',
+            }),
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('resolution-replay-banner')).toHaveTextContent('Резолв раунда #1');
+      expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
+    });
+
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('resolution-replay-banner')).not.toBeInTheDocument();
+        expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Открыть прошлый резолв/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('resolution-replay-banner')).toHaveTextContent('Резолв раунда #1');
+      expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Вернуться к текущему драфту/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('resolution-replay-banner')).not.toBeInTheDocument();
+      expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
+    });
   });
 
   it('renders the active local resolve step inside the local battle lane', async () => {
@@ -2396,8 +2489,8 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('local-playback-inline-action')).toHaveTextContent('Атака: ally_creature_1');
-      expect(screen.getByTestId('local-playback-inline-action')).toHaveTextContent('Attacks');
+      expect(screen.queryByTestId('local-playback-inline-action')).not.toBeInTheDocument();
+      expect(screen.getByTestId('resolution-replay-banner')).toHaveTextContent('Резолв раунда #1');
       expect(screen.getByTestId('local-resolution-playback-card')).toHaveTextContent('Атака из ленты сейчас резолвится');
     });
   });
