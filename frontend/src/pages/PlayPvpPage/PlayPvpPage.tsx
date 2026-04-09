@@ -22,7 +22,6 @@ import {
   getResolutionLayerLabel,
   getRoundDraftRejectCodeLabel,
   getRoundDraftValidationCodeLabel,
-  getRoundActionReasonLabel,
   getTargetTypeLabel,
 } from '@game-core/rounds/presentation';
 import { Card, HomeLinkButton, PageShell } from '@/components';
@@ -155,15 +154,6 @@ interface ResolvedTimelineEntrySummary {
   ownerLabel: string;
   title: string;
   subtitle: string;
-}
-
-interface ResolvedLayerStageSummary {
-  layer: ResolutionLayer;
-  modeLabel: string;
-  entries: ResolvedTimelineEntrySummary[];
-  index: number;
-  localActionCount: number;
-  enemyActionCount: number;
 }
 
 const ROUND_RESOLUTION_PLAYBACK_STEP_MS = 800;
@@ -311,44 +301,6 @@ const getRoundActionModeLabel = (layer: ResolutionLayer): string => {
       return 'Конец раунда';
     default:
       return getResolutionLayerLabel(layer);
-  }
-};
-
-const getStepCountLabel = (count: number): string => {
-  const mod100 = count % 100;
-  if (mod100 >= 11 && mod100 <= 14) {
-    return 'шагов';
-  }
-
-  const mod10 = count % 10;
-  if (mod10 === 1) {
-    return 'шаг';
-  }
-
-  if (mod10 >= 2 && mod10 <= 4) {
-    return 'шага';
-  }
-
-  return 'шагов';
-};
-
-const getResolutionStageHint = (layer: ResolutionLayer): string => {
-  switch (layer) {
-    case 'summon':
-      return 'Сначала раскрываются призывы и новые сущности, которые входят в общий порядок раунда.';
-    case 'defensive_modifiers':
-    case 'defensive_spells':
-      return 'Защитные ответы показываются отдельным этапом, чтобы читать контр-игру до атаки.';
-    case 'other_modifiers':
-      return 'Поддержка и модификаторы раскрываются отдельной волной до агрессивных действий.';
-    case 'offensive_control_spells':
-      return 'Боевые и контрольные заклинания идут как самостоятельный слой перед прямыми атаками.';
-    case 'attacks':
-      return 'Только после этого раскрываются удары существ и персонажей.';
-    case 'cleanup_end_of_round':
-      return 'Финальный этап фиксирует cleanup и пост-эффекты завершения раунда.';
-    default:
-      return 'Резолв раскрывается по слоям, а не единым текстовым списком.';
   }
 };
 
@@ -1208,6 +1160,7 @@ export const PlayPvpPage = () => {
   const intentSequenceRef = useRef(0);
   const currentRoundRef = useRef<number | null>(null);
   const roundDraftRef = useRef<RoundActionIntentDraft[]>([]);
+  const resolvedReplayItemRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
     roundDraftRef.current = roundDraft;
@@ -2517,65 +2470,17 @@ export const PlayPvpPage = () => {
           }),
     [getPlayerDisplayName, getResolvedActionTargetLabel, getResolvedActionTitle, lastResolvedRound, playerId],
   );
-  const resolvedLayerStages = useMemo<ResolvedLayerStageSummary[]>(() => {
-    const stages: ResolvedLayerStageSummary[] = [];
-
-    resolvedTimelineEntries.forEach((entry) => {
-      const lastStage = stages[stages.length - 1];
-      if (lastStage && lastStage.layer === entry.action.layer) {
-        lastStage.entries.push(entry);
-        if (entry.action.playerId === playerId) {
-          lastStage.localActionCount += 1;
-        } else {
-          lastStage.enemyActionCount += 1;
-        }
-        return;
-      }
-
-      stages.push({
-        layer: entry.action.layer,
-        modeLabel: getRoundActionModeLabel(entry.action.layer),
-        entries: [entry],
-        index: stages.length,
-        localActionCount: entry.action.playerId === playerId ? 1 : 0,
-        enemyActionCount: entry.action.playerId === playerId ? 0 : 1,
-      });
-    });
-
-    return stages;
-  }, [playerId, resolvedTimelineEntries]);
   const activeResolvedTimelineEntry =
     resolvedPlaybackIndex >= 0 && resolvedPlaybackIndex < resolvedTimelineEntries.length
       ? resolvedTimelineEntries[resolvedPlaybackIndex]
       : null;
-  const activeResolvedLayerStage =
-    activeResolvedTimelineEntry
-      ? resolvedLayerStages.find((stage) =>
-          stage.entries.some((entry) => entry.action.intentId === activeResolvedTimelineEntry.action.intentId),
-        ) ?? null
-      : null;
-  const activeResolvedLayerStageIndex = activeResolvedLayerStage?.index ?? -1;
-  const activeResolvedLayerStepIndex =
-    activeResolvedLayerStage && activeResolvedTimelineEntry
-      ? activeResolvedLayerStage.entries.findIndex(
-          (entry) => entry.action.intentId === activeResolvedTimelineEntry.action.intentId,
-        )
-      : -1;
-  const activeResolvedOwnerId = activeResolvedTimelineEntry?.action.playerId ?? null;
-  const enemyPlaybackEntry =
-    activeResolvedTimelineEntry && activeResolvedOwnerId && activeResolvedOwnerId !== playerId
-      ? activeResolvedTimelineEntry
-      : null;
-  const localPlaybackEntry =
-    activeResolvedTimelineEntry && activeResolvedOwnerId === playerId
-      ? activeResolvedTimelineEntry
-      : null;
-  const visibleEnemyPlaybackEntry = isResolvedReplayOpen ? enemyPlaybackEntry : null;
-  const visibleLocalPlaybackEntry = isResolvedReplayOpen ? localPlaybackEntry : null;
   const isEnemyHandEmpty = (primaryEnemyBoard?.handSize ?? 0) === 0;
-  const isEnemyLaneEmpty = !visibleEnemyPlaybackEntry && enemyRibbonBoardItems.length === 0;
-  const isLocalLaneEmpty = !visibleLocalPlaybackEntry && !hasLocalBattleRibbonEntries;
-  const activeLocalPlaybackIntentId = visibleLocalPlaybackEntry?.action.intentId ?? null;
+  const isEnemyLaneEmpty = enemyRibbonBoardItems.length === 0;
+  const isLocalLaneEmpty = !hasLocalBattleRibbonEntries;
+  const activeLocalPlaybackIntentId =
+    isResolvedReplayOpen && activeResolvedTimelineEntry?.action.playerId === playerId
+      ? activeResolvedTimelineEntry.action.intentId
+      : null;
   const resolvePlaybackSourceBoardItemId = useCallback(
     (
       action: ResolvedRoundAction | null | undefined,
@@ -2604,27 +2509,18 @@ export const PlayPvpPage = () => {
     [],
   );
   const activeLocalPlaybackSourceBoardItemId = resolvePlaybackSourceBoardItemId(
-    visibleLocalPlaybackEntry?.action,
+    isResolvedReplayOpen && activeResolvedTimelineEntry?.action.playerId === playerId
+      ? activeResolvedTimelineEntry.action
+      : null,
     localBoardItemIdByRuntimeId,
     localBoardItems,
   );
-  const resolvedPlaybackStepLabel = activeResolvedTimelineEntry
-    ? `Шаг ${resolvedPlaybackIndex + 1} из ${resolvedTimelineEntries.length}`
-    : 'Ожидание playback';
-  const resolvedLayerPlaybackLabel =
-    activeResolvedLayerStageIndex >= 0
-      ? `Этап ${activeResolvedLayerStageIndex + 1} из ${resolvedLayerStages.length}`
-      : 'Ожидание этапа';
-  const resolvedLayerPlaybackStepLabel =
-    activeResolvedLayerStage && activeResolvedLayerStepIndex >= 0
-      ? `Шаг ${activeResolvedLayerStepIndex + 1} из ${activeResolvedLayerStage.entries.length} в слое`
-      : 'Шаг слоя ещё не выбран';
-  const localResolvedActionCount = resolvedTimelineEntries.filter((entry) => entry.action.playerId === playerId).length;
-  const enemyResolvedActionCount = resolvedTimelineEntries.length - localResolvedActionCount;
   const hasActiveMatchConnection = Boolean(joinedSessionId || matchState);
   const selectedDeckName = savedDecks.find((deck) => deck.id === deckId)?.name ?? 'не выбрана';
   const activeEnemyPlaybackBoardItemId = resolvePlaybackSourceBoardItemId(
-    visibleEnemyPlaybackEntry?.action,
+    isResolvedReplayOpen && activeResolvedTimelineEntry?.action.playerId !== playerId
+      ? activeResolvedTimelineEntry?.action
+      : null,
     enemyRibbonBoardItemIdByRuntimeId,
     enemyRibbonBoardItems,
   );
@@ -2633,7 +2529,6 @@ export const PlayPvpPage = () => {
   const hasReplayAvailable = Boolean(lastResolvedRound && resolvedTimelineEntries.length > 0);
   const hasCurrentRoundAdvancedPastReplay =
     Boolean(lastResolvedRound) && currentRoundNumber > (lastResolvedRound?.roundNumber ?? 0);
-  const activeResolvedStageEntryCount = activeResolvedLayerStage?.entries.length ?? 0;
 
   const restartResolvedReplay = useCallback(
     (pinned: boolean) => {
@@ -2687,6 +2582,18 @@ export const PlayPvpPage = () => {
     isResolvedReplayPinned,
     resolvedPlaybackComplete,
   ]);
+
+  useEffect(() => {
+    if (!isResolvedReplayOpen || !activeResolvedTimelineEntry) {
+      return;
+    }
+
+    resolvedReplayItemRefs.current[activeResolvedTimelineEntry.action.intentId]?.scrollIntoView?.({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center',
+    });
+  }, [activeResolvedTimelineEntry, isResolvedReplayOpen]);
 
   const draftRejectionErrorsByIntentId = useMemo(() => {
     const errorMap = new Map<string, RoundDraftRejectedSummary['errors']>();
@@ -3262,101 +3169,100 @@ export const PlayPvpPage = () => {
                     </aside>
 
                     <section className={styles.fieldFrame}>
-                  <div className={styles.fieldFrameToolbar}>
-                    <div className={styles.fieldFrameMode}>
-                      <span className={styles.summaryLabel}>Сцена поля</span>
-                      <strong>{isResolvedReplayOpen ? 'Просмотр прошлого резолва' : 'Текущий драфт'}</strong>
-                      <span className={styles.hint}>
-                        {isResolvedReplayOpen && lastResolvedRound
-                          ? `Раунд ${lastResolvedRound.roundNumber} · ${resolvedLayerPlaybackLabel}`
-                          : `Раунд ${matchSummary.roundNumber} · ${getRoundStatusLabel(matchSummary.roundStatus)}`}
-                      </span>
-                    </div>
-                    {hasReplayAvailable ? (
-                      <button
-                        className={`${styles.replayToggleButton} ${isResolvedReplayOpen ? styles.replayToggleButtonActive : ''}`.trim()}
-                        type="button"
-                        aria-label={isResolvedReplayOpen ? 'Вернуться к текущему драфту' : 'Открыть прошлый резолв'}
-                        onClick={handleToggleResolvedReplay}
-                      >
-                        <span className={styles.replayToggleEye} aria-hidden="true">
-                          <span className={styles.replayToggleEyePupil} />
-                        </span>
-                        <span className={styles.replayToggleLabel}>
-                          {isResolvedReplayOpen ? 'Закрыть резолв' : 'Глаз'}
-                        </span>
-                      </button>
-                    ) : null}
-                  </div>
+                      {hasReplayAvailable ? (
+                        <div className={styles.fieldFrameToolbar}>
+                          <button
+                            className={`${styles.replayToggleButton} ${isResolvedReplayOpen ? styles.replayToggleButtonActive : ''}`.trim()}
+                            type="button"
+                            aria-label={isResolvedReplayOpen ? 'Вернуться к текущему драфту' : 'Открыть прошлый резолв'}
+                            onClick={handleToggleResolvedReplay}
+                          >
+                            <span className={styles.replayToggleEye} aria-hidden="true">
+                              <span className={styles.replayToggleEyePupil} />
+                            </span>
+                          </button>
+                        </div>
+                      ) : null}
 
-                  {isResolvedReplayOpen && lastResolvedRound ? (
-                    <div className={styles.resolveReplayBanner} data-testid="resolution-replay-banner">
-                      <div>
-                        <span className={styles.summaryLabel}>Просмотр прошлого раунда</span>
-                        <strong className={styles.resolveReplayTitle}>Резолв раунда #{lastResolvedRound.roundNumber}</strong>
-                        <span className={styles.hint}>
-                          Пока открыт replay, текущее поле драфта скрыто и не смешивается с прошлым раундом.
-                        </span>
-                      </div>
-                      <div className={styles.resolveReplayMeta}>
-                        <span className={styles.cardBadge}>{resolvedPlaybackStepLabel}</span>
-                        <span className={styles.cardBadge}>{resolvedLayerPlaybackLabel}</span>
-                        <span className={styles.cardBadge}>
-                          {activeResolvedStageEntryCount} {getStepCountLabel(activeResolvedStageEntryCount)}
-                        </span>
-                      </div>
-                    </div>
-                  ) : null}
+                      {isResolvedReplayOpen ? (
+                        <section className={styles.resolveReplayScene} data-testid="resolution-replay-strip">
+                          <div className={styles.resolveReplayTrack}>
+                            {resolvedTimelineEntries.map((entry, index) => {
+                              const isReplayItemActive = index === resolvedPlaybackIndex;
+                              const isReplayItemResolved =
+                                index < resolvedPlaybackIndex || (resolvedPlaybackComplete && isReplayItemActive);
 
-                  {!isResolvedReplayOpen ? (
-                  <section className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}>
-                    <div className={styles.battleLaneHeader}>
-                      <div>
-                        <span className={styles.summaryLabel}>Рука соперника</span>
-                        <strong>Карты оппонента</strong>
-                      </div>
-                      <span className={styles.battleCount}>{primaryEnemyBoard?.handSize ?? 0} карт</span>
-                    </div>
-                    {(primaryEnemyBoard?.handSize ?? 0) > 0 ? (
-                      <div className={styles.opponentHandFanGrid} aria-hidden="true">
-                        {Array.from({ length: primaryEnemyBoard?.handSize ?? 0 }).map((_, index) => (
-                          <div key={`enemy-hand-${index}`} className={styles.opponentHandCard}>
-                            <span className={styles.opponentHandCardBack} />
+                              return (
+                                <article
+                                  key={entry.action.intentId}
+                                  ref={(node) => {
+                                    resolvedReplayItemRefs.current[entry.action.intentId] = node;
+                                  }}
+                                  className={[
+                                    styles.resolveReplayItem,
+                                    getRoundQueueToneClassName(entry.action.layer),
+                                    entry.action.playerId === playerId
+                                      ? styles.resolveReplayItemLocal
+                                      : styles.resolveReplayItemEnemy,
+                                    isReplayItemActive ? styles.resolveReplayItemActive : '',
+                                    isReplayItemResolved ? styles.resolveReplayItemResolved : '',
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                  data-testid={isReplayItemActive ? 'resolution-replay-item-active' : 'resolution-replay-item'}
+                                >
+                                  <div className={styles.resolveReplayItemHeader}>
+                                    <span className={styles.resolveReplayItemOrder}>{entry.order}</span>
+                                    <div className={styles.resolveReplayItemHeading}>
+                                      <span className={styles.summaryLabel}>{entry.ownerLabel}</span>
+                                      <strong>{entry.title}</strong>
+                                    </div>
+                                  </div>
+                                  <span className={styles.resolveReplayItemSubtitle}>{entry.subtitle}</span>
+                                  <div className={styles.resolveReplayItemMeta}>
+                                    <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(entry.action.layer)}`.trim()}>
+                                      {getRoundActionModeLabel(entry.action.layer)}
+                                    </span>
+                                    <span className={styles.cardBadge}>{getRoundActionStatusDisplay(entry.action.status)}</span>
+                                    {isReplayItemActive ? <span className={styles.cardBadge}>Сейчас</span> : null}
+                                  </div>
+                                  <span className={styles.resolveReplayItemSummary}>{entry.action.summary}</span>
+                                </article>
+                              );
+                            })}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className={styles.emptyState}>У соперника пока нет карт в руке.</div>
-                    )}
-                  </section>
-                  ) : null}
+                        </section>
+                      ) : null}
+
+                      {!isResolvedReplayOpen ? (
+                        <section className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}>
+                          <div className={styles.battleLaneHeader}>
+                            <div>
+                              <span className={styles.summaryLabel}>Рука соперника</span>
+                              <strong>Карты оппонента</strong>
+                            </div>
+                            <span className={styles.battleCount}>{primaryEnemyBoard?.handSize ?? 0} карт</span>
+                          </div>
+                          {(primaryEnemyBoard?.handSize ?? 0) > 0 ? (
+                            <div className={styles.opponentHandFanGrid} aria-hidden="true">
+                              {Array.from({ length: primaryEnemyBoard?.handSize ?? 0 }).map((_, index) => (
+                                <div key={`enemy-hand-${index}`} className={styles.opponentHandCard}>
+                                  <span className={styles.opponentHandCardBack} />
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className={styles.emptyState}>У соперника пока нет карт в руке.</div>
+                          )}
+                        </section>
+                      ) : null}
 
                   <section className={`${styles.battleLane} ${isEnemySideActive ? styles.battleLaneActive : ''} ${isEnemyLaneEmpty ? styles.compactZone : ''}`.trim()}>
                     <div className={styles.battleLaneHeader}>
                       <div>
-                        <strong>{isResolvedReplayOpen ? `Резолв соперника · ${primaryEnemyDisplayName || 'Ожидание соперника'}` : primaryEnemyDisplayName || 'Ожидание соперника'}</strong>
+                        <strong>{primaryEnemyDisplayName || 'Ожидание соперника'}</strong>
                       </div>
                     </div>
-                    {visibleEnemyPlaybackEntry ? (
-                      <div className={`${styles.ribbonCard} ${styles.ribbonCardPlayback}`.trim()} data-testid="enemy-resolution-playback-card">
-                        <div className={styles.ribbonHeader}>
-                          <div>
-                            <span className={styles.summaryLabel}>Резолв сейчас</span>
-                            <strong>{visibleEnemyPlaybackEntry.title}</strong>
-                          </div>
-                          <div className={styles.ribbonBadgeRow}>
-                            <span className={styles.cardBadge}>{resolvedPlaybackStepLabel}</span>
-                            <span className={styles.cardBadge}>{visibleEnemyPlaybackEntry.action.status}</span>
-                          </div>
-                        </div>
-                        <span>{visibleEnemyPlaybackEntry.subtitle}</span>
-                        <div className={styles.ribbonBadgeRow}>
-                          <span className={styles.cardBadge}>{getResolutionLayerLabel(visibleEnemyPlaybackEntry.action.layer)}</span>
-                          <span className={styles.cardBadge}>{getRoundActionReasonLabel(visibleEnemyPlaybackEntry.action.reasonCode)}</span>
-                        </div>
-                        <span className={styles.hint}>{visibleEnemyPlaybackEntry.action.summary}</span>
-                      </div>
-                    ) : null}
                     {enemyRibbonBoardItems.length > 0 ? (
                       <div className={styles.ribbonSection}>
                         <span className={styles.summaryLabel}>{isResolvedReplayOpen ? 'Сцена соперника' : 'Боевая лента соперника'}</span>
@@ -3432,31 +3338,9 @@ export const PlayPvpPage = () => {
                   <section className={`${styles.battleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()}>
                     <div className={styles.battleLaneHeader}>
                       <div>
-                        <strong>{isResolvedReplayOpen ? `Твой резолв · ${localDisplayName}` : localDisplayName}</strong>
+                        <strong>{localDisplayName}</strong>
                       </div>
                     </div>
-                    {visibleLocalPlaybackEntry ? (
-                      <div className={`${styles.ribbonCard} ${styles.ribbonCardPlayback}`.trim()} data-testid="local-resolution-playback-card">
-                        <div className={styles.ribbonHeader}>
-                          <div>
-                            <span className={styles.summaryLabel}>Резолв сейчас</span>
-                            <strong>{visibleLocalPlaybackEntry.title}</strong>
-                          </div>
-                          <div className={styles.ribbonBadgeRow}>
-                            <span className={styles.cardBadge}>{resolvedPlaybackStepLabel}</span>
-                            <span className={styles.cardBadge}>
-                              {getRoundActionStatusDisplay(visibleLocalPlaybackEntry.action.status)} · {visibleLocalPlaybackEntry.action.status}
-                            </span>
-                          </div>
-                        </div>
-                        <span>{visibleLocalPlaybackEntry.subtitle}</span>
-                        <div className={styles.ribbonBadgeRow}>
-                          <span className={styles.cardBadge}>{getResolutionLayerLabel(visibleLocalPlaybackEntry.action.layer)}</span>
-                          <span className={styles.cardBadge}>{getRoundActionReasonLabel(visibleLocalPlaybackEntry.action.reasonCode)}</span>
-                        </div>
-                        <span className={styles.hint}>{visibleLocalPlaybackEntry.action.summary}</span>
-                      </div>
-                    ) : null}
                     {hasLocalBattleRibbonEntries ? (
                       <div className={styles.ribbonSection}>
                         <span className={styles.summaryLabel}>{isResolvedReplayOpen ? 'Твоя сцена' : 'Твоя боевая лента'}</span>
@@ -3975,221 +3859,6 @@ export const PlayPvpPage = () => {
               )}
             </Card>
           ) : null}
-
-          <Card title="Последний резолв" className={styles.themedCard}>
-            {lastResolvedRound ? (
-              <div className={styles.focusPanel}>
-                <div className={styles.resolveSummaryStrip}>
-                  <div className={styles.resolveSummaryPill}>
-                    <span className={styles.indicatorKicker}>Раунд</span>
-                    <strong className={styles.indicatorValue}>#{lastResolvedRound.roundNumber}</strong>
-                  </div>
-                  <div className={styles.resolveSummaryPill}>
-                    <span className={styles.indicatorKicker}>Всего шагов</span>
-                    <strong className={styles.indicatorValue}>{resolvedTimelineEntries.length}</strong>
-                  </div>
-                  <div className={styles.resolveSummaryPill}>
-                    <span className={styles.indicatorKicker}>Этапов</span>
-                    <strong className={styles.indicatorValue}>{resolvedLayerStages.length}</strong>
-                  </div>
-                  <div className={styles.resolveSummaryPill}>
-                    <span className={styles.indicatorKicker}>Твои шаги</span>
-                    <strong className={styles.indicatorValue}>{localResolvedActionCount}</strong>
-                    <span className={styles.indicatorSubvalue}>Соперник: {enemyResolvedActionCount}</span>
-                  </div>
-                </div>
-                {resolvedLayerStages.length > 0 ? (
-                  <div className={styles.resolveFlowStrip}>
-                    <div className={styles.resolveFlowNode}>
-                      <span className={styles.indicatorKicker}>Скрытый драфт</span>
-                      <strong className={styles.resolveFlowTitle}>Оба игрока собрали намерения</strong>
-                      <span className={styles.indicatorSubvalue}>
-                        Ты: {localResolvedActionCount} · Соперник: {enemyResolvedActionCount}
-                      </span>
-                    </div>
-                    <span className={styles.resolveFlowArrow} aria-hidden="true">
-                      →
-                    </span>
-                    <div className={`${styles.resolveFlowNode} ${styles.resolveFlowNodeActive}`.trim()}>
-                      <span className={styles.indicatorKicker}>Общий резолв</span>
-                      <strong className={styles.resolveFlowTitle}>
-                        {activeResolvedLayerStage ? activeResolvedLayerStage.modeLabel : 'Ожидание этапа'}
-                      </strong>
-                      <span className={styles.indicatorSubvalue}>{resolvedLayerPlaybackLabel}</span>
-                    </div>
-                  </div>
-                ) : null}
-                {activeResolvedTimelineEntry ? (
-                  <div className={styles.indicatorRail}>
-                    <div className={styles.indicatorPill}>
-                      <span className={styles.indicatorKicker}>Резолв</span>
-                      <strong className={styles.indicatorValue} data-testid="resolution-playback-status">
-                        {resolvedPlaybackComplete ? 'Завершён' : 'Идёт'}
-                      </strong>
-                      <span className={styles.indicatorSubvalue} data-testid="resolution-playback-step">
-                        {resolvedPlaybackStepLabel}
-                      </span>
-                    </div>
-                    <div className={styles.indicatorPill}>
-                      <span className={styles.indicatorKicker}>Текущий шаг резолва</span>
-                      <strong className={styles.indicatorValue} data-testid="resolution-playback-title">
-                        {activeResolvedTimelineEntry.title}
-                      </strong>
-                      <span className={styles.indicatorSubvalue}>{activeResolvedTimelineEntry.subtitle}</span>
-                    </div>
-                    <div className={styles.indicatorPill}>
-                      <span className={styles.indicatorKicker}>Результат шага</span>
-                      <strong className={styles.indicatorValue}>{activeResolvedTimelineEntry.action.status}</strong>
-                      <span className={styles.indicatorSubvalue} data-testid="resolution-playback-summary">
-                        {activeResolvedTimelineEntry.action.summary}
-                      </span>
-                    </div>
-                  </div>
-                ) : null}
-                {activeResolvedLayerStage ? (
-                  <div className={styles.resolveStageViewer} data-testid="resolution-stage-viewer">
-                    <div className={styles.resolveStageHeader}>
-                      <div>
-                        <span className={styles.summaryLabel}>Этап общего резолва</span>
-                        <strong className={styles.resolveStageTitle} data-testid="resolution-layer-playback-title">
-                          {activeResolvedLayerStage.modeLabel}
-                        </strong>
-                        <span className={styles.hint}>{getResolutionStageHint(activeResolvedLayerStage.layer)}</span>
-                      </div>
-                      <div className={styles.resolveStageBadgeRow}>
-                        <span className={styles.cardBadge} data-testid="resolution-layer-playback-step">
-                          {resolvedLayerPlaybackLabel}
-                        </span>
-                        <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(activeResolvedLayerStage.layer)}`.trim()}>
-                          {activeResolvedLayerStage.entries.length} {getStepCountLabel(activeResolvedLayerStage.entries.length)}
-                        </span>
-                        <span className={styles.cardBadge}>{resolvedLayerPlaybackStepLabel}</span>
-                      </div>
-                    </div>
-                    <div className={styles.resolveStageTrack}>
-                      {resolvedLayerStages.map((stage) => {
-                        const isActiveStage = stage.index === activeResolvedLayerStageIndex;
-                        const isCompletedStage =
-                          stage.index < activeResolvedLayerStageIndex ||
-                          (resolvedPlaybackComplete && stage.index === activeResolvedLayerStageIndex);
-
-                        return (
-                          <div
-                            key={`${stage.layer}_${stage.index}`}
-                            className={[
-                              styles.resolveStageChip,
-                              isActiveStage ? styles.resolveStageChipActive : '',
-                              isCompletedStage ? styles.resolveStageChipComplete : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' ')}
-                          >
-                            <span className={styles.resolveStageChipIndex}>{stage.index + 1}</span>
-                            <div className={styles.resolveStageChipText}>
-                              <strong>{stage.modeLabel}</strong>
-                              <span>
-                                {stage.entries.length} {getStepCountLabel(stage.entries.length)}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className={styles.resolveStageGrid}>
-                      {activeResolvedLayerStage.entries.map((entry) => {
-                        const isActiveStageEntry =
-                          entry.action.intentId === activeResolvedTimelineEntry?.action.intentId;
-
-                        return (
-                          <article
-                            key={entry.action.intentId}
-                            className={[
-                              styles.resolveStageCard,
-                              getRoundQueueToneClassName(entry.action.layer),
-                              isActiveStageEntry ? styles.resolveStageCardActive : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' ')}
-                          >
-                            <div className={styles.resolveStageCardHeader}>
-                              <span className={styles.resolveStageCardOrder}>{entry.order}</span>
-                              <div className={styles.resolveStageCardHeading}>
-                                <strong>{entry.title}</strong>
-                                <span>{entry.subtitle}</span>
-                              </div>
-                            </div>
-                            <div className={styles.resolveStageCardMeta}>
-                              <span className={styles.cardBadge}>{entry.ownerLabel}</span>
-                              <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(entry.action.layer)}`.trim()}>
-                                {getRoundActionModeLabel(entry.action.layer)}
-                              </span>
-                              {isActiveStageEntry ? <span className={styles.cardBadge}>Сейчас</span> : null}
-                            </div>
-                            <div className={styles.resolveStageCardOutcome}>
-                              <strong>{getRoundActionReasonLabel(entry.action.reasonCode)}</strong>
-                              <span>{entry.action.summary}</span>
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-                {resolvedTimelineEntries.length > 0 ? (
-                  <div className={styles.resolveTimelineSection}>
-                    <div className={styles.resolveTimelineHeader}>
-                      <div>
-                        <span className={styles.summaryLabel}>Полный порядок</span>
-                        <strong>Все шаги общего резолва</strong>
-                      </div>
-                    </div>
-                    <div className={styles.roundQueueList}>
-                    {resolvedTimelineEntries.map(({ order, action, title, subtitle, ownerLabel }, index) => (
-                      <div
-                        key={action.intentId}
-                        className={`${styles.roundQueueItem} ${getRoundQueueToneClassName(action.layer)} ${index === resolvedPlaybackIndex ? styles.roundQueueItemActive : ''}`.trim()}
-                      >
-                        <div className={styles.roundQueueMain}>
-                          <span className={styles.roundQueueIndex}>{order}</span>
-                          <div className={styles.roundQueueText}>
-                            <strong>{title}</strong>
-                            <span>{subtitle}</span>
-                          </div>
-                        </div>
-                        <div className={styles.roundQueueMeta}>
-                          <div className={styles.roundQueueTagRow}>
-                            <span className={styles.cardBadge}>{ownerLabel}</span>
-                            <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>
-                              {getResolutionLayerLabel(action.layer)}
-                            </span>
-                            {index === resolvedPlaybackIndex ? <span className={styles.cardBadge}>Сейчас</span> : null}
-                          </div>
-                          <div className={styles.roundQueueOutcome}>
-                            <span className={styles.cardBadge}>
-                              {getRoundActionStatusDisplay(action.status)} · {action.status}
-                            </span>
-                            <strong>{getRoundActionReasonLabel(action.reasonCode)}</strong>
-                          </div>
-                          {showDiagnostics ? <span className={styles.cardBadge}>{action.reasonCode}</span> : null}
-                        </div>
-                        <div className={styles.roundQueueSummary}>{action.summary}</div>
-                      </div>
-                    ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className={styles.emptyState}>Раунд {lastResolvedRound.roundNumber} завершился без результативных действий.</div>
-                )}
-                {resolvedTimelineEntries.length > 0 ? (
-                  <div className={styles.hint}>
-                    Шаги показаны в фактическом порядке общего server-side резолва. После `roundResolved` и твои, и вражеские действия отображаются как публичная лента раунда.
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className={styles.emptyState}>После первого `roundResolved` здесь появится порядок фактического резолва.</div>
-            )}
-          </Card>
 
           <Card title="Лента матча" className={styles.themedCard}>
             {matchEvents.length > 0 ? (

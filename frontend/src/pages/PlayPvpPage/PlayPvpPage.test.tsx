@@ -2,7 +2,6 @@
 import { MemoryRouter } from 'react-router-dom';
 import { within } from '@testing-library/react';
 import {
-  getRoundActionReasonLabel,
   getResolutionLayerLabel,
   getRoundDraftRejectCodeLabel,
   getRoundDraftValidationCodeLabel,
@@ -2053,11 +2052,9 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Твой маг`, 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(new RegExp(getRoundActionReasonLabel('target_invalidated'), 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Цель исчезла до резолва/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(new RegExp(getResolutionLayerLabel('offensive_control_spells'), 'i')).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/fizzled/i).length).toBeGreaterThan(0);
-      expect(screen.getByText(/Шаги показаны в фактическом порядке общего server-side резолва/i)).toBeInTheDocument();
+      expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
+      expect(screen.getAllByTestId(/resolution-replay-item/)).toHaveLength(2);
     });
   });
 
@@ -2128,29 +2125,17 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Текущий шаг резолва/i)).toBeInTheDocument();
-      expect(screen.getByText((_, element) => element?.textContent === 'Раунд#1')).toBeInTheDocument();
-      expect(screen.getByText((_, element) => element?.textContent === 'Всего шагов2')).toBeInTheDocument();
-      expect(screen.getAllByText(/Соперник: 2/i).length).toBeGreaterThan(0);
-      expect(screen.getByTestId('resolution-playback-step')).toHaveTextContent('Шаг 1 из 2');
-      expect(screen.getByTestId('resolution-playback-summary')).toHaveTextContent('Первый шаг резолва');
-      expect(screen.getByTestId('resolution-playback-status')).toHaveTextContent('Идёт');
-      expect(screen.getByTestId('resolution-layer-playback-title')).toHaveTextContent('Атака');
-      expect(screen.getByTestId('resolution-layer-playback-step')).toHaveTextContent('Этап 1 из 2');
-      expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Резолв сейчас');
-      expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Первый шаг резолва');
-      expect(within(screen.getByTestId('resolution-stage-viewer')).queryByText('Второй шаг резолва')).not.toBeInTheDocument();
+      expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
+      expect(screen.getAllByTestId(/resolution-replay-item/)).toHaveLength(2);
+      expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Первый шаг резолва');
+      expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Атака');
+      expect(screen.getByTestId('resolution-replay-item-active')).not.toHaveTextContent('Второй шаг резолва');
     });
 
     await waitFor(
       () => {
-        expect(screen.getByTestId('resolution-playback-step')).toHaveTextContent('Шаг 2 из 2');
-        expect(screen.getByTestId('resolution-playback-summary')).toHaveTextContent('Второй шаг резолва');
-        expect(screen.getByTestId('resolution-playback-status')).toHaveTextContent('Завершён');
-        expect(screen.getByTestId('resolution-layer-playback-title')).toHaveTextContent('Боевое заклинание');
-        expect(screen.getByTestId('resolution-layer-playback-step')).toHaveTextContent('Этап 2 из 2');
-        expect(within(screen.getByTestId('resolution-stage-viewer')).getByText('Второй шаг резолва')).toBeInTheDocument();
-        expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Второй шаг резолва');
+        expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Второй шаг резолва');
+        expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Боевое заклинание');
       },
       { timeout: 2500 },
     );
@@ -2216,13 +2201,13 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('resolution-replay-banner')).toHaveTextContent('Резолв раунда #1');
+      expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
     });
 
     await waitFor(
       () => {
-        expect(screen.queryByTestId('resolution-replay-banner')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('resolution-replay-strip')).not.toBeInTheDocument();
         expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
       },
       { timeout: 3000 },
@@ -2231,14 +2216,14 @@ describe('PlayPvpPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Открыть прошлый резолв/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('resolution-replay-banner')).toHaveTextContent('Резолв раунда #1');
+      expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Вернуться к текущему драфту/i }));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('resolution-replay-banner')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('resolution-replay-strip')).not.toBeInTheDocument();
       expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
     });
   });
@@ -2327,10 +2312,9 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('local-resolution-playback-card')).toHaveTextContent('Резолв сейчас');
-      expect(screen.getByTestId('local-resolution-playback-card')).toHaveTextContent('Локальный шаг резолва');
-      expect(screen.getByTestId('local-resolution-playback-card')).toHaveTextContent('Локальный шаг резолва');
-      expect(screen.queryByTestId('enemy-resolution-playback-card')).not.toBeInTheDocument();
+      expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Локальный шаг резолва');
+      expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Огненный шар');
+      expect(screen.queryByTestId('enemy-playback-highlight-item')).not.toBeInTheDocument();
     });
   });
 
@@ -2490,8 +2474,8 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId('local-playback-inline-action')).not.toBeInTheDocument();
-      expect(screen.getByTestId('resolution-replay-banner')).toHaveTextContent('Резолв раунда #1');
-      expect(screen.getByTestId('local-resolution-playback-card')).toHaveTextContent('Атака из ленты сейчас резолвится');
+      expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
+      expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Атака из ленты сейчас резолвится');
     });
   });
 
@@ -2583,7 +2567,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('enemy-resolution-playback-card')).toHaveTextContent('Соперник выставил существо на поле');
+      expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Соперник выставил существо на поле');
       expect(screen.getByTestId('enemy-playback-highlight-item')).toHaveTextContent('Существо соперника');
       expect(screen.getByTestId('enemy-playback-highlight-item')).toHaveTextContent('Огненный элементаль');
     });
