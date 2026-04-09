@@ -2203,12 +2203,14 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('local-draft-workspace')).not.toBeInTheDocument();
     });
 
     await waitFor(
       () => {
         expect(screen.queryByTestId('resolution-replay-strip')).not.toBeInTheDocument();
         expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
+        expect(screen.getByTestId('local-draft-workspace')).toBeInTheDocument();
       },
       { timeout: 3000 },
     );
@@ -2218,6 +2220,7 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('local-draft-workspace')).not.toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Вернуться к текущему драфту/i }));
@@ -2225,6 +2228,7 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('resolution-replay-strip')).not.toBeInTheDocument();
       expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
+      expect(screen.getByTestId('local-draft-workspace')).toBeInTheDocument();
     });
   });
 

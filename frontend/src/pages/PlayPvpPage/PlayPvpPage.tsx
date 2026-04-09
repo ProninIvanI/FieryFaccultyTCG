@@ -3335,7 +3335,9 @@ export const PlayPvpPage = () => {
                     )}
                   </section>
 
-                  <section className={`${styles.battleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()}>
+                  {!isResolvedReplayOpen ? (
+                    <>
+                  <section className={`${styles.battleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">
                     <div className={styles.battleLaneHeader}>
                       <div>
                         <strong>{localDisplayName}</strong>
@@ -3676,7 +3678,6 @@ export const PlayPvpPage = () => {
                     Порядок в боевой ленте показывает только текущий замысел. Во время разыгрывания шаги всё равно идут по боевым слоям.
                   </div>
 
-                    {!isResolvedReplayOpen ? (
                     <section className={styles.handTray}>
                       <div className={styles.battleLaneHeader}>
                         <div>
@@ -3746,7 +3747,8 @@ export const PlayPvpPage = () => {
                         </div>
                       )}
                     </section>
-                    ) : null}
+                    </>
+                  ) : null}
                     </section>
                   </section>
                 </div>
