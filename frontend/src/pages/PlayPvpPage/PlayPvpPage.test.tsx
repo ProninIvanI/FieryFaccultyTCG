@@ -297,7 +297,203 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
+      const matchFeed = within(screen.getByTestId('match-feed'));
       expect(screen.getAllByText(/Огненный шар нанёс урон/i).length).toBeGreaterThan(0);
+      expect(screen.getByRole('button', { name: /Раунд 1/i })).toHaveAttribute('aria-expanded', 'true');
+      expect(matchFeed.getByText(/1 шаг/i)).toBeInTheDocument();
+      expect(matchFeed.getAllByText(/^Ты$/i).length).toBeGreaterThan(0);
+      expect(matchFeed.getByText(/Вражеский маг:/i)).toBeInTheDocument();
+      expect(matchFeed.getByText(/Сработало/i)).toBeInTheDocument();
+    });
+  });
+
+  it('builds round-based match feed history, deduplicates by roundNumber and toggles expanded round', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_feed_history', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 2, maxMana: 2, actionPoints: 1, characterId: 'char_1' },
+            user_2: { mana: 2, maxMana: 2, actionPoints: 1, characterId: 'char_2' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 1,
+          orderedActions: [
+            createResolvedRoundAction({
+              intentId: 'round_1_spell',
+              orderIndex: 0,
+              playerId: 'user_1',
+              kind: 'CastSpell',
+              actorId: 'char_1',
+              layer: 'offensive_control_spells',
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              cardInstanceId: 'spell_card_1',
+              definitionId: '1',
+              source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Первый огненный шар',
+            }),
+          ],
+        },
+      });
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 2,
+          orderedActions: [
+            createResolvedRoundAction({
+              intentId: 'round_2_enemy',
+              orderIndex: 0,
+              playerId: 'user_2',
+              kind: 'Attack',
+              actorId: 'char_2',
+              layer: 'attacks',
+              target: { targetType: 'enemyCharacter', targetId: 'char_1' },
+              source: { type: 'actor', actorId: 'char_2' },
+              status: 'fizzled',
+              reasonCode: 'action_skipped',
+              summary: 'Атака соперника была остановлена щитом',
+            }),
+          ],
+        },
+      });
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 2,
+          orderedActions: [
+            createResolvedRoundAction({
+              intentId: 'round_2_enemy_updated',
+              orderIndex: 0,
+              playerId: 'user_2',
+              kind: 'Attack',
+              actorId: 'char_2',
+              layer: 'attacks',
+              target: { targetType: 'enemyCharacter', targetId: 'char_1' },
+              source: { type: 'actor', actorId: 'char_2' },
+              status: 'fizzled',
+              reasonCode: 'action_skipped',
+              summary: 'Обновлённый итог второго раунда',
+            }),
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const matchFeed = within(screen.getByTestId('match-feed'));
+      const roundButtons = screen.getAllByRole('button', { name: /Раунд /i });
+      expect(roundButtons).toHaveLength(2);
+      expect(roundButtons[0]).toHaveTextContent(/Раунд 2/i);
+      expect(roundButtons[0]).toHaveAttribute('aria-expanded', 'true');
+      expect(roundButtons[1]).toHaveTextContent(/Раунд 1/i);
+      expect(matchFeed.getByText(/Обновлённый итог второго раунда/i)).toBeInTheDocument();
+      expect(matchFeed.queryByText(/Атака соперника была остановлена щитом/i)).not.toBeInTheDocument();
+      expect(matchFeed.queryByText(/Первый огненный шар/i)).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Раунд 1/i }));
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const matchFeed = within(screen.getByTestId('match-feed'));
+      expect(screen.getByRole('button', { name: /Раунд 1/i })).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByRole('button', { name: /Раунд 2/i })).toHaveAttribute('aria-expanded', 'false');
+      expect(matchFeed.getByText(/Первый огненный шар/i)).toBeInTheDocument();
+      expect(matchFeed.queryByText(/Обновлённый итог второго раунда/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('enriches round feed entry with safe details from state.log when action anchor matches', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_feed_details', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 2, maxMana: 2, actionPoints: 1, characterId: 'char_1' },
+            user_2: { mana: 2, maxMana: 2, actionPoints: 1, characterId: 'char_2' },
+          },
+          log: [
+            {
+              seq: 1,
+              type: 'action',
+              payload: {
+                action: {
+                  type: 'CastSpell',
+                  actorId: 'char_1',
+                  playerId: 'user_1',
+                  cardInstanceId: 'spell_card_1',
+                  targetId: 'char_2',
+                },
+              },
+            },
+            {
+              seq: 2,
+              type: 'damage',
+              payload: {
+                targetId: 'char_2',
+                amount: 3,
+              },
+            },
+            {
+              seq: 3,
+              type: 'effect',
+              payload: {
+                effectId: 'effect_1',
+              },
+            },
+          ],
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 1,
+          orderedActions: [
+            createResolvedRoundAction({
+              intentId: 'round_1_spell',
+              playerId: 'user_1',
+              kind: 'CastSpell',
+              actorId: 'char_1',
+              layer: 'offensive_control_spells',
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              cardInstanceId: 'spell_card_1',
+              definitionId: '1',
+              source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Огненный шар попал в цель',
+            }),
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const matchFeed = within(screen.getByTestId('match-feed'));
+      expect(matchFeed.getByText(/Нанесено 3 урона цели Маг user_2/i)).toBeInTheDocument();
+      expect(matchFeed.getByText(/Сработал дополнительный эффект карты/i)).toBeInTheDocument();
     });
   });
 
@@ -2048,10 +2244,10 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Атака: Существо enemy_creature_1/i)).toBeInTheDocument();
-      expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Твой маг`, 'i')).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Атака: Существо enemy_creature_1/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')}.+Твой маг`, 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')}.+Маг user_2`, 'i')).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Цель исчезла до резолва/i).length).toBeGreaterThan(0);
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.getAllByTestId(/resolution-replay-item/)).toHaveLength(2);
@@ -2203,12 +2399,14 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('enemy-live-workspace')).not.toBeInTheDocument();
       expect(screen.queryByTestId('local-draft-workspace')).not.toBeInTheDocument();
     });
 
     await waitFor(
       () => {
         expect(screen.queryByTestId('resolution-replay-strip')).not.toBeInTheDocument();
+        expect(screen.getByTestId('enemy-live-workspace')).toBeInTheDocument();
         expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
         expect(screen.getByTestId('local-draft-workspace')).toBeInTheDocument();
       },
@@ -2220,6 +2418,7 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('enemy-live-workspace')).not.toBeInTheDocument();
       expect(screen.queryByTestId('local-draft-workspace')).not.toBeInTheDocument();
     });
 
@@ -2227,6 +2426,7 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId('resolution-replay-strip')).not.toBeInTheDocument();
+      expect(screen.getByTestId('enemy-live-workspace')).toBeInTheDocument();
       expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
       expect(screen.getByTestId('local-draft-workspace')).toBeInTheDocument();
     });
@@ -2483,7 +2683,7 @@ describe('PlayPvpPage', () => {
     });
   });
 
-  it('highlights an enemy public board item when the active playback step matches a single public lane item', async () => {
+  it('keeps only the replay strip visible when an enemy public board item resolved last round', async () => {
     await renderPage('char_1', 'user_1');
 
     const socket = await submitJoin('session_enemy_public_playback', /Создать/i);
@@ -2572,8 +2772,8 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Соперник выставил существо на поле');
-      expect(screen.getByTestId('enemy-playback-highlight-item')).toHaveTextContent('Существо соперника');
-      expect(screen.getByTestId('enemy-playback-highlight-item')).toHaveTextContent('Огненный элементаль');
+      expect(screen.queryByTestId('enemy-live-workspace')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('enemy-playback-highlight-item')).not.toBeInTheDocument();
     });
   });
 

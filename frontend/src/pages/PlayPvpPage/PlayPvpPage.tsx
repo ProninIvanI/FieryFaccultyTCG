@@ -40,6 +40,16 @@ import {
   TransportRejectedServerMessage,
   UserDeck,
 } from '@/types';
+import { buildMatchFeedRounds, type MatchFeedEntrySummary, type MatchFeedRoundSummary } from './matchFeed';
+import {
+  buildResolvedTimelineEntries,
+  getResolvedActionActorLabel as getResolvedActionActorLabelBase,
+  getResolvedActionOutcomeLabel as getResolvedActionOutcomeLabelBase,
+  getResolvedActionSentence as getResolvedActionSentenceBase,
+  getResolvedActionTargetLabel as getResolvedActionTargetLabelBase,
+  getResolvedActionTone as getResolvedActionToneBase,
+  type ResolvedTimelineEntrySummary,
+} from './resolvedActionPresentation';
 import styles from './PlayPvpPage.module.css';
 
 interface MatchSummary {
@@ -141,20 +151,6 @@ type LocalBattleRibbonEntrySummary =
       layer: ResolutionLayer;
       action: RoundRibbonActionSummary;
     };
-
-interface MatchEventSummary {
-  id: string;
-  title: string;
-  description: string;
-}
-
-interface ResolvedTimelineEntrySummary {
-  order: number;
-  action: ResolvedRoundAction;
-  ownerLabel: string;
-  title: string;
-  subtitle: string;
-}
 
 const ROUND_RESOLUTION_PLAYBACK_STEP_MS = 800;
 const ROUND_RESOLUTION_REPLAY_AUTO_CLOSE_MS = 900;
@@ -558,7 +554,9 @@ const getRuntimeIdFromBoardItemId = (boardItemId: string): string | null => {
   return boardItemId.slice(separatorIndex + 1);
 };
 
-const cardCatalogById = new Map(normalizeCatalog(rawCardData).cards.map((card) => [card.id, card] as const));
+const normalizedCardCatalog = normalizeCatalog(rawCardData);
+const cardCatalogById = new Map(normalizedCardCatalog.cards.map((card) => [card.id, card] as const));
+const cardNameByDefinitionId = new Map(normalizedCardCatalog.cards.map((card) => [card.id, card.name] as const));
 const roundIntentCardRegistry = new CardRegistry(
   Array.isArray(rawCardData.cards)
     ? rawCardData.cards.flatMap((card) => {
@@ -940,69 +938,6 @@ const getPlayerPublicRibbonBoardItems = (
   return orderedItems.length > 0 ? orderedItems : boardItems;
 };
 
-const getMatchEvents = (state: GameStateSnapshot | null): MatchEventSummary[] => {
-  if (!state || !Array.isArray(state.log)) {
-    return [];
-  }
-
-  return state.log
-    .slice(-8)
-    .reverse()
-    .flatMap((entry, index) => {
-      if (!isRecord(entry)) {
-        return [];
-      }
-
-      const eventType = typeof entry.type === 'string' ? entry.type : 'event';
-      const seq = typeof entry.seq === 'number' ? entry.seq : index + 1;
-      const payload = isRecord(entry.payload) ? entry.payload : null;
-
-      if (eventType === 'action' && payload && isRecord(payload.action)) {
-        const action = payload.action;
-        const actorId = typeof action.actorId === 'string' ? action.actorId : 'unknown';
-        const actionType = typeof action.type === 'string' ? action.type : 'Action';
-
-        return [{
-          id: `action_${seq}`,
-          title: actionType,
-          description: `Актор ${actorId} выполнил ${actionType}.`,
-        }];
-      }
-
-      if (eventType === 'summon') {
-        const creatureId = payload && typeof payload.creatureId === 'string' ? payload.creatureId : 'unknown';
-        return [{
-          id: `summon_${seq}`,
-          title: 'Призыв',
-          description: `На стол вышло существо ${creatureId}.`,
-        }];
-      }
-
-      if (eventType === 'damage') {
-        return [{
-          id: `damage_${seq}`,
-          title: 'Урон',
-          description: 'В матче был зарегистрирован урон.',
-        }];
-      }
-
-      if (eventType === 'effect') {
-        const effectId = payload && typeof payload.effectId === 'string' ? payload.effectId : 'unknown';
-        return [{
-          id: `effect_${seq}`,
-          title: 'Эффект',
-          description: `Сработал эффект ${effectId}.`,
-        }];
-      }
-
-      return [{
-        id: `event_${seq}`,
-        title: eventType,
-        description: 'Событие матча обновило состояние.',
-      }];
-    });
-};
-
 const getDeckVisualCount = (deckSize: number): number => {
   if (deckSize <= 0) {
     return 0;
@@ -1028,6 +963,9 @@ const handleServiceEvent = (
   setRoundDraft: (value: RoundActionIntentDraft[] | ((current: RoundActionIntentDraft[]) => RoundActionIntentDraft[])) => void,
   setRoundSync: (value: RoundSyncSummary | null | ((current: RoundSyncSummary | null) => RoundSyncSummary | null)) => void,
   setLastResolvedRound: (value: RoundResolutionResult | null) => void,
+  setResolvedRoundHistory: (
+    value: RoundResolutionResult[] | ((current: RoundResolutionResult[]) => RoundResolutionResult[])
+  ) => void,
   setRoundDraftRejected: (value: RoundDraftRejectedSummary | null) => void,
   setSelfBoardModel: (value: PlayerBoardModel | null) => void,
 ): void => {
@@ -1113,6 +1051,10 @@ const handleServiceEvent = (
 
   if (event.type === 'roundResolved') {
     setLastResolvedRound(event.result);
+    setResolvedRoundHistory((currentHistory) => {
+      const withoutCurrentRound = currentHistory.filter((entry) => entry.roundNumber !== event.result.roundNumber);
+      return [...withoutCurrentRound, event.result].sort((left, right) => left.roundNumber - right.roundNumber);
+    });
     setSelfBoardModel(null);
     setRoundDraftRejected(null);
     setError('');
@@ -1148,6 +1090,8 @@ export const PlayPvpPage = () => {
   const [roundSync, setRoundSync] = useState<RoundSyncSummary | null>(null);
   const [roundDraftRejected, setRoundDraftRejected] = useState<RoundDraftRejectedSummary | null>(null);
   const [lastResolvedRound, setLastResolvedRound] = useState<RoundResolutionResult | null>(null);
+  const [resolvedRoundHistory, setResolvedRoundHistory] = useState<RoundResolutionResult[]>([]);
+  const [expandedFeedRoundNumber, setExpandedFeedRoundNumber] = useState<number | null>(null);
   const [selfBoardModel, setSelfBoardModel] = useState<PlayerBoardModel | null>(null);
   const [resolvedPlaybackIndex, setResolvedPlaybackIndex] = useState(-1);
   const [resolvedPlaybackComplete, setResolvedPlaybackComplete] = useState(true);
@@ -1215,6 +1159,7 @@ export const PlayPvpPage = () => {
         setRoundDraft,
         setRoundSync,
         setLastResolvedRound,
+        setResolvedRoundHistory,
         setRoundDraftRejected,
         setSelfBoardModel,
       );
@@ -1325,7 +1270,6 @@ export const PlayPvpPage = () => {
   const playerBoards = useMemo(() => getPlayerBoardSummaries(matchState), [matchState]);
   const localHandCards = useMemo(() => getLocalHandCards(matchState, playerId), [matchState, playerId]);
   const creatures = useMemo(() => getCreatureSummaries(matchState), [matchState]);
-  const matchEvents = useMemo(() => getMatchEvents(matchState), [matchState]);
   const alliedCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId === playerId), [creatures, playerId]);
   const enemyCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId !== playerId), [creatures, playerId]);
   const localBoardItems = useMemo(() => getPlayerBoardItemSummaries(matchState, playerId), [matchState, playerId]);
@@ -1894,6 +1838,8 @@ export const PlayPvpPage = () => {
     setRoundDraftRejected(null);
     setRoundSync(null);
     setLastResolvedRound(null);
+    setResolvedRoundHistory([]);
+    setExpandedFeedRoundNumber(null);
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = normalizedSessionId;
     currentRoundRef.current = null;
@@ -1922,6 +1868,8 @@ export const PlayPvpPage = () => {
     setRoundDraftRejected(null);
     setRoundSync(null);
     setLastResolvedRound(null);
+    setResolvedRoundHistory([]);
+    setExpandedFeedRoundNumber(null);
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = '';
     currentRoundRef.current = null;
@@ -2195,48 +2143,98 @@ export const PlayPvpPage = () => {
     },
     [knownTargetLabelsById],
   );
-  const getResolvedActionTitle = useCallback(
-    (action: ResolvedRoundAction): string => {
-      const cardName = (action.source.type === 'card' && action.source.definitionId
-        ? cardCatalogById.get(action.source.definitionId)?.name
-        : undefined) ?? (action.definitionId ? cardCatalogById.get(action.definitionId)?.name : undefined);
-      const sourceLabel =
-        action.source.type === 'boardItem'
-          ? getResolvedBoardItemLabel(action.source.boardItemId, action.actorId)
-          : action.source.type === 'actor'
-            ? getResolvedCharacterLabel(action.source.actorId) ?? getResolvedBoardItemLabel(null, action.source.actorId)
-            : cardName ?? null;
-
-      switch (action.kind) {
-        case 'Summon':
-          return cardName ? `Призыв: ${cardName}` : `Призыв: ${sourceLabel ?? action.cardInstanceId ?? action.intentId}`;
-        case 'CastSpell':
-          return cardName ? `Заклинание: ${cardName}` : `Заклинание: ${sourceLabel ?? action.cardInstanceId ?? action.intentId}`;
-        case 'PlayCard':
-          return cardName ? `Розыгрыш: ${cardName}` : `Розыгрыш: ${sourceLabel ?? action.cardInstanceId ?? action.intentId}`;
-        case 'Attack':
-          return `Атака: ${sourceLabel ?? action.actorId}`;
-        case 'Evade':
-          return sourceLabel ? `Уклонение: ${sourceLabel}` : 'Уклонение';
-      }
-    },
-    [getResolvedBoardItemLabel, getResolvedCharacterLabel],
-  );
   const getResolvedActionTargetLabel = useCallback(
-    (action: ResolvedRoundAction): string => {
-      if (!action.target?.targetType) {
-        return action.kind === 'Summon' || action.kind === 'Evade' ? 'Без цели' : 'Цель не указана';
-      }
-
-      if (!action.target.targetId) {
-        return 'Цель уточняется';
-      }
-
-      const targetLabel = knownTargetLabelsById.get(action.target.targetId);
-      return `${getTargetTypeLabel(action.target.targetType)} -> ${targetLabel ?? action.target.targetId}`;
-    },
-    [knownTargetLabelsById],
+    (action: ResolvedRoundAction): string =>
+      getResolvedActionTargetLabelBase(
+        {
+          playerId,
+          knownTargetLabelsById,
+          cardNameByDefinitionId,
+          getPlayerDisplayName,
+          getResolvedBoardItemLabel,
+          getResolvedCharacterLabel,
+        },
+        action,
+      ),
+    [getPlayerDisplayName, getResolvedBoardItemLabel, getResolvedCharacterLabel, knownTargetLabelsById, playerId],
   );
+  const getResolvedActionActorLabel = useCallback(
+    (action: ResolvedRoundAction): string =>
+      getResolvedActionActorLabelBase(
+        {
+          playerId,
+          knownTargetLabelsById,
+          cardNameByDefinitionId,
+          getPlayerDisplayName,
+          getResolvedBoardItemLabel,
+          getResolvedCharacterLabel,
+        },
+        action,
+      ),
+    [getPlayerDisplayName, getResolvedBoardItemLabel, getResolvedCharacterLabel, knownTargetLabelsById, playerId],
+  );
+  const getResolvedActionOutcomeLabel = useCallback(
+    (action: ResolvedRoundAction): string => getResolvedActionOutcomeLabelBase(action),
+    [],
+  );
+  const getResolvedActionTone = useCallback(
+    (action: ResolvedRoundAction): MatchFeedEntrySummary['tone'] => getResolvedActionToneBase(action),
+    [],
+  );
+  const getResolvedActionSentence = useCallback(
+    (action: ResolvedRoundAction): string =>
+      getResolvedActionSentenceBase(
+        {
+          playerId,
+          knownTargetLabelsById,
+          cardNameByDefinitionId,
+          getPlayerDisplayName,
+          getResolvedBoardItemLabel,
+          getResolvedCharacterLabel,
+        },
+        action,
+      ),
+    [getPlayerDisplayName, getResolvedBoardItemLabel, getResolvedCharacterLabel, knownTargetLabelsById, playerId],
+  );
+  const matchFeedRounds = useMemo<MatchFeedRoundSummary[]>(
+    () =>
+      buildMatchFeedRounds({
+        matchState,
+        resolvedRoundHistory,
+        knownTargetLabelsById,
+        getResolvedActionActorLabel,
+        getResolvedActionSentence,
+        getResolvedActionTargetLabel,
+        getResolvedActionOutcomeLabel,
+        getResolvedActionTone,
+      }),
+    [
+      getResolvedActionActorLabel,
+      getResolvedActionOutcomeLabel,
+      getResolvedActionSentence,
+      getResolvedActionTargetLabel,
+      getResolvedActionTone,
+      knownTargetLabelsById,
+      matchState,
+      resolvedRoundHistory,
+    ],
+  );
+
+  useEffect(() => {
+    if (matchFeedRounds.length === 0) {
+      setExpandedFeedRoundNumber(null);
+      return;
+    }
+
+    setExpandedFeedRoundNumber((current) => {
+      if (current !== null && matchFeedRounds.some((round) => round.roundNumber === current)) {
+        return current;
+      }
+
+      return matchFeedRounds[0]?.roundNumber ?? null;
+    });
+  }, [matchFeedRounds]);
+
   const localRoundRibbonItems = useMemo<RoundRibbonActionSummary[]>(() => {
     if (selfBoardModel?.roundActions?.length && isSelfBoardModelDraftSynced) {
       return [...selfBoardModel.roundActions]
@@ -2455,20 +2453,25 @@ export const PlayPvpPage = () => {
 
   const resolvedTimelineEntries = useMemo<ResolvedTimelineEntrySummary[]>(
     () =>
-      !lastResolvedRound
-        ? []
-        : lastResolvedRound.orderedActions.map((action) => {
-            const isLocalAction = action.playerId === playerId;
-
-            return {
-              order: action.orderIndex + 1,
-              action,
-              ownerLabel: isLocalAction ? 'Ты' : `Игрок ${getPlayerDisplayName(action.playerId)}`,
-              title: getResolvedActionTitle(action),
-              subtitle: getResolvedActionTargetLabel(action),
-            };
-          }),
-    [getPlayerDisplayName, getResolvedActionTargetLabel, getResolvedActionTitle, lastResolvedRound, playerId],
+      buildResolvedTimelineEntries(
+        {
+          playerId,
+          knownTargetLabelsById,
+          cardNameByDefinitionId,
+          getPlayerDisplayName,
+          getResolvedBoardItemLabel,
+          getResolvedCharacterLabel,
+        },
+        lastResolvedRound,
+      ),
+    [
+      getPlayerDisplayName,
+      getResolvedBoardItemLabel,
+      getResolvedCharacterLabel,
+      knownTargetLabelsById,
+      lastResolvedRound,
+      playerId,
+    ],
   );
   const activeResolvedTimelineEntry =
     resolvedPlaybackIndex >= 0 && resolvedPlaybackIndex < resolvedTimelineEntries.length
@@ -3257,7 +3260,8 @@ export const PlayPvpPage = () => {
                         </section>
                       ) : null}
 
-                  <section className={`${styles.battleLane} ${isEnemySideActive ? styles.battleLaneActive : ''} ${isEnemyLaneEmpty ? styles.compactZone : ''}`.trim()}>
+                      {!isResolvedReplayOpen ? (
+                  <section className={`${styles.battleLane} ${isEnemySideActive ? styles.battleLaneActive : ''} ${isEnemyLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="enemy-live-workspace">
                     <div className={styles.battleLaneHeader}>
                       <div>
                         <strong>{primaryEnemyDisplayName || 'Ожидание соперника'}</strong>
@@ -3334,6 +3338,7 @@ export const PlayPvpPage = () => {
                       <div className={styles.emptyState}>Пока пусто. Здесь появятся закреплённые сущности и эффекты соперника.</div>
                     )}
                   </section>
+                      ) : null}
 
                   {!isResolvedReplayOpen ? (
                     <>
@@ -3863,14 +3868,66 @@ export const PlayPvpPage = () => {
           ) : null}
 
           <Card title="Лента матча" className={styles.themedCard}>
-            {matchEvents.length > 0 ? (
-              <div className={styles.eventFeed}>
-                {matchEvents.map((event) => (
-                  <div key={event.id} className={styles.eventItem}>
-                    <strong>{event.title}</strong>
-                    <span>{event.description}</span>
-                  </div>
-                ))}
+            {matchFeedRounds.length > 0 ? (
+              <div className={styles.matchFeed} data-testid="match-feed">
+                {matchFeedRounds.map((round) => {
+                  const isExpanded = round.roundNumber === expandedFeedRoundNumber;
+
+                  return (
+                    <section key={round.roundNumber} className={styles.matchFeedRound}>
+                      <button
+                        type="button"
+                        className={styles.matchFeedRoundToggle}
+                        onClick={() =>
+                          setExpandedFeedRoundNumber((current) => (current === round.roundNumber ? null : round.roundNumber))
+                        }
+                        aria-expanded={isExpanded}
+                      >
+                        <div className={styles.matchFeedRoundHeading}>
+                          <strong>{round.title}</strong>
+                          <span>{round.subtitle}</span>
+                        </div>
+                        <span className={styles.matchFeedRoundChevron}>{isExpanded ? 'Свернуть' : 'Раскрыть'}</span>
+                      </button>
+
+                      {isExpanded ? (
+                        <div className={styles.matchFeedEntries}>
+                          {round.entries.map((entry) => (
+                            <article
+                              key={entry.id}
+                              className={`${styles.matchFeedEntry} ${
+                                entry.tone === 'success'
+                                  ? styles.matchFeedEntryToneSuccess
+                                  : entry.tone === 'warning'
+                                    ? styles.matchFeedEntryToneWarning
+                                    : entry.tone === 'danger'
+                                      ? styles.matchFeedEntryToneDanger
+                                      : styles.matchFeedEntryToneNeutral
+                              }`}
+                            >
+                              <div className={styles.matchFeedEntryMain}>
+                                <strong>{entry.actorLabel}</strong>
+                                <span>{entry.actionLabel}</span>
+                              </div>
+                              {entry.targetLabel ? <div className={styles.matchFeedEntryMeta}>Цель: {entry.targetLabel}</div> : null}
+                              <div className={styles.matchFeedEntryOutcome}>{entry.outcomeLabel}</div>
+                              {entry.detailText ? <div className={styles.matchFeedEntryDetail}>{entry.detailText}</div> : null}
+                              {entry.detailItems?.length ? (
+                                <div className={styles.matchFeedEntryDetails}>
+                                  {entry.detailItems.map((detailItem) => (
+                                    <div key={detailItem} className={styles.matchFeedEntryDetailItem}>
+                                      {detailItem}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </article>
+                          ))}
+                        </div>
+                      ) : null}
+                    </section>
+                  );
+                })}
               </div>
             ) : (
               <div className={styles.emptyState}>После первых действий здесь появится читаемая лента матча.</div>
