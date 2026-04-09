@@ -299,11 +299,8 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       const matchFeed = within(screen.getByTestId('match-feed'));
       expect(screen.getAllByText(/Огненный шар нанёс урон/i).length).toBeGreaterThan(0);
-      expect(screen.getByRole('button', { name: /Раунд 1/i })).toHaveAttribute('aria-expanded', 'true');
-      expect(matchFeed.getByText(/1 шаг/i)).toBeInTheDocument();
-      expect(matchFeed.getAllByText(/^Ты$/i).length).toBeGreaterThan(0);
-      expect(matchFeed.getByText(/Вражеский маг:/i)).toBeInTheDocument();
-      expect(matchFeed.getByText(/Сработало/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Раунд 1/i })).toHaveAttribute('aria-expanded', 'false');
+      expect(matchFeed.queryAllByText(/^Ты$/i)).toHaveLength(0);
     });
   });
 
@@ -399,10 +396,22 @@ describe('PlayPvpPage', () => {
       const roundButtons = screen.getAllByRole('button', { name: /Раунд /i });
       expect(roundButtons).toHaveLength(2);
       expect(roundButtons[0]).toHaveTextContent(/Раунд 2/i);
-      expect(roundButtons[0]).toHaveAttribute('aria-expanded', 'true');
+      expect(roundButtons[0]).toHaveAttribute('aria-expanded', 'false');
       expect(roundButtons[1]).toHaveTextContent(/Раунд 1/i);
-      expect(matchFeed.getByText(/Обновлённый итог второго раунда/i)).toBeInTheDocument();
+      expect(matchFeed.queryByText(/Обновлённый итог второго раунда/i)).not.toBeInTheDocument();
       expect(matchFeed.queryByText(/Атака соперника была остановлена щитом/i)).not.toBeInTheDocument();
+      expect(matchFeed.queryByText(/Первый огненный шар/i)).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Раунд 2/i }));
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const matchFeed = within(screen.getByTestId('match-feed'));
+      expect(screen.getByRole('button', { name: /Раунд 2/i })).toHaveAttribute('aria-expanded', 'true');
+      expect(matchFeed.getByText(/Обновлённый итог второго раунда/i)).toBeInTheDocument();
       expect(matchFeed.queryByText(/Первый огненный шар/i)).not.toBeInTheDocument();
     });
 
@@ -487,6 +496,17 @@ describe('PlayPvpPage', () => {
           ],
         },
       });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const matchFeed = within(screen.getByTestId('match-feed'));
+      expect(screen.getByRole('button', { name: /Раунд 1/i })).toHaveAttribute('aria-expanded', 'false');
+      expect(matchFeed.queryByText(/Нанесено 3 урона цели Маг user_2/i)).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Раунд 1/i }));
       await flushMicrotasks();
     });
 

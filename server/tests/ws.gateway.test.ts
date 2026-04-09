@@ -400,6 +400,113 @@ describe('ws gateway integration', () => {
     playerTwo.close();
   });
 
+  it('broadcasts updated character hp in state after a damaging round resolves', async () => {
+    const port = 46100 + Math.floor(Math.random() * 1000);
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
+    const service = new GameService(registry);
+    const gateway = new WsGateway(service, async (token) => {
+      if (token === 'token_1') {
+        return { userId: 'player_1' };
+      }
+      if (token === 'token_2') {
+        return { userId: 'player_2' };
+      }
+      return null;
+    });
+
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const deckId = url.endsWith('/deck_1') ? 'deck_1' : 'deck_2';
+
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            deck: {
+              id: deckId,
+              characterId: deckId === 'deck_1' ? 'char_1' : 'char_2',
+              cards: [{ cardId: deckId === 'deck_1' ? '4' : '2', quantity: 1 }],
+            },
+          },
+        }),
+      } as Response;
+    }));
+
+    gateway.start(port);
+    gateways.push(gateway);
+
+    const playerOne = new WebSocket(`ws://127.0.0.1:${port}`);
+    const playerTwo = new WebSocket(`ws://127.0.0.1:${port}`);
+    const playerOneMessages = createMessageCollector(playerOne);
+    const playerTwoMessages = createMessageCollector(playerTwo);
+    await Promise.all([waitForOpen(playerOne), waitForOpen(playerTwo)]);
+
+    playerOne.send(JSON.stringify({ type: 'join', sessionId: 'match-damage-state', token: 'token_1', deckId: 'deck_1', seed: 123 }));
+    await playerOneMessages.waitFor((message): message is { type: 'state' } => message.type === 'state');
+    await playerOneMessages.waitFor((message): message is { type: 'roundStatus' } => message.type === 'roundStatus');
+    await playerOneMessages.waitFor((message): message is { type: 'roundDraft.snapshot' } => message.type === 'roundDraft.snapshot');
+
+    playerTwo.send(JSON.stringify({ type: 'join', sessionId: 'match-damage-state', token: 'token_2', deckId: 'deck_2' }));
+    await playerOneMessages.waitFor((message): message is { type: 'state' } => message.type === 'state' && playerOneMessages.messages.indexOf(message) > 0);
+    await playerTwoMessages.waitFor((message): message is { type: 'state' } => message.type === 'state');
+    await playerTwoMessages.waitFor((message): message is { type: 'roundStatus' } => message.type === 'roundStatus');
+    await playerTwoMessages.waitFor((message): message is { type: 'roundDraft.snapshot' } => message.type === 'roundDraft.snapshot');
+
+    playerOne.send(JSON.stringify({ type: 'roundDraft.replace', roundNumber: 1, intents: [] }));
+    await playerOneMessages.waitFor((message): message is { type: 'roundDraft.accepted' } => message.type === 'roundDraft.accepted');
+
+    playerTwo.send(JSON.stringify({
+      type: 'roundDraft.replace',
+      roundNumber: 1,
+      intents: [{
+        intentId: 'draft_ray',
+        roundNumber: 1,
+        playerId: 'player_2',
+        actorId: 'char_2',
+        queueIndex: 0,
+        kind: 'CastSpell',
+        cardInstanceId: 'card_player_2_1',
+        target: {
+          targetId: 'char_1',
+          targetType: 'enemyCharacter',
+        },
+      }],
+    }));
+    await playerTwoMessages.waitFor((message): message is { type: 'roundDraft.accepted' } => message.type === 'roundDraft.accepted');
+
+    playerOne.send(JSON.stringify({ type: 'roundDraft.lock', roundNumber: 1 }));
+    await playerOneMessages.waitFor(
+      (message): message is { type: 'roundStatus'; selfLocked: boolean } =>
+        message.type === 'roundStatus' && message.selfLocked === true,
+    );
+
+    playerTwo.send(JSON.stringify({ type: 'roundDraft.lock', roundNumber: 1 }));
+    await playerTwoMessages.waitFor(
+      (message): message is { type: 'roundResolved' } => message.type === 'roundResolved',
+    );
+
+    const postRoundState = await playerOneMessages.waitFor<{
+      type: 'state';
+      state: { round: { number: number }; characters: Record<string, { hp: number }> };
+    }>(
+      (message): message is {
+        type: 'state';
+        state: { round: { number: number }; characters: Record<string, { hp: number }> };
+      } =>
+        message.type === 'state' &&
+        typeof message.state === 'object' &&
+        message.state !== null &&
+        (message.state as { round?: { number?: unknown } }).round?.number === 2 &&
+        typeof (message.state as { characters?: Record<string, { hp?: unknown }> }).characters?.char_1?.hp === 'number',
+    );
+
+    expect(postRoundState.state.characters.char_1.hp).toBe(18);
+
+    playerOne.close();
+    playerTwo.close();
+  });
+
   it('sends structured roundDraft.rejected when draft validation fails', async () => {
     const port = 46500 + Math.floor(Math.random() * 1000);
     const registry = new SessionRegistry((seed, players) => createEngine(seed, players));

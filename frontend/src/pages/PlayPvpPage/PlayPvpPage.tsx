@@ -2229,7 +2229,7 @@ export const PlayPvpPage = () => {
         return current;
       }
 
-      return matchFeedRounds[0]?.roundNumber ?? null;
+      return null;
     });
   }, [matchFeedRounds]);
 
@@ -3767,10 +3767,6 @@ export const PlayPvpPage = () => {
                       ))}
                     </div>
                   ) : null}
-                  <div className={styles.hint}>
-                    Порядок в боевой ленте показывает только текущий замысел. Во время разыгрывания шаги всё равно идут по боевым слоям.
-                  </div>
-
                     <section className={styles.handTray}>
                       <div className={styles.battleLaneHeader}>
                         <div>

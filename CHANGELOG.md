@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-09 update: adjusted PvP post-round ergonomics so new `Лента матча` rounds stay collapsed by default and the extra “current intent vs layer order” helper line is gone from the battlefield. Added regression coverage for collapsed round-feed behavior in `frontend` and for live WebSocket state hp updates after a damaging round in `server`.
+
 > 2026-04-09 update: compacted the live PvP screen around the active match flow. `PlayPvpPage` now moves the diagnostics toggle into the match panel, removes the separate `Статус мага` / `Режим экрана` cards, keeps `Лента матча` in the left column with its own local scroll, and strips several low-value empty-state hints from the board so the main match scene stays visible without dropping into a long page layout.
 
 > 2026-04-09 update: fixed two more `PlayPvpPage` PvP ribbon regressions after the target-isolation change. Synced round-action cards now keep showing target badges by falling back to `boardModel.roundActions[].target` when the local draft snapshot is temporarily incomplete, and local preview-layer badges now come from the shared card definition via `game-core` resolution metadata instead of a frontend `targetType` guess, so cards like `Сфера воды` render as `Защита` instead of `Боевое заклинание`.
