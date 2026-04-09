@@ -1270,7 +1270,6 @@ export const PlayPvpPage = () => {
   const playerBoards = useMemo(() => getPlayerBoardSummaries(matchState), [matchState]);
   const localHandCards = useMemo(() => getLocalHandCards(matchState, playerId), [matchState, playerId]);
   const creatures = useMemo(() => getCreatureSummaries(matchState), [matchState]);
-  const alliedCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId === playerId), [creatures, playerId]);
   const enemyCreatures = useMemo(() => creatures.filter((creature) => creature.ownerId !== playerId), [creatures, playerId]);
   const localBoardItems = useMemo(() => getPlayerBoardItemSummaries(matchState, playerId), [matchState, playerId]);
   const localBoardItemIdByRuntimeId = useMemo(
@@ -1293,7 +1292,6 @@ export const PlayPvpPage = () => {
     () => new Map(allResolvedBoardItems.map((item) => [item.runtimeId, item.id] as const)),
     [allResolvedBoardItems],
   );
-  const canSummonMoreCreatures = alliedCreatures.length < 2;
   const enemyBoards = useMemo(() => playerBoards.filter((playerBoard) => playerBoard.playerId !== playerId), [playerBoards, playerId]);
   const localBoard = useMemo(
     () => playerBoards.find((playerBoard) => playerBoard.playerId === playerId) ?? null,
@@ -2863,7 +2861,19 @@ export const PlayPvpPage = () => {
                     Отключиться
                   </button>
                 </div>
-                <div className={styles.hint}>Форма подключения скрыта, чтобы не перегружать экран во время матча.</div>
+                <div className={styles.panelModeRow}>
+                  <div className={styles.panelModeSummary}>
+                    <span className={styles.summaryLabel}>Режим экрана</span>
+                    <strong>{showDiagnostics ? 'Диагностика включена' : 'Боевой режим'}</strong>
+                  </div>
+                  <button
+                    className={styles.secondaryButton}
+                    type="button"
+                    onClick={() => setShowDiagnostics((current) => !current)}
+                  >
+                    {showDiagnostics ? 'Скрыть диагностику' : 'Показать диагностику'}
+                  </button>
+                </div>
               </div>
             ) : (
               <form className={styles.formGrid} onSubmit={submitJoin}>
@@ -2962,6 +2972,19 @@ export const PlayPvpPage = () => {
                     Активная сессия: {joinedSessionId || 'ещё не подключено'}
                   </div>
                   <div className={styles.hint}>Выбранная колода: {selectedDeckName}</div>
+                  <div className={styles.panelModeRow}>
+                    <div className={styles.panelModeSummary}>
+                      <span className={styles.summaryLabel}>Режим экрана</span>
+                      <strong>{showDiagnostics ? 'Диагностика включена' : 'Боевой режим'}</strong>
+                    </div>
+                    <button
+                      className={styles.secondaryButton}
+                      type="button"
+                      onClick={() => setShowDiagnostics((current) => !current)}
+                    >
+                      {showDiagnostics ? 'Скрыть диагностику' : 'Показать диагностику'}
+                    </button>
+                  </div>
                   {mode === 'join' ? (
                     <div className={styles.hint}>В режиме входа seed не отправляется — используется seed создателя матча.</div>
                   ) : null}
@@ -2997,6 +3020,77 @@ export const PlayPvpPage = () => {
               </div>
             ) : null}
             {error ? <div className={styles.errorBox}>{error}</div> : null}
+          </Card>
+
+          <Card
+            title="Лента матча"
+            className={`${styles.themedCard} ${styles.sidebarFeedCard}`.trim()}
+            contentClassName={styles.sidebarFeedCardContent}
+          >
+            {matchFeedRounds.length > 0 ? (
+              <div className={styles.matchFeed} data-testid="match-feed">
+                {matchFeedRounds.map((round) => {
+                  const isExpanded = round.roundNumber === expandedFeedRoundNumber;
+
+                  return (
+                    <section key={round.roundNumber} className={styles.matchFeedRound}>
+                      <button
+                        type="button"
+                        className={styles.matchFeedRoundToggle}
+                        onClick={() =>
+                          setExpandedFeedRoundNumber((current) => (current === round.roundNumber ? null : round.roundNumber))
+                        }
+                        aria-expanded={isExpanded}
+                      >
+                        <div className={styles.matchFeedRoundHeading}>
+                          <strong>{round.title}</strong>
+                          <span>{round.subtitle}</span>
+                        </div>
+                        <span className={styles.matchFeedRoundChevron}>{isExpanded ? 'Свернуть' : 'Раскрыть'}</span>
+                      </button>
+
+                      {isExpanded ? (
+                        <div className={styles.matchFeedEntries}>
+                          {round.entries.map((entry) => (
+                            <article
+                              key={entry.id}
+                              className={`${styles.matchFeedEntry} ${
+                                entry.tone === 'success'
+                                  ? styles.matchFeedEntryToneSuccess
+                                  : entry.tone === 'warning'
+                                    ? styles.matchFeedEntryToneWarning
+                                    : entry.tone === 'danger'
+                                      ? styles.matchFeedEntryToneDanger
+                                      : styles.matchFeedEntryToneNeutral
+                              }`}
+                            >
+                              <div className={styles.matchFeedEntryMain}>
+                                <strong>{entry.actorLabel}</strong>
+                                <span>{entry.actionLabel}</span>
+                              </div>
+                              {entry.targetLabel ? <div className={styles.matchFeedEntryMeta}>Цель: {entry.targetLabel}</div> : null}
+                              <div className={styles.matchFeedEntryOutcome}>{entry.outcomeLabel}</div>
+                              {entry.detailText ? <div className={styles.matchFeedEntryDetail}>{entry.detailText}</div> : null}
+                              {entry.detailItems?.length ? (
+                                <div className={styles.matchFeedEntryDetails}>
+                                  {entry.detailItems.map((detailItem) => (
+                                    <div key={detailItem} className={styles.matchFeedEntryDetailItem}>
+                                      {detailItem}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </article>
+                          ))}
+                        </div>
+                      ) : null}
+                    </section>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className={styles.emptyState}>Раунды появятся после первого резолва.</div>
+            )}
           </Card>
         </div>
 
@@ -3254,9 +3348,7 @@ export const PlayPvpPage = () => {
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <div className={styles.emptyState}>У соперника пока нет карт в руке.</div>
-                          )}
+                          ) : null}
                         </section>
                       ) : null}
 
@@ -3334,9 +3426,7 @@ export const PlayPvpPage = () => {
                           })}
                         </div>
                       </div>
-                    ) : (
-                      <div className={styles.emptyState}>Пока пусто. Здесь появятся закреплённые сущности и эффекты соперника.</div>
-                    )}
+                    ) : null}
                   </section>
                       ) : null}
 
@@ -3653,9 +3743,7 @@ export const PlayPvpPage = () => {
                           })}
                         </div>
                       </div>
-                    ) : (
-                      <div className={styles.emptyState}>Пока пусто. Разыграй карту из руки или активируй объект поля.</div>
-                    )}
+                    ) : null}
                   </section>
 
                   {visibleRoundDraftRejected ? (
@@ -3745,11 +3833,11 @@ export const PlayPvpPage = () => {
                           ))}
                         </div>
                       ) : (
-                        <div className={styles.emptyState}>
-                          {localHandCards.length > 0
-                            ? 'Все карты из руки уже перенесены в боевую ленту.'
-                            : 'После старта матча здесь появятся реальные карты из руки.'}
-                        </div>
+                        localHandCards.length > 0 ? (
+                          <div className={styles.emptyState}>Все карты из руки уже перенесены в боевую ленту.</div>
+                        ) : (
+                          <div className={styles.emptyStateSpacer} aria-hidden="true" />
+                        )
                       )}
                     </section>
                     </>
@@ -3772,72 +3860,8 @@ export const PlayPvpPage = () => {
           </Card>
         </div>
 
+        {showDiagnostics ? (
         <div className={styles.contextColumn}>
-          <Card title="Режим экрана" className={styles.themedCard}>
-            <div className={styles.focusPanel}>
-              <div className={styles.matchSpotlight}>
-                <span className={styles.summaryLabel}>Отображение</span>
-                <strong className={styles.spotlightValue}>{showDiagnostics ? 'Диагностика включена' : 'Боевой режим'}</strong>
-                <p className={styles.paragraph}>
-                  В боевом режиме скрываем сырые snapshot/debug-блоки и оставляем только информацию, полезную прямо во время матча.
-                </p>
-                <div className={styles.inlineActions}>
-                  <button
-                    className={styles.secondaryButton}
-                    type="button"
-                    onClick={() => setShowDiagnostics((current) => !current)}
-                  >
-                    {showDiagnostics ? 'Скрыть диагностику' : 'Показать диагностику'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <Card title="Статус мага" className={styles.themedCard}>
-            {localPlayer ? (
-              <div className={styles.heroPanel}>
-                <div className={styles.heroPanelHeader}>
-                  <div>
-                    <span className={styles.summaryLabel}>Твой маг</span>
-                    <strong>{localDisplayName}</strong>
-                  </div>
-                  <span className={styles.heroChip}>{roundSync?.selfLocked ? 'Готово' : 'Настройка'}</span>
-                </div>
-                <div className={styles.detailsList}>
-                  <div className={styles.detailRow}>
-                    <span>Игрок</span>
-                    <strong>{localDisplayName}</strong>
-                  </div>
-                  <div className={styles.detailRow}>
-                    <span>Персонаж</span>
-                    <strong>{localPlayer.characterId}</strong>
-                  </div>
-                  <div className={styles.detailRow}>
-                    <span>Мана</span>
-                    <strong>
-                      {localPlayer.mana} / {localPlayer.maxMana}
-                    </strong>
-                  </div>
-                  <div className={styles.detailRow}>
-                    <span>Очки действия</span>
-                    <strong>{localPlayer.actionPoints}</strong>
-                  </div>
-                  <div className={styles.detailRow}>
-                    <span>Существа</span>
-                    <strong>{alliedCreatures.length} / 2</strong>
-                  </div>
-                </div>
-                {!canSummonMoreCreatures ? (
-                  <p className={styles.hint}>На столе уже максимум 2 твоих существа, поэтому призыв временно недоступен.</p>
-                ) : null}
-              </div>
-            ) : (
-              <div className={styles.emptyState}>Локальный игрок появится после первого server `state`.</div>
-            )}
-          </Card>
-
-          {showDiagnostics ? (
             <Card title="Зоны игроков" className={styles.themedCard}>
               {playerBoards.length > 0 ? (
                 <div className={styles.playerBoardList}>
@@ -3865,86 +3889,17 @@ export const PlayPvpPage = () => {
                 <div className={styles.emptyState}>Зоны игроков появятся после первого server `state`.</div>
               )}
             </Card>
-          ) : null}
 
-          <Card title="Лента матча" className={styles.themedCard}>
-            {matchFeedRounds.length > 0 ? (
-              <div className={styles.matchFeed} data-testid="match-feed">
-                {matchFeedRounds.map((round) => {
-                  const isExpanded = round.roundNumber === expandedFeedRoundNumber;
-
-                  return (
-                    <section key={round.roundNumber} className={styles.matchFeedRound}>
-                      <button
-                        type="button"
-                        className={styles.matchFeedRoundToggle}
-                        onClick={() =>
-                          setExpandedFeedRoundNumber((current) => (current === round.roundNumber ? null : round.roundNumber))
-                        }
-                        aria-expanded={isExpanded}
-                      >
-                        <div className={styles.matchFeedRoundHeading}>
-                          <strong>{round.title}</strong>
-                          <span>{round.subtitle}</span>
-                        </div>
-                        <span className={styles.matchFeedRoundChevron}>{isExpanded ? 'Свернуть' : 'Раскрыть'}</span>
-                      </button>
-
-                      {isExpanded ? (
-                        <div className={styles.matchFeedEntries}>
-                          {round.entries.map((entry) => (
-                            <article
-                              key={entry.id}
-                              className={`${styles.matchFeedEntry} ${
-                                entry.tone === 'success'
-                                  ? styles.matchFeedEntryToneSuccess
-                                  : entry.tone === 'warning'
-                                    ? styles.matchFeedEntryToneWarning
-                                    : entry.tone === 'danger'
-                                      ? styles.matchFeedEntryToneDanger
-                                      : styles.matchFeedEntryToneNeutral
-                              }`}
-                            >
-                              <div className={styles.matchFeedEntryMain}>
-                                <strong>{entry.actorLabel}</strong>
-                                <span>{entry.actionLabel}</span>
-                              </div>
-                              {entry.targetLabel ? <div className={styles.matchFeedEntryMeta}>Цель: {entry.targetLabel}</div> : null}
-                              <div className={styles.matchFeedEntryOutcome}>{entry.outcomeLabel}</div>
-                              {entry.detailText ? <div className={styles.matchFeedEntryDetail}>{entry.detailText}</div> : null}
-                              {entry.detailItems?.length ? (
-                                <div className={styles.matchFeedEntryDetails}>
-                                  {entry.detailItems.map((detailItem) => (
-                                    <div key={detailItem} className={styles.matchFeedEntryDetailItem}>
-                                      {detailItem}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </article>
-                          ))}
-                        </div>
-                      ) : null}
-                    </section>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className={styles.emptyState}>После первых действий здесь появится читаемая лента матча.</div>
-            )}
+          <Card title="Debug state" className={styles.themedCard}>
+            <details className={styles.debugPanel}>
+              <summary className={styles.debugSummary}>Открыть raw snapshot</summary>
+              <pre className={styles.rawState}>
+                {matchState ? JSON.stringify(matchState, null, 2) : 'Ожидание данных матча...'}
+              </pre>
+            </details>
           </Card>
-
-          {showDiagnostics ? (
-            <Card title="Debug state" className={styles.themedCard}>
-              <details className={styles.debugPanel}>
-                <summary className={styles.debugSummary}>Открыть raw snapshot</summary>
-                <pre className={styles.rawState}>
-                  {matchState ? JSON.stringify(matchState, null, 2) : 'Ожидание данных матча...'}
-                </pre>
-              </details>
-            </Card>
-          ) : null}
         </div>
+        ) : null}
       </div>
     </PageShell>
   );

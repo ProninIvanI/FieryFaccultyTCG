@@ -27,6 +27,14 @@
   align-items: start;
 }
 
+.sidebarFeedCard {
+  max-height: min(48vh, 620px);
+}
+
+.sidebarFeedCardContent {
+  min-height: 0;
+}
+
 .themedCard,
 .boardCard {
   color: var(--pvp-text);
@@ -57,6 +65,25 @@
 .hudPanel {
   display: grid;
   gap: 12px;
+}
+
+.panelModeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96)),
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.06), transparent 48%);
+}
+
+.panelModeSummary {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
 .hudHeader {
@@ -1181,6 +1208,12 @@
 .matchFeed {
   display: grid;
   gap: 12px;
+}
+
+.sidebarFeedCardContent .matchFeed {
+  max-height: min(40vh, 520px);
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .matchFeedRound {
@@ -2426,6 +2459,10 @@
   line-height: 1.35;
 }
 
+.emptyStateSpacer {
+  min-height: 24px;
+}
+
 .debugSummary {
   cursor: pointer;
   color: var(--pvp-text);
@@ -2496,6 +2533,15 @@
 
   .resolveFlowArrow {
     display: none;
+  }
+
+  .panelModeRow {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebarFeedCard,
+  .sidebarFeedCardContent .matchFeed {
+    max-height: none;
   }
 
   .inlineField {
