@@ -33,3 +33,11 @@ export const ROUTES = {
   PLAY_PVE: '/play/pve',
   PLAY_SIM: '/play/sim',
 } as const;
+
+export {
+  DEFAULT_UI_THEME,
+  isUiTheme,
+  UI_THEMES,
+  UI_THEME_STORAGE_KEY,
+  type UiTheme,
+} from './uiTheme';

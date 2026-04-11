@@ -5,29 +5,47 @@
 }
 
 :root {
-  --primary-color: #646cff;
-  --primary-hover: #535bf2;
-  --bg-color: #242424;
-  --text-color: rgba(255, 255, 255, 0.87);
-  --card-bg: #1a1a1a;
-  --border-color: #333;
-}
-
-body {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color: var(--text-color);
-  background-color: var(--bg-color);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
+body {
+  min-height: 100%;
+}
+
+html {
+  background-color: var(--bg-color);
+}
+
+body {
+  font-family: var(--theme-font-body);
+  line-height: 1.5;
+  color: var(--text-color);
+  background: var(--theme-bg-stage);
+}
+
 #root {
   min-height: 100vh;
   width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(196, 154, 90, 0.28);
+  color: var(--theme-text-strong);
 }
 
 

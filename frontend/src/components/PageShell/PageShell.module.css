@@ -1,14 +1,18 @@
 .page {
   min-height: 100vh;
-  background: #f8fafc;
+  background: var(--theme-bg-stage);
   padding: 28px 40px 40px;
-  color: #0f172a;
-  font-family: "Space Grotesk", "Manrope", "Segoe UI", sans-serif;
-  --card-bg: #ffffff;
-  --border-color: #e2e8f0;
-  --primary-color: #1d4ed8;
-  --header-gradient: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
-  --header-subtitle-color: #475569;
+  color: var(--theme-text);
+  font-family: var(--theme-font-body);
+  --card-bg: var(--theme-surface-panel);
+  --border-color: var(--theme-line);
+  --primary-color: var(--theme-accent-primary);
+  --header-gradient: linear-gradient(
+    135deg,
+    var(--theme-accent-primary) 0%,
+    var(--theme-accent-primary-strong) 100%
+  );
+  --header-subtitle-color: var(--theme-text-muted);
   display: flex;
   flex-direction: column;
 }

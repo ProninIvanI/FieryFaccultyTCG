@@ -9,11 +9,12 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(148, 163, 184, 0.3);
+  background: linear-gradient(135deg, rgba(196, 154, 90, 0.95), rgba(110, 143, 181, 0.65));
   display: grid;
   place-items: center;
   font-weight: 700;
-  color: #e2e8f0;
+  color: #120f0d;
+  border: 1px solid rgba(240, 230, 210, 0.18);
 }
 
 .info {
@@ -24,14 +25,15 @@
 .name {
   font-weight: 600;
   font-size: 13px;
+  color: var(--theme-text-strong);
 }
 
 .status {
   font-size: 12px;
-  color: #a7f3d0;
+  color: #b9d7b5;
 }
 
 .subtitle {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--theme-text-dim);
 }

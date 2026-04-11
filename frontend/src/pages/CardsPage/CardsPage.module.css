@@ -1,4 +1,4 @@
-﻿.pageGrid {
+.pageGrid {
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(260px, 1fr);
   gap: 24px;
@@ -37,7 +37,7 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #475569;
+  color: var(--theme-text-muted);
 }
 
 .chips {
@@ -50,17 +50,18 @@
 .chipActive {
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid #cbd5f5;
-  background: #f8fafc;
-  color: #0f172a;
+  border: 1px solid var(--theme-line);
+  background: var(--theme-surface-panel-soft);
+  color: var(--theme-text-strong);
   font-size: 13px;
   cursor: pointer;
 }
 
 .chipActive {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-  color: #ffffff;
+  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
+  border-color: rgba(196, 154, 90, 0.42);
+  color: #120f0d;
+  box-shadow: var(--theme-glow-accent);
 }
 
 .filterControls {
@@ -71,11 +72,12 @@
 
 .input,
 .select {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--theme-line);
   border-radius: 10px;
   padding: 8px 10px;
   font-size: 14px;
-  background: #ffffff;
+  background: rgba(255, 248, 236, 0.04);
+  color: var(--theme-text-strong);
 }
 
 .characterScrollerWrap {
@@ -111,12 +113,12 @@
 
 .characterCard,
 .characterCardActive {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--theme-line);
   border-radius: 16px;
   padding: 14px;
   display: grid;
   gap: 10px;
-  background: #ffffff;
+  background: rgba(255, 248, 236, 0.03);
   text-align: left;
   cursor: pointer;
   min-height: 260px;
@@ -125,41 +127,43 @@
 }
 
 .characterCardActive {
-  border-color: #0f172a;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+  border-color: var(--theme-line-strong);
+  box-shadow: var(--theme-glow-accent);
+  background: var(--theme-surface-panel-soft);
 }
 
 .characterVisual {
   position: relative;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.08), rgba(59, 130, 246, 0.18));
+  background: linear-gradient(135deg, rgba(196, 154, 90, 0.18), rgba(110, 143, 181, 0.16));
   height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--theme-text-dim);
   font-size: 12px;
   font-weight: 600;
 }
 
 .characterAvatar {
-  border: 1px dashed rgba(148, 163, 184, 0.6);
+  border: 1px dashed var(--theme-line-strong);
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 248, 236, 0.05);
 }
 
 .characterTag {
   position: absolute;
   bottom: 10px;
   right: 10px;
-  background: #0f172a;
-  color: #ffffff;
+  background: var(--theme-surface-2);
+  color: var(--theme-text-strong);
   font-size: 11px;
   padding: 4px 8px;
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  border: 1px solid var(--theme-line);
 }
 
 .cardGrid {
@@ -170,10 +174,10 @@
 
 .previewCard,
 .previewCardActive {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--theme-line);
   border-radius: 14px;
   padding: 14px;
-  background: #f8fafc;
+  background: var(--theme-surface-panel-soft);
   display: grid;
   gap: 8px;
   text-align: left;
@@ -181,9 +185,9 @@
 }
 
 .previewCardActive {
-  border-color: #1d4ed8;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
-  background: #eef2ff;
+  border-color: var(--theme-line-strong);
+  box-shadow: var(--theme-glow-accent);
+  background: var(--theme-surface-panel);
 }
 
 .previewHeader {
@@ -195,47 +199,48 @@
 
 .previewName {
   font-weight: 700;
-  color: #0f172a;
+  color: var(--theme-text-strong);
 }
 
 .previewTag {
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 999px;
-  background: #e2e8f0;
-  color: #1f2937;
+  background: var(--theme-surface-2);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-line);
 }
 
 .previewStats {
   display: grid;
   gap: 4px;
-  color: #475569;
+  color: var(--theme-text-muted);
   font-size: 13px;
 }
 
 .previewEffect {
   margin: 0;
-  color: #1f2937;
+  color: var(--theme-text);
   font-size: 13px;
 }
 
 .characterName {
   font-weight: 700;
-  color: #0f172a;
+  color: var(--theme-text-strong);
 }
 
 .characterStats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px 12px;
-  color: #475569;
+  color: var(--theme-text-muted);
   font-size: 13px;
 }
 
 .characterSkill {
   margin: 0;
   font-size: 13px;
-  color: #1f2937;
+  color: var(--theme-text);
 }
 
 .detailBlock {
@@ -246,30 +251,31 @@
 .detailArtwork {
   height: 180px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #e2e8f0, #cbd5f5);
+  background: linear-gradient(135deg, rgba(196, 154, 90, 0.24), rgba(110, 143, 181, 0.22));
   display: grid;
   place-items: center;
-  color: #475569;
+  color: var(--theme-text-muted);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  border: 1px solid var(--theme-line);
 }
 
 .detailTitle {
   font-weight: 700;
   font-size: 16px;
-  color: #0f172a;
+  color: var(--theme-text-strong);
 }
 
 .detailMeta {
   font-size: 13px;
-  color: #64748b;
+  color: var(--theme-text-dim);
 }
 
 .detailText {
   margin: 0;
   font-size: 13px;
-  color: #1f2937;
+  color: var(--theme-text);
 }
 
 .detailStats {
@@ -283,11 +289,11 @@
   justify-content: space-between;
   gap: 10px;
   font-size: 12px;
-  color: #475569;
+  color: var(--theme-text-muted);
 }
 
 .detailStat strong {
-  color: #0f172a;
+  color: var(--theme-text-strong);
 }
 
 .actionList {
@@ -299,14 +305,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: #0f172a;
-  color: #ffffff;
+  border: 1px solid rgba(196, 154, 90, 0.42);
+  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
+  color: #120f0d;
   padding: 10px 14px;
   border-radius: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   text-decoration: none;
+  box-shadow: var(--theme-glow-accent);
 }
 
 @media (max-width: 1024px) {

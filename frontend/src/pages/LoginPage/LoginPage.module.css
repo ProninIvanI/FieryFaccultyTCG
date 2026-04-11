@@ -4,27 +4,32 @@
   align-items: center;
   justify-content: center;
   padding: 32px;
-  background: radial-gradient(circle at top, #f3f4f6, #e5e7eb);
+  background: var(--theme-bg-stage);
 }
 
 .card {
   width: 100%;
   max-width: 420px;
-  background: #ffffff;
-  border-radius: 16px;
+  background: var(--theme-surface-panel);
+  border: 1px solid var(--theme-line);
+  border-radius: 20px;
   padding: 28px;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--theme-shadow-float);
+  backdrop-filter: blur(14px);
+  color: var(--theme-text);
 }
 
 .title {
   margin: 0 0 6px 0;
   font-size: 28px;
   font-weight: 700;
+  color: var(--theme-text-strong);
+  font-family: var(--theme-font-display);
 }
 
 .subtitle {
   margin: 0 0 20px 0;
-  color: #6b7280;
+  color: var(--theme-text-muted);
 }
 
 .form {
@@ -39,33 +44,37 @@
   gap: 6px;
   font-size: 14px;
   font-weight: 600;
+  color: var(--theme-text-strong);
 }
 
 .input {
   padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  border: 1px solid var(--theme-line);
   font-size: 14px;
+  background: rgba(255, 248, 236, 0.04);
+  color: var(--theme-text-strong);
 }
 
 .errors {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
+  background: rgba(159, 94, 86, 0.12);
+  color: #f0b8af;
+  border: 1px solid rgba(159, 94, 86, 0.36);
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 13px;
 }
 
 .button {
   margin-top: 6px;
   padding: 12px 14px;
-  border-radius: 10px;
-  border: none;
-  background: #111827;
-  color: #ffffff;
-  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid rgba(196, 154, 90, 0.42);
+  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
+  color: #120f0d;
+  font-weight: 700;
   cursor: pointer;
+  box-shadow: var(--theme-glow-accent);
 }
 
 .button:disabled {
@@ -76,5 +85,9 @@
 .footer {
   margin-top: 16px;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--theme-text-muted);
+}
+
+.footer a {
+  color: var(--theme-accent-primary);
 }

@@ -1,14 +1,52 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, FriendListItem, SiteHeader } from "@/components";
-import { ROUTES } from "@/constants";
+import { ROUTES, UI_THEMES, type UiTheme } from "@/constants";
+import { useUiTheme } from "@/hooks/useUiTheme";
 import { authService } from "@/services";
 import { AuthSession } from "@/types";
 import styles from "./HomePage.module.css";
 
+const THEME_PRESENTATION: Record<
+  UiTheme,
+  {
+    title: string;
+    subtitle: string;
+    chip: string;
+  }
+> = {
+  "magical-library": {
+    title: "Библиотека",
+    subtitle:
+      "Тёплый академический архив: латунь, каталоги, витрины и камерный свет.",
+    chip: "Базовая тема",
+  },
+  "alchemical-laboratory": {
+    title: "Лаборатория",
+    subtitle:
+      "Стекло, металл и магическая инженерия. Более холодный и экспериментальный тон.",
+    chip: "Альтернатива",
+  },
+  "celestial-observatory": {
+    title: "Обсерватория",
+    subtitle:
+      "Небесная глубина, астральный свет и более величественное ощущение академии.",
+    chip: "Альтернатива",
+  },
+};
+
+type ThemeSettingsProps = {
+  isThemeSettingsOpen: boolean;
+  onOpenThemeSettings: () => void;
+  onCloseThemeSettings: () => void;
+};
+
 export const HomePage = () => {
-  const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
+  const [session, setSession] = useState<AuthSession | null>(() =>
+    authService.getSession(),
+  );
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [isThemeSettingsOpen, setIsThemeSettingsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,8 +68,14 @@ export const HomePage = () => {
     };
   }, []);
 
+  const themeSettingsProps: ThemeSettingsProps = {
+    isThemeSettingsOpen,
+    onOpenThemeSettings: () => setIsThemeSettingsOpen(true),
+    onCloseThemeSettings: () => setIsThemeSettingsOpen(false),
+  };
+
   if (!session) {
-    return <PublicHome />;
+    return <PublicHome {...themeSettingsProps} />;
   }
 
   return (
@@ -41,18 +85,23 @@ export const HomePage = () => {
       onLogout={async () => {
         const result = await authService.logout(session);
         if (!result.ok) {
-          setLogoutError(result.error ?? "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0441\u0435\u0441\u0441\u0438\u044e");
+          setLogoutError(result.error ?? "Не удалось завершить сессию");
           return;
         }
 
         setLogoutError(null);
         setSession(null);
       }}
+      {...themeSettingsProps}
     />
   );
 };
 
-const PublicHome = () => {
+const PublicHome = ({
+  isThemeSettingsOpen,
+  onOpenThemeSettings,
+  onCloseThemeSettings,
+}: ThemeSettingsProps) => {
   return (
     <div className={styles.page}>
       <SiteHeader
@@ -60,6 +109,13 @@ const PublicHome = () => {
         subtitle="Коллекционная карточная игра для быстрых экспериментов с механиками, балансом и симуляциями."
         actions={
           <>
+            <button
+              className={styles.settingsButton}
+              type="button"
+              onClick={onOpenThemeSettings}
+            >
+              Настройки
+            </button>
             <Link className={styles.secondary} to={ROUTES.REGISTER}>
               Создать аккаунт
             </Link>
@@ -92,6 +148,10 @@ const PublicHome = () => {
         <div>Документация: /docs · Лицензия: ISC</div>
         <div>Контакты: team@academycraft.local</div>
       </footer>
+
+      {isThemeSettingsOpen ? (
+        <ThemeSettingsModal onClose={onCloseThemeSettings} />
+      ) : null}
     </div>
   );
 };
@@ -100,11 +160,14 @@ const AuthHome = ({
   session,
   logoutError,
   onLogout,
+  isThemeSettingsOpen,
+  onOpenThemeSettings,
+  onCloseThemeSettings,
 }: {
   session: AuthSession;
   logoutError: string | null;
   onLogout: () => Promise<void>;
-}) => {
+} & ThemeSettingsProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [friendNickname, setFriendNickname] = useState("");
@@ -123,19 +186,23 @@ const AuthHome = ({
     if (!isMenuOpen) {
       return;
     }
+
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Node)) {
         return;
       }
+
       if (
         menuRef.current?.contains(target) ||
         menuButtonRef.current?.contains(target)
       ) {
         return;
       }
+
       setIsMenuOpen(false);
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -147,7 +214,15 @@ const AuthHome = ({
       <SiteHeader
         title="Академия Ремесла"
         subtitle="Полный режим: запуск матчей, дебаг и симуляции."
-        actions={null}
+        actions={
+          <button
+            className={styles.settingsButton}
+            type="button"
+            onClick={onOpenThemeSettings}
+          >
+            Настройки
+          </button>
+        }
       />
 
       <main className={styles.layout}>
@@ -163,6 +238,7 @@ const AuthHome = ({
               Демо-тур
             </Link>
           </section>
+
           <section className={styles.hero}>
             <div className={styles.heroInfo}>
               <h2 className={styles.heroTitle}>
@@ -216,6 +292,7 @@ const AuthHome = ({
                   </span>
                   <span className={styles.userCaret}>▾</span>
                 </button>
+
                 {isMenuOpen ? (
                   <div className={styles.userMenu} role="menu" ref={menuRef}>
                     <div className={styles.userMenuHeader}>
@@ -226,7 +303,14 @@ const AuthHome = ({
                       <button className={styles.menuButton} type="button">
                         Профиль
                       </button>
-                      <button className={styles.menuButton} type="button">
+                      <button
+                        className={styles.menuButton}
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onOpenThemeSettings();
+                        }}
+                      >
                         Настройки
                       </button>
                       <button className={styles.menuButton} type="button">
@@ -248,6 +332,7 @@ const AuthHome = ({
                   </div>
                 ) : null}
               </div>
+
               <button className={styles.iconButton} type="button">
                 Поиск
               </button>
@@ -280,11 +365,11 @@ const AuthHome = ({
                   onChange={(event) => setFriendNickname(event.target.value)}
                 />
                 <div className={styles.addFriendActions}>
-                  <button className={styles.addFriendPrimary} type="button">
+                  <button className={styles.addFriendButton} type="button">
                     Отправить запрос
                   </button>
                   <button
-                    className={styles.addFriendSecondary}
+                    className={styles.addFriendGhost}
                     type="button"
                     onClick={() => {
                       setIsAddFriendOpen(false);
@@ -299,20 +384,109 @@ const AuthHome = ({
 
             <div className={styles.friendsList}>
               {friends.length === 0 ? (
-                <div className={styles.emptyFriends}>Друзья пока не добавлены.</div>
+                <div className={styles.friendsEmpty}>Друзья пока не добавлены.</div>
               ) : (
                 friends.map((friend) => (
-                  <FriendListItem
-                    key={friend.id}
-                    friend={friend}
-                  />
+                  <FriendListItem key={friend.id} friend={friend} />
                 ))
               )}
             </div>
           </div>
         </aside>
       </main>
+
+      {isThemeSettingsOpen ? (
+        <ThemeSettingsModal onClose={onCloseThemeSettings} />
+      ) : null}
     </div>
   );
 };
 
+const ThemeSettingsModal = ({ onClose }: { onClose: () => void }) => {
+  const { theme, setTheme } = useUiTheme();
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className={styles.settingsOverlay}
+      role="presentation"
+      onClick={onClose}
+    >
+      <section
+        className={styles.settingsModal}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="theme-settings-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className={styles.settingsModalHeader}>
+          <div>
+            <p className={styles.settingsEyebrow}>Настройки интерфейса</p>
+            <h2 className={styles.settingsModalTitle} id="theme-settings-title">
+              Тема академии
+            </h2>
+            <p className={styles.settingsModalSubtitle}>
+              Меняй визуальную оболочку проекта прямо на главном экране. Выбор
+              применяется ко всему приложению и сохраняется между сессиями.
+            </p>
+          </div>
+          <button
+            className={styles.settingsClose}
+            type="button"
+            onClick={onClose}
+            aria-label="Закрыть настройки"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className={styles.themeOptionGrid}>
+          {UI_THEMES.map((themeOption) => {
+            const presentation = THEME_PRESENTATION[themeOption];
+            const isActive = themeOption === theme;
+
+            return (
+              <button
+                key={themeOption}
+                type="button"
+                className={isActive ? styles.themeOptionActive : styles.themeOption}
+                onClick={() => setTheme(themeOption)}
+                aria-pressed={isActive}
+              >
+                <span className={styles.themeOptionHeader}>
+                  <span className={styles.themeOptionTitle}>
+                    {presentation.title}
+                  </span>
+                  <span className={styles.themeOptionChip}>
+                    {isActive ? "Выбрано" : presentation.chip}
+                  </span>
+                </span>
+                <span className={styles.themeOptionText}>
+                  {presentation.subtitle}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className={styles.settingsFooter}>
+          <button className={styles.settingsDone} type="button" onClick={onClose}>
+            Готово
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+};

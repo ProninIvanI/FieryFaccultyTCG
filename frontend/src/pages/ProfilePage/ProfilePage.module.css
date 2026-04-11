@@ -1,4 +1,4 @@
-﻿.profileHeader {
+.profileHeader {
   display: flex;
   gap: 16px;
   align-items: center;
@@ -9,12 +9,14 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1d4ed8, #0f172a);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--theme-accent-primary), var(--theme-bg-1));
+  color: var(--theme-text-strong);
   display: grid;
   place-items: center;
   font-weight: 700;
   font-size: 20px;
+  border: 1px solid var(--theme-line);
+  box-shadow: var(--theme-glow-accent);
 }
 
 .profileMeta {
@@ -25,6 +27,7 @@
 .profileName {
   font-size: 20px;
   font-weight: 700;
+  color: var(--theme-text-strong);
 }
 
 .metaRow {
@@ -32,12 +35,12 @@
   gap: 16px;
   flex-wrap: wrap;
   font-size: 14px;
-  color: #475569;
+  color: var(--theme-text-muted);
 }
 
 .metaHint {
   font-size: 12px;
-  color: #64748b;
+  color: var(--theme-text-dim);
 }
 
 .statsGrid {
@@ -47,10 +50,10 @@
 }
 
 .statsGroup {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border: 1px solid var(--theme-line);
+  border-radius: 16px;
   padding: 12px 14px;
-  background: #f8fafc;
+  background: var(--theme-surface-panel-soft);
   display: grid;
   gap: 10px;
 }
@@ -59,7 +62,7 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #1f2937;
+  color: var(--theme-text-muted);
   margin: 0;
 }
 
@@ -67,13 +70,13 @@
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 6px 12px;
-  color: #374151;
+  color: var(--theme-text);
   font-size: 13px;
 }
 
 .statPairs strong {
   font-weight: 700;
-  color: #0f172a;
+  color: var(--theme-text-strong);
 }
 
 .deckRow {
@@ -86,17 +89,18 @@
 .deckChip {
   padding: 8px 14px;
   border-radius: 999px;
-  background: #e2e8f0;
-  color: #0f172a;
+  background: var(--theme-surface-panel-soft);
+  color: var(--theme-text-strong);
   font-weight: 600;
   font-size: 13px;
+  border: 1px solid var(--theme-line);
 }
 
 .deckMeta {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
-  color: #475569;
+  color: var(--theme-text-muted);
   font-size: 14px;
 }
 
@@ -110,6 +114,7 @@
   width: 56px;
   height: 56px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #e2e8f0, #cbd5f5);
-  border: 1px solid #dbeafe;
+  background: linear-gradient(135deg, rgba(196, 154, 90, 0.24), rgba(110, 143, 181, 0.2));
+  border: 1px solid var(--theme-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }

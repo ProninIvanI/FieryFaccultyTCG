@@ -1,0 +1,115 @@
+:root {
+  color-scheme: dark;
+
+  --theme-font-display: "Cormorant Garamond", "Times New Roman", serif;
+  --theme-font-body: "Manrope", "Segoe UI", sans-serif;
+  --theme-font-number: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+
+  --theme-bg-0: #0e0c0b;
+  --theme-bg-1: #171413;
+  --theme-bg-2: #211b18;
+  --theme-bg-stage:
+    radial-gradient(circle at top, rgba(196, 154, 90, 0.12), transparent 28%),
+    linear-gradient(180deg, #0e0c0b 0%, #151110 40%, #0a0908 100%);
+
+  --theme-surface-0: rgba(23, 20, 19, 0.88);
+  --theme-surface-1: rgba(33, 27, 24, 0.94);
+  --theme-surface-2: rgba(42, 34, 29, 0.96);
+  --theme-surface-panel:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 24%),
+    var(--theme-surface-0);
+  --theme-surface-panel-soft:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 100%),
+    var(--theme-surface-1);
+  --theme-surface-overlay: rgba(255, 248, 236, 0.04);
+
+  --theme-text-strong: #f0e6d2;
+  --theme-text: #d0c3af;
+  --theme-text-muted: #9d917d;
+  --theme-text-dim: #7f7566;
+
+  --theme-accent-primary: #c49a5a;
+  --theme-accent-primary-strong: #f0e6d2;
+  --theme-accent-secondary: #6e8fb5;
+  --theme-accent-danger: #9f5e56;
+  --theme-accent-success: #6d7a63;
+
+  --theme-line: rgba(196, 154, 90, 0.24);
+  --theme-line-soft: rgba(240, 230, 210, 0.08);
+  --theme-line-strong: rgba(240, 230, 210, 0.18);
+
+  --theme-shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.34);
+  --theme-shadow-float: 0 28px 60px rgba(0, 0, 0, 0.42);
+  --theme-glow-accent:
+    0 0 0 1px rgba(196, 154, 90, 0.22),
+    0 0 24px rgba(196, 154, 90, 0.08);
+
+  --primary-color: var(--theme-accent-primary);
+  --primary-hover: #d8b47c;
+  --bg-color: var(--theme-bg-0);
+  --text-color: var(--theme-text);
+  --card-bg: var(--theme-surface-panel);
+  --border-color: var(--theme-line);
+}
+
+[data-theme='magical-library'] {
+  color-scheme: dark;
+}
+
+[data-theme='alchemical-laboratory'] {
+  color-scheme: dark;
+  --theme-bg-0: #0b1012;
+  --theme-bg-1: #13191c;
+  --theme-bg-2: #1a2328;
+  --theme-bg-stage:
+    radial-gradient(circle at 18% 20%, rgba(111, 163, 155, 0.12), transparent 24%),
+    radial-gradient(circle at 78% 14%, rgba(207, 116, 65, 0.08), transparent 22%),
+    linear-gradient(180deg, #0b1012 0%, #10171a 40%, #090d0f 100%);
+  --theme-surface-0: rgba(19, 25, 28, 0.88);
+  --theme-surface-1: rgba(26, 35, 40, 0.94);
+  --theme-surface-2: rgba(31, 44, 49, 0.96);
+  --theme-text-strong: #e8ece6;
+  --theme-text: #c5d0ca;
+  --theme-text-muted: #93a098;
+  --theme-text-dim: #76847b;
+  --theme-accent-primary: #a98a57;
+  --theme-accent-primary-strong: #edf4ef;
+  --theme-accent-secondary: #6fa39b;
+  --theme-accent-danger: #cf7441;
+  --theme-accent-success: #6b8db2;
+  --theme-line: rgba(111, 163, 155, 0.22);
+  --theme-line-soft: rgba(232, 236, 230, 0.08);
+  --theme-line-strong: rgba(232, 236, 230, 0.18);
+  --theme-glow-accent:
+    0 0 0 1px rgba(111, 163, 155, 0.22),
+    0 0 24px rgba(111, 163, 155, 0.1);
+}
+
+[data-theme='celestial-observatory'] {
+  color-scheme: dark;
+  --theme-bg-0: #090c15;
+  --theme-bg-1: #101726;
+  --theme-bg-2: #162033;
+  --theme-bg-stage:
+    radial-gradient(circle at top, rgba(110, 146, 214, 0.16), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(190, 161, 102, 0.06), transparent 26%),
+    linear-gradient(180deg, #090c15 0%, #0d1320 44%, #070a11 100%);
+  --theme-surface-0: rgba(16, 23, 38, 0.86);
+  --theme-surface-1: rgba(22, 32, 51, 0.94);
+  --theme-surface-2: rgba(27, 39, 62, 0.96);
+  --theme-text-strong: #edf3ff;
+  --theme-text: #cad7ea;
+  --theme-text-muted: #97a8bf;
+  --theme-text-dim: #7f90a7;
+  --theme-accent-primary: #bea166;
+  --theme-accent-primary-strong: #eef4ff;
+  --theme-accent-secondary: #6e92d6;
+  --theme-accent-danger: #6b63a8;
+  --theme-accent-success: #aeb9c9;
+  --theme-line: rgba(110, 146, 214, 0.22);
+  --theme-line-soft: rgba(237, 243, 255, 0.08);
+  --theme-line-strong: rgba(237, 243, 255, 0.18);
+  --theme-glow-accent:
+    0 0 0 1px rgba(110, 146, 214, 0.22),
+    0 0 28px rgba(110, 146, 214, 0.12);
+}

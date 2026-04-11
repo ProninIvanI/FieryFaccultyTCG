@@ -1,27 +1,32 @@
-﻿.card {
+.card {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 18px;
   padding: 2rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
   box-sizing: border-box;
+  box-shadow: var(--theme-shadow-panel);
+  backdrop-filter: blur(14px);
 }
 
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(100, 108, 255, 0.2);
+  border-color: var(--theme-line-strong);
+  box-shadow: var(--theme-shadow-float);
 }
 
 .title {
   margin-bottom: 1rem;
   color: var(--primary-color);
+  font-family: var(--theme-font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .content {
-  /* Контент карточки */
   min-width: 0;
 }

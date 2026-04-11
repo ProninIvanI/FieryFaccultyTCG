@@ -16,11 +16,15 @@ import {
   PlaySimPage,
 } from './pages';
 import { ROUTES } from './constants';
+import { UiThemeProvider } from './components/UiThemeProvider';
+import { useUiTheme } from './hooks/useUiTheme';
 import styles from './App.module.css';
 
-function App() {
+function AppRoutes() {
+  const { theme } = useUiTheme();
+
   return (
-    <div className={styles.app}>
+    <div className={styles.app} data-theme={theme}>
       <Routes>
         <Route path={ROUTES.HOME} element={<HomePage />} />
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />
@@ -39,6 +43,14 @@ function App() {
         <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
       </Routes>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <UiThemeProvider>
+      <AppRoutes />
+    </UiThemeProvider>
   );
 }
 

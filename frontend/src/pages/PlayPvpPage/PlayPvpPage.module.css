@@ -1,13 +1,13 @@
 .workbench {
-  --pvp-text: #0f172a;
-  --pvp-muted: #475569;
-  --pvp-soft: #64748b;
-  --pvp-border: #dbe4ef;
-  --pvp-border-strong: #cbd5f5;
-  --pvp-panel: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  --pvp-panel-soft: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
-  --pvp-accent: #1d4ed8;
-  --pvp-accent-strong: #0f172a;
+  --pvp-text: var(--theme-text-strong);
+  --pvp-muted: var(--theme-text-muted);
+  --pvp-soft: var(--theme-text-dim);
+  --pvp-border: var(--theme-line);
+  --pvp-border-strong: var(--theme-line-strong);
+  --pvp-panel: var(--theme-surface-panel);
+  --pvp-panel-soft: var(--theme-surface-panel-soft);
+  --pvp-accent: var(--theme-accent-primary);
+  --pvp-accent-strong: var(--theme-accent-primary-strong);
   display: grid;
   grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
   gap: 16px;
@@ -41,7 +41,7 @@
   border-radius: 20px;
   border: 1px solid var(--pvp-border);
   background: var(--pvp-panel);
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.1);
+  box-shadow: var(--theme-shadow-panel);
   padding: 18px 20px;
 }
 
@@ -144,14 +144,14 @@
 }
 
 .segmentButton {
-  background: #ffffff;
+  background: var(--theme-surface-overlay);
   color: var(--pvp-text);
 }
 
 .segmentActive {
-  background: linear-gradient(180deg, #0f172a, #1d4ed8);
-  color: #ffffff;
-  box-shadow: 0 10px 22px rgba(29, 78, 216, 0.22);
+  background: linear-gradient(180deg, rgba(196, 154, 90, 0.95), rgba(145, 107, 58, 0.98));
+  color: #120f0d;
+  box-shadow: var(--theme-glow-accent);
 }
 
 .formRow {
@@ -190,12 +190,12 @@
   border: 1px solid var(--pvp-border);
   padding: 10px 12px;
   font-size: 14px;
-  background: #ffffff;
+  background: rgba(255, 248, 236, 0.05);
   color: var(--pvp-text);
 }
 
 .input:disabled {
-  background: #f8fafc;
+  background: rgba(255, 248, 236, 0.03);
   color: var(--pvp-soft);
 }
 
@@ -207,15 +207,15 @@
 }
 
 .primaryButton {
-  border: 1px solid #0f172a;
-  background: #0f172a;
-  color: #ffffff;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
+  border: 1px solid rgba(196, 154, 90, 0.42);
+  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
+  color: #120f0d;
+  box-shadow: var(--theme-glow-accent);
 }
 
 .secondaryButton {
   border: 1px solid var(--pvp-border);
-  background: #ffffff;
+  background: rgba(255, 248, 236, 0.04);
   color: var(--pvp-text);
 }
 

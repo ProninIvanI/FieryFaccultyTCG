@@ -1,4 +1,4 @@
-﻿.layout {
+.layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   gap: 24px;
@@ -78,8 +78,8 @@
 }
 
 .characterCard {
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border: 1px solid var(--theme-line);
+  background: var(--theme-surface-panel-soft);
   border-radius: 18px;
   padding: 14px;
   text-align: left;
@@ -92,8 +92,8 @@
 }
 
 .characterCardActive {
-  border: 1px solid #1d4ed8;
-  background: #eff6ff;
+  border: 1px solid var(--theme-line-strong);
+  background: var(--theme-surface-panel);
   border-radius: 18px;
   padding: 14px;
   text-align: left;
@@ -101,7 +101,7 @@
   display: grid;
   gap: 8px;
   min-height: 260px;
-  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.18);
+  box-shadow: var(--theme-glow-accent);
   width: 100%;
   box-sizing: border-box;
 }
@@ -109,60 +109,62 @@
 .characterVisual {
   position: relative;
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.08), rgba(59, 130, 246, 0.18));
+  background: linear-gradient(135deg, rgba(196, 154, 90, 0.18), rgba(110, 143, 181, 0.16));
   height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--theme-text-dim);
   font-size: 12px;
   font-weight: 600;
 }
 
 .characterAvatar {
-  border: 1px dashed rgba(148, 163, 184, 0.6);
+  border: 1px dashed var(--theme-line-strong);
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 248, 236, 0.05);
 }
 
 .characterTag {
   position: absolute;
   bottom: 10px;
   right: 10px;
-  background: #0f172a;
-  color: #ffffff;
+  background: var(--theme-surface-2);
+  color: var(--theme-text-strong);
   font-size: 11px;
   padding: 4px 8px;
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  border: 1px solid var(--theme-line);
 }
 
 .characterName {
   font-weight: 700;
   margin-bottom: 6px;
+  color: var(--theme-text-strong);
 }
 
 .characterMeta {
   font-size: 13px;
-  color: #475569;
+  color: var(--theme-text-muted);
 }
 
 .characterStats {
   font-size: 13px;
-  color: #0f172a;
+  color: var(--theme-text-strong);
   margin-top: 4px;
 }
 
 .characterAbility {
   font-size: 12px;
-  color: #334155;
+  color: var(--theme-text);
   line-height: 1.4;
 }
 
 .characterDetail {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--theme-line);
   padding-top: 12px;
   display: grid;
   gap: 8px;
@@ -170,18 +172,19 @@
 
 .detailTitle {
   font-weight: 700;
+  color: var(--theme-text-strong);
 }
 
 .detailText {
   margin: 0;
-  color: #334155;
+  color: var(--theme-text);
 }
 
 .detailRow {
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  color: #0f172a;
+  color: var(--theme-text-strong);
 }
 
 .filterBlock {
@@ -190,7 +193,7 @@
 
 .filterLabel {
   font-size: 13px;
-  color: #475569;
+  color: var(--theme-text-muted);
   margin-bottom: 8px;
 }
 
@@ -203,21 +206,23 @@
 .filterButton {
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid #cbd5f5;
-  background: #f8fafc;
+  border: 1px solid var(--theme-line);
+  background: var(--theme-surface-panel-soft);
   font-size: 13px;
   cursor: pointer;
+  color: var(--theme-text-strong);
 }
 
 .filterActive {
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid #1d4ed8;
-  background: #e0f2fe;
+  border: 1px solid rgba(196, 154, 90, 0.42);
+  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
   font-size: 13px;
   cursor: pointer;
-  color: #0f172a;
-  font-weight: 600;
+  color: #120f0d;
+  font-weight: 700;
+  box-shadow: var(--theme-glow-accent);
 }
 
 .cardList {
@@ -233,8 +238,8 @@
   align-items: center;
   padding: 10px 12px;
   border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--theme-surface-panel-soft);
+  border: 1px solid var(--theme-line);
   gap: 8px;
   flex-wrap: wrap;
   max-width: 100%;
@@ -250,23 +255,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--theme-text-strong);
 }
 
 .cardMeta {
   font-size: 12px;
-  color: #64748b;
+  color: var(--theme-text-dim);
   margin-top: 2px;
 }
 
 .cardStats {
   font-size: 12px;
-  color: #0f172a;
+  color: var(--theme-text-strong);
   margin-top: 4px;
 }
 
 .cardEffect {
   font-size: 12px;
-  color: #334155;
+  color: var(--theme-text);
   margin-top: 4px;
   line-height: 1.4;
 }
@@ -279,13 +285,13 @@
 
 .cardMana {
   font-size: 12px;
-  color: #1f2937;
+  color: var(--theme-text);
 }
 
 .smallButton {
-  border: none;
-  background: #0f172a;
-  color: #ffffff;
+  border: 1px solid rgba(196, 154, 90, 0.3);
+  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
+  color: #120f0d;
   width: 28px;
   height: 28px;
   border-radius: 8px;
@@ -318,23 +324,24 @@
 .deckManagerTitle {
   font-size: 16px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--theme-text-strong);
 }
 
 .deckManagerSubtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: #64748b;
+  color: var(--theme-text-dim);
 }
 
 .deckBadge {
   flex-shrink: 0;
   border-radius: 999px;
   padding: 6px 10px;
-  background: #e0e7ff;
-  color: #1d4ed8;
+  background: var(--theme-surface-panel-soft);
+  color: var(--theme-accent-primary);
   font-size: 12px;
   font-weight: 700;
+  border: 1px solid var(--theme-line);
 }
 
 .deckManagerGrid {
@@ -346,11 +353,12 @@
 .deckNameInput,
 .deckSelect {
   width: 100%;
-  border: 1px solid #cbd5f5;
-  background: #fff;
+  border: 1px solid var(--theme-line);
+  background: rgba(255, 248, 236, 0.04);
   border-radius: 10px;
   padding: 10px 12px;
   font: inherit;
+  color: var(--theme-text-strong);
 }
 
 .deckManagerActions {
@@ -362,23 +370,24 @@
 .deckStatusError {
   margin: 0;
   font-size: 12px;
-  color: #b91c1c;
+  color: #e4a2a2;
 }
 
 .deckStatusInfo {
   margin: 0;
   font-size: 12px;
-  color: #1d4ed8;
+  color: var(--theme-accent-secondary);
 }
 
 .summaryValue {
   font-size: 20px;
   font-weight: 700;
+  color: var(--theme-text-strong);
 }
 
 .summaryLabel {
   font-size: 12px;
-  color: #64748b;
+  color: var(--theme-text-dim);
 }
 
 .deckList {
@@ -396,8 +405,9 @@
   align-items: center;
   padding: 10px 12px;
   border-radius: 12px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: rgba(255, 248, 236, 0.04);
+  border: 1px solid var(--theme-line);
+  color: var(--theme-text-strong);
 }
 
 .deckControls {
@@ -415,9 +425,9 @@
 .emptyState {
   padding: 12px;
   border-radius: 10px;
-  background: #f8fafc;
-  border: 1px dashed #cbd5f5;
-  color: #64748b;
+  background: var(--theme-surface-panel-soft);
+  border: 1px dashed var(--theme-line-strong);
+  color: var(--theme-text-dim);
   font-size: 13px;
   text-align: center;
 }
@@ -430,18 +440,19 @@
 }
 
 .presetButton {
-  border: 1px solid #cbd5f5;
-  background: #f8fafc;
+  border: 1px solid var(--theme-line);
+  background: var(--theme-surface-panel-soft);
   border-radius: 10px;
   padding: 10px 12px;
   font-weight: 600;
   cursor: pointer;
+  color: var(--theme-text-strong);
 }
 
 .presetHint {
   margin: 0;
   font-size: 12px;
-  color: #64748b;
+  color: var(--theme-text-dim);
 }
 
 @media (max-width: 1024px) {
@@ -472,4 +483,3 @@
     grid-template-columns: 1fr;
   }
 }
-
