@@ -20,16 +20,16 @@
 .top {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: 18px;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .actions {
   display: flex;
   gap: 12px;
   align-items: center;
-  padding-top: 6px;
+  align-self: center;
 }
 
 .content {

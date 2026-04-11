@@ -12,26 +12,22 @@ const THEME_PRESENTATION: Record<
   {
     title: string;
     subtitle: string;
-    chip: string;
   }
 > = {
   "magical-library": {
     title: "Библиотека",
     subtitle:
       "Тёплый академический архив: латунь, каталоги, витрины и камерный свет.",
-    chip: "Базовая тема",
   },
   "alchemical-laboratory": {
     title: "Лаборатория",
     subtitle:
       "Стекло, металл и магическая инженерия. Более холодный и экспериментальный тон.",
-    chip: "Альтернатива",
   },
   "celestial-observatory": {
     title: "Обсерватория",
     subtitle:
       "Небесная глубина, астральный свет и более величественное ощущение академии.",
-    chip: "Альтернатива",
   },
 };
 
@@ -75,7 +71,7 @@ export const HomePage = () => {
   };
 
   if (!session) {
-    return <PublicHome {...themeSettingsProps} />;
+    return <PublicHome />;
   }
 
   return (
@@ -97,11 +93,7 @@ export const HomePage = () => {
   );
 };
 
-const PublicHome = ({
-  isThemeSettingsOpen,
-  onOpenThemeSettings,
-  onCloseThemeSettings,
-}: ThemeSettingsProps) => {
+const PublicHome = () => {
   return (
     <div className={styles.page}>
       <SiteHeader
@@ -109,13 +101,6 @@ const PublicHome = ({
         subtitle="Коллекционная карточная игра для быстрых экспериментов с механиками, балансом и симуляциями."
         actions={
           <>
-            <button
-              className={styles.settingsButton}
-              type="button"
-              onClick={onOpenThemeSettings}
-            >
-              Настройки
-            </button>
             <Link className={styles.secondary} to={ROUTES.REGISTER}>
               Создать аккаунт
             </Link>
@@ -148,10 +133,6 @@ const PublicHome = ({
         <div>Документация: /docs · Лицензия: ISC</div>
         <div>Контакты: team@academycraft.local</div>
       </footer>
-
-      {isThemeSettingsOpen ? (
-        <ThemeSettingsModal onClose={onCloseThemeSettings} />
-      ) : null}
     </div>
   );
 };
@@ -214,15 +195,6 @@ const AuthHome = ({
       <SiteHeader
         title="Академия Ремесла"
         subtitle="Полный режим: запуск матчей, дебаг и симуляции."
-        actions={
-          <button
-            className={styles.settingsButton}
-            type="button"
-            onClick={onOpenThemeSettings}
-          >
-            Настройки
-          </button>
-        }
       />
 
       <main className={styles.layout}>
@@ -398,6 +370,7 @@ const AuthHome = ({
       {isThemeSettingsOpen ? (
         <ThemeSettingsModal onClose={onCloseThemeSettings} />
       ) : null}
+
     </div>
   );
 };
@@ -438,8 +411,8 @@ const ThemeSettingsModal = ({ onClose }: { onClose: () => void }) => {
               Тема академии
             </h2>
             <p className={styles.settingsModalSubtitle}>
-              Меняй визуальную оболочку проекта прямо на главном экране. Выбор
-              применяется ко всему приложению и сохраняется между сессиями.
+              Выбери визуальную оболочку проекта. Настройка применяется ко всему
+              приложению и сохраняется между сессиями.
             </p>
           </div>
           <button
@@ -464,16 +437,19 @@ const ThemeSettingsModal = ({ onClose }: { onClose: () => void }) => {
                 className={isActive ? styles.themeOptionActive : styles.themeOption}
                 onClick={() => setTheme(themeOption)}
                 aria-pressed={isActive}
+                aria-label={`${presentation.title}. ${presentation.subtitle}`}
               >
                 <span className={styles.themeOptionHeader}>
                   <span className={styles.themeOptionTitle}>
                     {presentation.title}
                   </span>
-                  <span className={styles.themeOptionChip}>
-                    {isActive ? "Выбрано" : presentation.chip}
-                  </span>
+                  {isActive ? (
+                    <span className={styles.themeOptionChip} aria-hidden="true">
+                      ✓
+                    </span>
+                  ) : null}
                 </span>
-                <span className={styles.themeOptionText}>
+                <span className={styles.themeOptionTooltip} role="tooltip">
                   {presentation.subtitle}
                 </span>
               </button>

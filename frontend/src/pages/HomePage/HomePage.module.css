@@ -51,18 +51,6 @@
   transform: translateY(-1px);
 }
 
-.settingsButton {
-  padding: 12px 18px;
-  border-radius: 12px;
-  border: 1px solid var(--theme-line);
-  background: rgba(255, 248, 236, 0.04);
-  color: var(--theme-text-strong);
-  font-weight: 600;
-  font-size: 15px;
-  cursor: pointer;
-  box-shadow: var(--theme-shadow-panel);
-}
-
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -495,7 +483,9 @@
 
 .settingsModal {
   width: min(720px, 100%);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%), var(--theme-surface-1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%),
+    var(--theme-surface-1);
   border: 1px solid var(--theme-line);
   border-radius: 24px;
   box-shadow: var(--theme-shadow-float);
@@ -547,25 +537,43 @@
 
 .themeOptionGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 14px;
 }
 
 .themeOption,
 .themeOptionActive {
   display: grid;
-  gap: 10px;
+  position: relative;
+  min-width: 0;
   text-align: left;
-  padding: 18px;
+  padding: 18px 20px;
   border-radius: 18px;
   border: 1px solid var(--theme-line);
   background: rgba(255, 248, 236, 0.03);
   color: var(--theme-text);
   cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.themeOption:hover,
+.themeOption:focus-visible,
+.themeOptionActive:hover,
+.themeOptionActive:focus-visible {
+  border-color: var(--theme-line-strong);
+  box-shadow: var(--theme-shadow-float);
+  transform: translateY(-1px);
 }
 
 .themeOptionActive {
-  background: linear-gradient(180deg, rgba(196, 154, 90, 0.18), rgba(255, 248, 236, 0.04));
+  background: linear-gradient(
+    180deg,
+    rgba(196, 154, 90, 0.18),
+    rgba(255, 248, 236, 0.04)
+  );
   border-color: var(--theme-line-strong);
   box-shadow: var(--theme-glow-accent);
 }
@@ -574,29 +582,75 @@
   display: flex;
   gap: 10px;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  min-width: 0;
 }
 
 .themeOptionTitle {
-  font-size: 20px;
+  min-width: 0;
+  font-size: 19px;
   font-family: var(--theme-font-display);
   font-weight: 600;
   color: var(--theme-text-strong);
 }
 
 .themeOptionChip {
-  padding: 5px 8px;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
   border-radius: 999px;
-  border: 1px solid var(--theme-line);
-  font-size: 11px;
-  color: var(--theme-text-dim);
-  white-space: nowrap;
+  border: 1px solid rgba(196, 154, 90, 0.42);
+  background: rgba(196, 154, 90, 0.16);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--theme-text-strong);
 }
 
-.themeOptionText {
+.themeOptionTooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  width: min(240px, calc(100vw - 48px));
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--theme-line-strong);
+  background: linear-gradient(
+    180deg,
+    rgba(48, 38, 30, 0.98),
+    rgba(29, 24, 19, 0.98)
+  );
+  box-shadow: var(--theme-shadow-float);
   font-size: 13px;
   color: var(--theme-text);
   line-height: 1.5;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 2;
+}
+
+.themeOptionTooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 12px;
+  height: 12px;
+  background: rgba(29, 24, 19, 0.98);
+  border-right: 1px solid var(--theme-line-strong);
+  border-bottom: 1px solid var(--theme-line-strong);
+  transform: translate(-50%, -6px) rotate(45deg);
+}
+
+.themeOption:hover .themeOptionTooltip,
+.themeOption:focus-visible .themeOptionTooltip,
+.themeOptionActive:hover .themeOptionTooltip,
+.themeOptionActive:focus-visible .themeOptionTooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .settingsFooter {
@@ -608,7 +662,11 @@
   padding: 12px 18px;
   border-radius: 12px;
   border: 1px solid rgba(196, 154, 90, 0.42);
-  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(196, 154, 90, 0.96),
+    rgba(145, 107, 58, 0.98)
+  );
   color: #120f0d;
   font-weight: 700;
   cursor: pointer;

@@ -35,6 +35,11 @@ export const LoginPage = () => {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
+        <div className={styles.topActions}>
+          <Link className={styles.backLink} to={ROUTES.HOME}>
+            ← На главную
+          </Link>
+        </div>
         <h1 className={styles.title}>Вход</h1>
         <p className={styles.subtitle}>Войдите в аккаунт прототипа</p>
 

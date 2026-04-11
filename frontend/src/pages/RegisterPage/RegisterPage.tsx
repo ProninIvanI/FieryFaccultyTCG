@@ -48,6 +48,11 @@ export const RegisterPage = () => {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
+        <div className={styles.topActions}>
+          <Link className={styles.backLink} to={ROUTES.HOME}>
+            ← На главную
+          </Link>
+        </div>
         <h1 className={styles.title}>Создание аккаунта</h1>
         <p className={styles.subtitle}>Быстрая регистрация для прототипа</p>
 
