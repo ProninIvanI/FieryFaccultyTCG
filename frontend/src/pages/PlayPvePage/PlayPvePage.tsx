@@ -3,8 +3,8 @@ import { Card, HomeLinkButton, PageShell } from '@/components';
 export const PlayPvePage = () => {
   return (
     <PageShell
-      title="PvE матч"
-      subtitle="Сценарий против ботов и заданий."
+      title="Испытание академии"
+      subtitle="Учебные дуэли и одиночные сценарии против соперников."
       actions={<HomeLinkButton />}
     >
       <Card title="Сценарий">

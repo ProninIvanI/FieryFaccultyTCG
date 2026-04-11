@@ -3,8 +3,8 @@ import { Card, HomeLinkButton, PageShell } from '@/components';
 export const SettingsPage = () => {
   return (
     <PageShell
-      title="Настройки тестирования"
-      subtitle="Seed симуляций, режим купола, UI-параметры."
+      title="Настройки академии"
+      subtitle="Оформление, атмосфера и параметры интерфейса."
       actions={<HomeLinkButton />}
     >
       <Card title="Симуляции">

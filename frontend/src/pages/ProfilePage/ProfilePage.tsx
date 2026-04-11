@@ -31,8 +31,8 @@ export const ProfilePage = () => {
 
   return (
     <PageShell
-      title="Личный кабинет"
-      subtitle="Профиль, статистика, колоды и достижения."
+      title="Кабинет мага"
+      subtitle="Ваш путь, любимые колоды и знаки мастерства."
       actions={<HomeLinkButton />}
     >
       <Card title="Профиль игрока">

@@ -101,8 +101,8 @@ export const NewsPage = () => {
 
   return (
     <PageShell
-      title="Новости и баланс"
-      subtitle="Обновления карт, изменения баланса и заметки по разработке."
+      title="Летопись академии"
+      subtitle="Свежие вести, новые карты и перемены в магическом порядке."
       actions={<HomeLinkButton />}
     >
       {isLoading ? (

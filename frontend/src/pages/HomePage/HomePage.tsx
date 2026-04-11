@@ -98,7 +98,6 @@ const PublicHome = () => {
     <div className={styles.page}>
       <SiteHeader
         title="Академия Ремесла"
-        subtitle="Коллекционная карточная игра для быстрых экспериментов с механиками, балансом и симуляциями."
         actions={
           <>
             <Link className={styles.secondary} to={ROUTES.REGISTER}>
@@ -122,8 +121,8 @@ const PublicHome = () => {
           </Card>
           <Card title="Почему стоит войти">
             <p className={styles.paragraph}>
-              После авторизации открывается полный функционал: запуск матчей,
-              декбилдер, дебаг-панель, симуляции и реплеи.
+              После авторизации откроются дуэли, мастерская колод, личный
+              кабинет и доступ к основным залам академии.
             </p>
           </Card>
         </section>
@@ -194,31 +193,30 @@ const AuthHome = ({
     <div className={styles.page}>
       <SiteHeader
         title="Академия Ремесла"
-        subtitle="Полный режим: запуск матчей, дебаг и симуляции."
       />
 
       <main className={styles.layout}>
         <div className={styles.mainColumn}>
           <section className={styles.sectionsBar}>
             <Link className={styles.sectionChip} to={ROUTES.NEWS}>
-              Новости и баланс
+              Летопись академии
             </Link>
             <Link className={styles.sectionChip} to={ROUTES.CARDS}>
-              Превью карт и персонажей
+              Карточный архив
             </Link>
             <Link className={styles.sectionChip} to={ROUTES.DEMO}>
-              Демо-тур
+              Путеводитель
             </Link>
           </section>
 
           <section className={styles.hero}>
             <div className={styles.heroInfo}>
               <h2 className={styles.heroTitle}>
-                Быстрый старт для тестирования карт
+                Ваш путь к следующей дуэли
               </h2>
               <p className={styles.heroText}>
-                Запускайте матчи, собирайте колоды, тестируйте эффекты и быстро
-                проверяйте баланс.
+                Собирайте колоды, изучайте архив карт и выходите на арену,
+                когда всё будет готово к бою.
               </p>
               <div className={styles.heroButtons}>
                 <Link className={styles.ctaPrimary} to={ROUTES.PLAY_PVP}>
@@ -228,18 +226,18 @@ const AuthHome = ({
                   Начать игру (PvE)
                 </Link>
                 <Link className={styles.ctaGhost} to={ROUTES.PLAY_SIM}>
-                  Simulation / Replay
+                  Архив матчей
                 </Link>
               </div>
               <div className={styles.secondaryActions}>
                 <Link className={styles.secondaryButton} to={ROUTES.DECKS}>
-                  Создание колоды
+                  Мастерская колод
                 </Link>
                 <Link className={styles.secondaryButton} to={ROUTES.RULES}>
-                  Правила игры / справка
+                  Правила академии
                 </Link>
                 <Link className={styles.secondaryButton} to={ROUTES.PROFILE}>
-                  Профиль / Личный кабинет
+                  Кабинет мага
                 </Link>
               </div>
             </div>

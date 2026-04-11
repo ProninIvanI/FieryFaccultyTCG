@@ -279,8 +279,8 @@ export const CardsPage = () => {
 
   return (
     <PageShell
-      title="Превью карт и персонажей"
-      subtitle="Фильтры и быстрый просмотр ключевых характеристик."
+      title="Карточный архив"
+      subtitle="Заклинания, существа и герои академии."
       actions={<HomeLinkButton />}
     >
       <div className={styles.pageGrid}>
@@ -527,10 +527,10 @@ export const CardsPage = () => {
             <Card title="Быстрые действия">
               <div className={styles.actionList}>
                 <Link className={styles.actionButton} to={ROUTES.DECKS}>
-                  Открыть декбилдер
+                  Открыть мастерскую колод
                 </Link>
                 <button className={styles.actionButton} type="button">
-                  Запустить симуляцию
+                  Открыть архив матчей
                 </button>
               </div>
             </Card>

@@ -3,8 +3,8 @@ import { Card, HomeLinkButton, PageShell } from '@/components';
 export const DebugPage = () => {
   return (
     <PageShell
-      title="Панель дебага"
-      subtitle="Состояние персонажей, активные эффекты, журнал действий."
+      title="Журнал наблюдений"
+      subtitle="Состояние героев, эффекты и ход текущего сражения."
       actions={<HomeLinkButton />}
     >
       <Card title="Статусы">

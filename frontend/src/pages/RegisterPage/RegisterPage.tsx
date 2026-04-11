@@ -54,7 +54,7 @@ export const RegisterPage = () => {
           </Link>
         </div>
         <h1 className={styles.title}>Создание аккаунта</h1>
-        <p className={styles.subtitle}>Быстрая регистрация для прототипа</p>
+        <p className={styles.subtitle}>Создайте аккаунт, чтобы выйти на арену.</p>
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.label}>
@@ -111,7 +111,7 @@ export const RegisterPage = () => {
               checked={accepted}
               onChange={(event) => setAccepted(event.target.checked)}
             />
-            Я принимаю условия прототипа
+            Я принимаю правила академии
           </label>
 
           {errors.length > 0 && (

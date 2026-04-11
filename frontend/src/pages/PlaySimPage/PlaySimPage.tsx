@@ -187,7 +187,7 @@ export const PlaySimPage = () => {
   const addReplayFromResult = (result: SimulationResult) => {
     const newReplay: ReplayItem = {
       id: `r-${Date.now()}`,
-      title: `${result.deckA} vs ${result.deckB}, симуляция`,
+      title: `${result.deckA} vs ${result.deckB}, обзор`,
       mode: 'Simulation',
       date: result.createdAt,
       duration: `${Math.max(6, result.avgTurns)}:00`,
@@ -197,9 +197,9 @@ export const PlaySimPage = () => {
       deckA: result.deckA,
       deckB: result.deckB,
       events: [
-        { turn: 1, text: 'Симуляция запущена' },
-        { turn: 2, text: 'Средний урон фиксируется' },
-        { turn: result.avgTurns, text: 'Симуляция завершена' },
+        { turn: 1, text: 'Разбор запущен' },
+        { turn: 2, text: 'Ход дуэли сопоставляется' },
+        { turn: result.avgTurns, text: 'Разбор завершён' },
       ],
     };
     setReplays((prev) => [newReplay, ...prev]);
@@ -208,13 +208,13 @@ export const PlaySimPage = () => {
 
   return (
     <PageShell
-      title="Simulation / Replay"
-      subtitle="Запуск симуляций, просмотр реплеев и анализ матчей."
+      title="Архив матчей"
+      subtitle="Повторы дуэлей, итоги встреч и история сыгранных партий."
       actions={<HomeLinkButton />}
     >
       <div className={styles.pageGrid}>
         <section className={styles.mainColumn}>
-          <Card title="Запуск симуляции">
+          <Card title="Быстрый разбор">
             <div className={styles.formGrid}>
               <div className={styles.formRow}>
                 <label className={styles.label} htmlFor="sim-mode">Режим</label>
@@ -283,15 +283,15 @@ export const PlaySimPage = () => {
 
             <div className={styles.formActions}>
               <button className={styles.primaryButton} type="button" onClick={submitSimulation}>
-                Запустить симуляцию
+                Начать разбор
               </button>
-              <div className={styles.hint}>Результаты ниже будут обновлены после запуска.</div>
+              <div className={styles.hint}>Итоги появятся ниже после запуска.</div>
             </div>
           </Card>
 
-          <Card title="Результаты симуляций">
+          <Card title="Итоги разборов">
             {results.length === 0 ? (
-              <div className={styles.emptyState}>Пока нет запущенных симуляций.</div>
+              <div className={styles.emptyState}>Пока нет сохранённых разборов.</div>
             ) : (
               <div className={styles.resultsList}>
                 {results.map((result) => (

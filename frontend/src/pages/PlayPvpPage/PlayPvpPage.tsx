@@ -2789,8 +2789,8 @@ export const PlayPvpPage = () => {
   if (!session) {
     return (
       <PageShell
-        title="PvP матч"
-        subtitle="Для реального PvP сейчас нужен вход в локальный аккаунт."
+        title="Дуэль магов"
+        subtitle="Войдите в аккаунт, чтобы выйти на арену."
         actions={<HomeLinkButton />}
       >
         <Card title="Нужна авторизация">
@@ -2814,8 +2814,8 @@ export const PlayPvpPage = () => {
 
   return (
     <PageShell
-      title="PvP матч"
-      subtitle="Минимальный живой экран для подключения к реальному WebSocket-серверу."
+      title="Дуэль магов"
+      subtitle="Живой поединок против другого игрока."
       actions={<HomeLinkButton />}
     >
       <div className={styles.workbench}>

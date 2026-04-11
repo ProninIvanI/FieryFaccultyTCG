@@ -3,8 +3,8 @@ import { Card, HomeLinkButton, PageShell } from '@/components';
 export const DemoPage = () => {
   return (
     <PageShell
-      title="Демо-тур"
-      subtitle="Пошаговый разбор фаз раунда и применения эффектов."
+      title="Путеводитель по дуэли"
+      subtitle="Краткий обзор хода раунда и магических эффектов."
       actions={<HomeLinkButton />}
     >
       <Card title="Шаг 1: RecoveryPhase">

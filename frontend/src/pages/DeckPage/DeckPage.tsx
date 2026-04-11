@@ -431,8 +431,8 @@ export const DeckPage = () => {
 
   return (
     <PageShell
-      title="Колоды и персонажи"
-      subtitle="Сбор колоды, выбор персонажа и быстрые пресеты для тестов."
+      title="Мастерская колод"
+      subtitle="Соберите колоду и выберите героя для следующей дуэли."
       actions={<HomeLinkButton />}
     >
       <div className={styles.layout}>

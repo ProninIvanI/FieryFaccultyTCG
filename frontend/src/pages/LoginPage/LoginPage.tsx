@@ -41,7 +41,7 @@ export const LoginPage = () => {
           </Link>
         </div>
         <h1 className={styles.title}>Вход</h1>
-        <p className={styles.subtitle}>Войдите в аккаунт прототипа</p>
+        <p className={styles.subtitle}>Войдите, чтобы вернуться в академию.</p>
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <label className={styles.label}>
