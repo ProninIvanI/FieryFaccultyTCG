@@ -128,7 +128,7 @@
   border-radius: 20px;
   border: 1px solid var(--pvp-border);
   background: var(--pvp-panel);
-  box-shadow: var(--theme-shadow-panel);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
   padding: 14px 16px;
 }
 
@@ -476,7 +476,7 @@
   border-radius: 18px;
   border: 1px solid var(--pvp-border);
   background: var(--pvp-panel-soft);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  box-shadow: none;
 }
 
 .matchSpotlight {
@@ -888,7 +888,7 @@
 }
 
 .fieldFrameLive {
-  grid-template-rows: minmax(52px, auto) minmax(0, 0.88fr) minmax(0, 1fr) auto minmax(156px, 182px);
+  grid-template-rows: minmax(52px, auto) minmax(0, 1fr) auto minmax(120px, 148px);
 }
 
 .fieldFrameReplay {
@@ -1114,28 +1114,7 @@
 
 .fieldFrame::before,
 .fieldFrame::after {
-  content: "";
-  position: absolute;
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(59, 130, 246, 0.18);
-  pointer-events: none;
-}
-
-.fieldFrame::before {
-  top: 10px;
-  left: 10px;
-  border-right: none;
-  border-bottom: none;
-  border-radius: 16px 0 0 0;
-}
-
-.fieldFrame::after {
-  right: 10px;
-  bottom: 10px;
-  border-left: none;
-  border-top: none;
-  border-radius: 0 0 16px 0;
+  content: none;
 }
 
 .arenaHeader {
@@ -1202,12 +1181,7 @@
 }
 
 .playerPortraitFrame::after {
-  content: "";
-  position: absolute;
-  inset: 8px 16px auto 16px;
-  height: 8px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.25), transparent);
+  content: none;
 }
 
 .playerPortraitSilhouette,
@@ -1314,14 +1288,24 @@
 .turnActionRail {
   position: relative;
   display: grid;
-  gap: 8px;
-  justify-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "summary action"
+    "status action";
+  gap: 8px 16px;
+  align-items: center;
+  justify-items: stretch;
   padding: 10px 12px;
   min-height: 0;
-  text-align: center;
+  text-align: left;
   background:
     linear-gradient(180deg, rgba(196, 154, 90, 0.08), rgba(255, 248, 236, 0.04)),
     var(--pvp-panel-soft);
+}
+
+.turnActionRail > .summaryLabel {
+  grid-area: summary;
+  justify-self: start;
 }
 
 .turnActionRail::before,
@@ -1332,16 +1316,30 @@
   background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.22), transparent);
 }
 
+.turnActionRail::before {
+  grid-area: summary;
+  align-self: end;
+  opacity: 0;
+}
+
+.turnActionRail::after {
+  display: none;
+}
+
 .turnActionButton {
-  width: 100%;
+  grid-area: action;
+  width: auto;
+  min-width: 188px;
   justify-content: center;
+  align-self: center;
 }
 
 .turnActionStatus {
+  grid-area: status;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   color: var(--pvp-muted);
   font-size: 12px;
   line-height: 1.35;
@@ -1538,6 +1536,10 @@
   gap: 6px;
   min-height: 0;
   overflow: hidden;
+}
+
+.playerBattleLane {
+  min-height: 0;
 }
 
 .ribbonSection {
@@ -2040,6 +2042,20 @@
     var(--pvp-panel-deep);
 }
 
+.localHandTray {
+  min-height: 118px;
+  margin: 4px 8px 0;
+  padding: 0 0 10px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.localHandTray .battleLaneHeader {
+  display: none;
+}
+
 .battleLaneActive {
   border-color: rgba(196, 154, 90, 0.46);
   box-shadow:
@@ -2206,11 +2222,11 @@
   display: flex;
   flex-wrap: nowrap;
   align-items: end;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 0;
   padding: 4px 10px 2px 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow-x: visible;
+  overflow-y: visible;
   scrollbar-width: thin;
   scroll-padding-left: 6px;
 }
@@ -2245,6 +2261,50 @@
   margin-left: -14px;
   transform-origin: center bottom;
   transition: transform 0.18s ease, box-shadow 0.18s ease, margin 0.18s ease;
+}
+
+.localHandTray .handFanGrid {
+  padding: 0 18px;
+}
+
+.localHandTray .handFanGrid > .handCard {
+  width: clamp(108px, 7.2vw, 132px);
+  flex: 0 0 clamp(108px, 7.2vw, 132px);
+  min-height: 118px;
+  margin-left: -26px;
+  padding: 10px 10px 12px;
+  transform-origin: center bottom;
+  transform: translateY(var(--hand-offset-y, 26px)) rotate(var(--hand-rotation, 0deg));
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    filter 180ms ease;
+  z-index: 1;
+}
+
+.localHandTray .handFanGrid > .handCard:first-child {
+  margin-left: 0;
+}
+
+.localHandTray .handFanGrid > .handCard:nth-child(5n + 1) {
+  --hand-rotation: -7.5deg;
+}
+
+.localHandTray .handFanGrid > .handCard:nth-child(5n + 2) {
+  --hand-rotation: -4deg;
+}
+
+.localHandTray .handFanGrid > .handCard:nth-child(5n + 3) {
+  --hand-rotation: 0deg;
+}
+
+.localHandTray .handFanGrid > .handCard:nth-child(5n + 4) {
+  --hand-rotation: 4deg;
+}
+
+.localHandTray .handFanGrid > .handCard:nth-child(5n + 5) {
+  --hand-rotation: 7.5deg;
 }
 
 .handFanGrid > .handCard:first-child {
@@ -2320,6 +2380,18 @@
   z-index: 2;
 }
 
+.localHandTray .handFanGrid > .handCard:hover,
+.localHandTray .handFanGrid > .handCard:focus-within {
+  transform: translateY(calc(var(--hand-offset-y, 26px) - 132px)) rotate(0deg) scale(1.22);
+  margin-left: -4px;
+  margin-right: -4px;
+  z-index: 20;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(255, 248, 236, 0.08),
+    var(--theme-glow-accent);
+}
+
 .handCard {
   display: grid;
   gap: 6px;
@@ -2328,6 +2400,10 @@
   overflow: hidden;
   min-height: 170px;
   align-content: start;
+}
+
+.localHandTray .handCard {
+  grid-template-rows: auto minmax(42px, 1fr) auto;
 }
 
 .handCard::after {
@@ -2389,6 +2465,11 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
+.localHandTray .handCardArtwork {
+  min-height: 54px;
+  aspect-ratio: 1.34 / 1;
+}
+
 .handCardArtwork::before {
   content: "";
   position: absolute;
@@ -2435,6 +2516,10 @@
   z-index: 1;
 }
 
+.localHandTray .handCardBadgeStack {
+  display: none;
+}
+
 .handCardBadgeStack .cardBadge {
   max-width: 100%;
   padding: 4px 8px;
@@ -2469,10 +2554,23 @@
   border: 1px solid rgba(255, 248, 236, 0.06);
 }
 
+.localHandTray .handCardBody {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
 .handCardTitle {
   font-size: 14px;
   line-height: 1.2;
   color: var(--pvp-text);
+}
+
+.localHandTray .handCardTitle {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .handCardMeta {
@@ -2509,6 +2607,21 @@
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.localHandTray .handCardEffect,
+.localHandTray .handCardSubtitle {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.localHandTray .handCard:hover .handCardEffect,
+.localHandTray .handCard:hover .handCardSubtitle,
+.localHandTray .handCard:focus-within .handCardEffect,
+.localHandTray .handCard:focus-within .handCardSubtitle {
+  max-height: 56px;
+  opacity: 1;
 }
 
 .handCardSubtitle {

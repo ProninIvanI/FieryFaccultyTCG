@@ -914,30 +914,6 @@ const getPlayerBoardItemSummaries = (
     }));
 };
 
-const getPlayerPublicRibbonBoardItems = (
-  state: GameStateSnapshot | null,
-  playerId: string,
-): BoardItemSummary[] => {
-  const boardItems = getPlayerBoardItemSummaries(state, playerId);
-  const boardItemById = new Map(boardItems.map((item) => [item.id, item] as const));
-  const ribbonEntries = state?.boardView?.players?.[playerId]?.ribbonEntries;
-
-  if (!Array.isArray(ribbonEntries)) {
-    return boardItems;
-  }
-
-  const orderedItems = ribbonEntries.flatMap((entry) => {
-    if (!isRecord(entry) || entry.kind !== 'boardItem' || typeof entry.boardItemId !== 'string') {
-      return [];
-    }
-
-    const item = boardItemById.get(entry.boardItemId);
-    return item ? [item] : [];
-  });
-
-  return orderedItems.length > 0 ? orderedItems : boardItems;
-};
-
 const buildSessionId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return `session_${crypto.randomUUID().slice(0, 8)}`;
@@ -1347,14 +1323,6 @@ export const PlayPvpPage = () => {
   const localDisplayName = getPlayerDisplayName(playerId);
   const primaryEnemyBoard = enemyBoards[0] ?? null;
   const primaryEnemyDisplayName = getPlayerDisplayName(primaryEnemyBoard?.playerId);
-  const enemyRibbonBoardItems = useMemo(
-    () => (primaryEnemyBoard?.playerId ? getPlayerPublicRibbonBoardItems(matchState, primaryEnemyBoard.playerId) : []),
-    [matchState, primaryEnemyBoard?.playerId],
-  );
-  const enemyRibbonBoardItemIdByRuntimeId = useMemo(
-    () => new Map(enemyRibbonBoardItems.map((item) => [item.runtimeId, item.id] as const)),
-    [enemyRibbonBoardItems],
-  );
   const localCharacter = useMemo(
     () => (localPlayer?.characterId ? characterCatalogById.get(localPlayer.characterId) ?? null : null),
     [localPlayer]
@@ -2468,7 +2436,6 @@ export const PlayPvpPage = () => {
       ? resolvedTimelineEntries[resolvedPlaybackIndex]
       : null;
   const isEnemyHandEmpty = (primaryEnemyBoard?.handSize ?? 0) === 0;
-  const isEnemyLaneEmpty = enemyRibbonBoardItems.length === 0;
   const isLocalLaneEmpty = !hasLocalBattleRibbonEntries;
   const activeLocalPlaybackIntentId =
     isResolvedReplayOpen && activeResolvedTimelineEntry?.action.playerId === playerId
@@ -2510,14 +2477,6 @@ export const PlayPvpPage = () => {
   );
   const hasActiveMatchConnection = Boolean(joinedSessionId || matchState);
   const selectedDeckName = savedDecks.find((deck) => deck.id === deckId)?.name ?? 'не выбрана';
-  const activeEnemyPlaybackBoardItemId = resolvePlaybackSourceBoardItemId(
-    isResolvedReplayOpen && activeResolvedTimelineEntry?.action.playerId !== playerId
-      ? activeResolvedTimelineEntry?.action
-      : null,
-    enemyRibbonBoardItemIdByRuntimeId,
-    enemyRibbonBoardItems,
-  );
-  const visibleEnemyPlaybackBoardItemId = isResolvedReplayOpen ? activeEnemyPlaybackBoardItemId : null;
   const visibleLocalPlaybackSourceBoardItemId = isResolvedReplayOpen ? activeLocalPlaybackSourceBoardItemId : null;
   const hasReplayAvailable = Boolean(lastResolvedRound && resolvedTimelineEntries.length > 0);
   const hasCurrentRoundAdvancedPastReplay =
@@ -3363,87 +3322,9 @@ export const PlayPvpPage = () => {
                         </section>
                       ) : null}
 
-                      {!isResolvedReplayOpen ? (
-                  <section className={`${styles.battleLane} ${isEnemySideActive ? styles.battleLaneActive : ''} ${isEnemyLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="enemy-live-workspace">
-                    <div className={styles.battleLaneHeader}>
-                      <div>
-                        <strong>{primaryEnemyDisplayName || 'Ожидание соперника'}</strong>
-                      </div>
-                    </div>
-                    {enemyRibbonBoardItems.length > 0 ? (
-                      <div className={styles.ribbonSection}>
-                        <span className={styles.summaryLabel}>{isResolvedReplayOpen ? 'Сцена соперника' : 'Боевая лента соперника'}</span>
-                        <div className={styles.ribbonGrid}>
-                          {enemyRibbonBoardItems.map((item) => {
-                            const isEnemyPlaybackItemActive = visibleEnemyPlaybackBoardItemId === item.id;
-
-                            return (
-                              item.subtype === 'creature' ? (
-                                <div
-                                  key={item.id}
-                                  className={`${styles.ribbonCard} ${isEnemyPlaybackItemActive ? styles.ribbonCardPlaybackActive : ''}`.trim()}
-                                  data-testid={isEnemyPlaybackItemActive ? 'enemy-playback-highlight-item' : undefined}
-                                >
-                                  <button
-                                    className={`${styles.selectionSurface} ${selection?.kind === 'creature' && selection.creatureId === item.runtimeId ? styles.selectionSurfaceActive : ''} ${isSelectableTarget(item.runtimeId) ? styles.selectionSurfaceTargetable : ''} ${isDraftTargetActive(item.runtimeId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                                    aria-label={getTargetButtonAriaLabel(`Существо ${item.runtimeId}`, isSelectableTarget(item.runtimeId))}
-                                    type="button"
-                                    onClick={() =>
-                                      isSelectableTarget(item.runtimeId)
-                                        ? applyDraftTargetForSelection(item.runtimeId)
-                                        : setSelection({ kind: 'creature', creatureId: item.runtimeId })
-                                    }
-                                  >
-                                    <div className={styles.ribbonHeader}>
-                                      <div>
-                                        <span className={styles.summaryLabel}>Существо соперника</span>
-                                        <strong>{item.title}</strong>
-                                      </div>
-                                      <div className={styles.ribbonBadgeRow}>
-                                        <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
-                                        <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                        <span className={styles.cardBadge}>Соперник</span>
-                                      </div>
-                                    </div>
-                                    <span className={styles.hint}>{item.runtimeId}</span>
-                                    <div className={styles.ribbonStats}>
-                                      <span>HP {item.hp ?? 0}/{item.maxHp ?? 0}</span>
-                                      <span>ATK {item.attack ?? 0}</span>
-                                      <span>SPD {item.speed ?? 0}</span>
-                                    </div>
-                                  </button>
-                                </div>
-                              ) : (
-                                <div
-                                  key={item.id}
-                                  className={`${styles.ribbonCard} ${styles.ribbonCardEffect} ${isEnemyPlaybackItemActive ? styles.ribbonCardPlaybackActive : ''}`.trim()}
-                                  data-testid={isEnemyPlaybackItemActive ? 'enemy-playback-highlight-item' : undefined}
-                                >
-                                  <div className={styles.ribbonHeader}>
-                                    <div>
-                                      <span className={styles.summaryLabel}>Эффект соперника</span>
-                                      <strong>{item.title}</strong>
-                                    </div>
-                                    <div className={styles.ribbonBadgeRow}>
-                                      <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
-                                      <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                      {item.duration !== undefined ? <span className={styles.cardBadge}>{getDurationLabel(item.duration)}</span> : null}
-                                    </div>
-                                  </div>
-                                  <span className={styles.hint}>{item.subtitle}</span>
-                                </div>
-                              )
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-                  </section>
-                      ) : null}
-
                   {!isResolvedReplayOpen ? (
                     <>
-                  <section className={`${styles.battleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">
+                  <section className={`${styles.battleLane} ${styles.playerBattleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">
                     <div className={styles.battleLaneHeader}>
                       <div>
                         <strong>{localDisplayName}</strong>
@@ -3805,7 +3686,7 @@ export const PlayPvpPage = () => {
                         ) : null}
                       </div>
                     </div>
-                    <section className={styles.handTray}>
+                    <section className={`${styles.handTray} ${styles.localHandTray}`.trim()}>
                       <div className={styles.battleLaneHeader}>
                         <div>
                           <span className={styles.summaryLabel}>Твоя рука</span>
