@@ -2813,44 +2813,89 @@ export const PlayPvpPage = () => {
   }
 
   return (
-    <PageShell
-      title="Дуэль магов"
-      subtitle="Живой поединок против другого игрока."
-      actions={<HomeLinkButton />}
-    >
+    <div className={styles.scenePage}>
+      <div className={styles.sceneTopBar}>
+        <div className={styles.sceneTitleBlock}>
+          <h1 className={styles.sceneTitle}>Дуэль магов</h1>
+          <div className={styles.sceneMeta}>
+            <span className={styles.sceneChip}>{getConnectionStatusLabel(status)}</span>
+            {matchSummary ? (
+              <>
+                <span className={styles.sceneChip}>Раунд {matchSummary.roundNumber}</span>
+                <span className={styles.sceneChip}>
+                  {getRoundStatusLabel(matchSummary.roundStatus)}
+                </span>
+              </>
+            ) : (
+              <span className={styles.sceneHint}>
+                Подключись к матчу, чтобы открыть арену.
+              </span>
+            )}
+          </div>
+        </div>
+        <div className={styles.sceneActions}>
+          <HomeLinkButton />
+        </div>
+      </div>
+
       <div className={styles.workbench}>
         <div className={styles.controlColumn}>
-          <Card title="Панель матча" className={styles.themedCard}>
+          <Card className={`${styles.themedCard} ${styles.scenePanel}`.trim()}>
+            <div className={styles.panelSectionHeader}>
+              <div className={styles.panelSectionHeading}>
+                <span className={styles.panelSectionKicker}>Контроль матча</span>
+                <strong className={styles.panelSectionTitle}>Статус дуэли</strong>
+              </div>
+              <div className={styles.panelSectionMeta}>
+                <span className={styles.cardBadge}>{getConnectionStatusLabel(status)}</span>
+                {matchSummary ? <span className={styles.cardBadge}>Раунд {matchSummary.roundNumber}</span> : null}
+              </div>
+            </div>
             {hasActiveMatchConnection && !showConnectionControls ? (
               <div className={styles.hudPanel}>
                 <div className={styles.hudHeader}>
                   <div>
-                    <span className={styles.summaryLabel}>Матч активен</span>
-                    <strong className={styles.spotlightValue}>В игре</strong>
+                    <span className={styles.summaryLabel}>Матч уже идёт</span>
+                    <strong className={styles.spotlightValue}>Арена открыта</strong>
                   </div>
-                  <span className={styles.cardBadge}>{getConnectionStatusLabel(status)}</span>
+                  {matchSummary ? (
+                    <span className={styles.cardBadge}>{getRoundStatusLabel(matchSummary.roundStatus)}</span>
+                  ) : null}
                 </div>
                 <div className={styles.hudGrid}>
-                  <div className={styles.hudTile}>
-                    <span className={styles.summaryLabel}>Сессия</span>
-                    <strong>{joinedSessionId || sessionId}</strong>
-                  </div>
-                  <div className={styles.hudTile}>
-                    <span className={styles.summaryLabel}>Режим</span>
-                    <strong>{mode === 'create' ? 'Создатель' : 'Подключение'}</strong>
-                  </div>
                   <div className={styles.hudTile}>
                     <span className={styles.summaryLabel}>Колода</span>
                     <strong>{selectedDeckName}</strong>
                   </div>
                   <div className={styles.hudTile}>
-                    <span className={styles.summaryLabel}>Игрок</span>
-                    <strong>{localDisplayName}</strong>
+                    <span className={styles.summaryLabel}>Рука</span>
+                    <strong>{localBoard?.handSize ?? localHandCards.length} карт</strong>
                   </div>
+                  <div className={styles.hudTile}>
+                    <span className={styles.summaryLabel}>Мана</span>
+                    <strong>{localPlayer ? `${localPlayer.mana}/${localPlayer.maxMana}` : 'Ожидание'}</strong>
+                  </div>
+                  <div className={styles.hudTile}>
+                    <span className={styles.summaryLabel}>Лента</span>
+                    <strong>{roundDraft.length > 0 ? `${roundDraft.length} действий` : 'Пока пуста'}</strong>
+                  </div>
+                </div>
+                <div className={styles.hudStatusStrip}>
+                  <span className={styles.hudStatusPill}>
+                    Ты: <strong>{roundSync?.selfLocked ? 'готов' : 'собираешь ход'}</strong>
+                  </span>
+                  <span className={styles.hudStatusPill}>
+                    Соперник: <strong>{roundSync?.opponentLocked ? 'готов' : 'выбирает'}</strong>
+                  </span>
+                  {pendingTargetSelectionCount > 0 ? (
+                    <span className={`${styles.hudStatusPill} ${styles.hudStatusPillAlert}`.trim()}>
+                      Осталось выбрать цель: <strong>{pendingTargetSelectionCount}</strong>
+                    </span>
+                  ) : null}
                 </div>
                 <div className={styles.inlineActions}>
                   <button className={styles.primaryButton} type="button" onClick={() => setShowConnectionControls(true)}>
-                    Параметры подключения
+                    Управление матчем
                   </button>
                   <button
                     className={styles.secondaryButton}
@@ -2969,9 +3014,9 @@ export const PlayPvpPage = () => {
                 <div className={styles.hintBlock}>
                   <div className={styles.hint}>Соединение: {getConnectionStatusLabel(status)}</div>
                   <div className={styles.hint}>
-                    Активная сессия: {joinedSessionId || 'ещё не подключено'}
+                    Матч: {joinedSessionId || 'ещё не подключено'}
                   </div>
-                  <div className={styles.hint}>Выбранная колода: {selectedDeckName}</div>
+                  <div className={styles.hint}>Колода: {selectedDeckName}</div>
                   <div className={styles.panelModeRow}>
                     <div className={styles.panelModeSummary}>
                       <span className={styles.summaryLabel}>Режим экрана</span>
@@ -3023,10 +3068,20 @@ export const PlayPvpPage = () => {
           </Card>
 
           <Card
-            title="Лента матча"
-            className={`${styles.themedCard} ${styles.sidebarFeedCard}`.trim()}
+            className={`${styles.themedCard} ${styles.sidebarFeedCard} ${styles.scenePanel}`.trim()}
             contentClassName={styles.sidebarFeedCardContent}
           >
+            <div className={styles.panelSectionHeader}>
+              <div className={styles.panelSectionHeading}>
+                <span className={styles.panelSectionKicker}>История матча</span>
+                <strong className={styles.panelSectionTitle}>Летопись раундов</strong>
+              </div>
+              <div className={styles.panelSectionMeta}>
+                <span className={styles.cardBadge}>
+                  {matchFeedRounds.length > 0 ? `${matchFeedRounds.length} раунд${matchFeedRounds.length === 1 ? '' : matchFeedRounds.length < 5 ? 'а' : 'ов'}` : 'Пока пусто'}
+                </span>
+              </div>
+            </div>
             {matchFeedRounds.length > 0 ? (
               <div className={styles.matchFeed} data-testid="match-feed">
                 {matchFeedRounds.map((round) => {
@@ -3096,10 +3151,29 @@ export const PlayPvpPage = () => {
 
         <div className={styles.boardColumn}>
           <Card
-            title="Игровое поле"
-            className={styles.boardCard}
+            className={`${styles.boardCard} ${styles.sceneBoardCard}`.trim()}
             contentClassName={styles.boardCardContent}
           >
+            <div className={styles.boardSceneHeader}>
+              <div className={styles.panelSectionHeading}>
+                <span className={styles.panelSectionKicker}>Арена дуэли</span>
+                <strong className={styles.panelSectionTitle}>
+                  {matchSummary ? `Раунд ${matchSummary.roundNumber}` : 'Ожидание матча'}
+                </strong>
+              </div>
+              <div className={styles.panelSectionMeta}>
+                {matchSummary ? (
+                  <>
+                    <span className={styles.cardBadge}>{getRoundStatusLabel(matchSummary.roundStatus)}</span>
+                    <span className={styles.cardBadge}>
+                      Инициатива: {getPlayerDisplayName(matchSummary.initiativePlayerId)}
+                    </span>
+                  </>
+                ) : (
+                  <span className={styles.cardBadge}>Подключись, чтобы открыть сцену</span>
+                )}
+              </div>
+            </div>
             {matchSummary ? (
               <div className={styles.matchOverview}>
                 <div className={styles.battlefield}>
@@ -3848,7 +3922,7 @@ export const PlayPvpPage = () => {
                   <span className={styles.summaryLabel}>Игровое поле</span>
                   <strong className={styles.spotlightValue}>Ожидание матча</strong>
                   <p className={styles.paragraph}>
-                    Сначала подключись через панель слева. После первого `state` здесь появится основное поле боя.
+                    Подключись через боковую панель. После входа сюда развернётся арена и рука игрока.
                   </p>
                 </div>
               </div>
@@ -3858,7 +3932,13 @@ export const PlayPvpPage = () => {
 
         {showDiagnostics ? (
         <div className={styles.contextColumn}>
-            <Card title="Зоны игроков" className={styles.themedCard}>
+            <Card className={`${styles.themedCard} ${styles.scenePanel}`.trim()}>
+              <div className={styles.panelSectionHeader}>
+                <div className={styles.panelSectionHeading}>
+                  <span className={styles.panelSectionKicker}>Служебный слой</span>
+                  <strong className={styles.panelSectionTitle}>Состояние сторон</strong>
+                </div>
+              </div>
               {playerBoards.length > 0 ? (
                 <div className={styles.playerBoardList}>
                   {playerBoards.map((playerBoard) => (
@@ -3871,24 +3951,30 @@ export const PlayPvpPage = () => {
                         <span>{playerBoard.locked ? 'Готово' : 'Выбор'}</span>
                       </div>
                       <div className={styles.zoneGrid}>
-                        <span>deck: {playerBoard.deckSize}</span>
-                        <span>hand: {playerBoard.handSize}</span>
-                        <span>discard: {playerBoard.discardSize}</span>
+                        <span>Колода: {playerBoard.deckSize}</span>
+                        <span>Рука: {playerBoard.handSize}</span>
+                        <span>Сброс: {playerBoard.discardSize}</span>
                         <span>
-                          mana: {playerBoard.mana}/{playerBoard.maxMana}
+                          Мана: {playerBoard.mana}/{playerBoard.maxMana}
                         </span>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className={styles.emptyState}>Зоны игроков появятся после первого server `state`.</div>
+                <div className={styles.emptyState}>Состояние сторон появится после первого обновления матча.</div>
               )}
             </Card>
 
-          <Card title="Debug state" className={styles.themedCard}>
+          <Card className={`${styles.themedCard} ${styles.scenePanel}`.trim()}>
+            <div className={styles.panelSectionHeader}>
+              <div className={styles.panelSectionHeading}>
+                <span className={styles.panelSectionKicker}>Служебный слой</span>
+                <strong className={styles.panelSectionTitle}>Снимок состояния</strong>
+              </div>
+            </div>
             <details className={styles.debugPanel}>
-              <summary className={styles.debugSummary}>Открыть raw snapshot</summary>
+              <summary className={styles.debugSummary}>Открыть JSON матча</summary>
               <pre className={styles.rawState}>
                 {matchState ? JSON.stringify(matchState, null, 2) : 'Ожидание данных матча...'}
               </pre>
@@ -3897,6 +3983,6 @@ export const PlayPvpPage = () => {
         </div>
         ) : null}
       </div>
-    </PageShell>
+    </div>
   );
 };
