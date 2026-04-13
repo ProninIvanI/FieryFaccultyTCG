@@ -31,7 +31,7 @@
 
 .sceneTitleBlock {
   display: grid;
-  gap: 10px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -445,7 +445,7 @@
 .boardShell {
   display: grid;
   min-height: 0;
-  grid-template-columns: minmax(124px, 144px) minmax(0, 1fr);
+  grid-template-columns: minmax(170px, 196px) minmax(0, 1fr);
   gap: 14px;
   align-items: stretch;
   height: 100%;
@@ -454,11 +454,7 @@
 .boardSideColumn {
   display: grid;
   gap: 12px;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  min-height: 0;
-}
-
-.boardSideSpacer {
+  grid-template-rows: auto auto auto;
   min-height: 0;
 }
 
@@ -888,7 +884,7 @@
 }
 
 .fieldFrameLive {
-  grid-template-rows: minmax(52px, auto) minmax(0, 1fr) auto minmax(120px, 148px);
+  grid-template-rows: minmax(52px, auto) minmax(0, 1fr) minmax(118px, 148px);
 }
 
 .fieldFrameReplay {
@@ -1127,7 +1123,7 @@
 }
 
 .playerSideCard {
-  padding: 8px;
+  padding: 12px 10px;
   display: grid;
   align-content: start;
   gap: 6px;
@@ -1246,7 +1242,7 @@
 
 .playerIdentity {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   text-align: center;
 }
 
@@ -1288,58 +1284,33 @@
 .turnActionRail {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "summary action"
-    "status action";
-  gap: 8px 16px;
-  align-items: center;
+  gap: 10px;
+  align-content: center;
   justify-items: stretch;
-  padding: 10px 12px;
+  padding: 12px 10px;
   min-height: 0;
-  text-align: left;
+  text-align: center;
   background:
     linear-gradient(180deg, rgba(196, 154, 90, 0.08), rgba(255, 248, 236, 0.04)),
     var(--pvp-panel-soft);
 }
 
-.turnActionRail > .summaryLabel {
-  grid-area: summary;
-  justify-self: start;
-}
-
 .turnActionRail::before,
 .turnActionRail::after {
-  content: "";
-  width: 100%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.22), transparent);
-}
-
-.turnActionRail::before {
-  grid-area: summary;
-  align-self: end;
-  opacity: 0;
-}
-
-.turnActionRail::after {
-  display: none;
+  content: none;
 }
 
 .turnActionButton {
-  grid-area: action;
-  width: auto;
-  min-width: 188px;
+  width: 100%;
+  min-width: 0;
   justify-content: center;
-  align-self: center;
 }
 
 .turnActionStatus {
-  grid-area: status;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  justify-content: flex-start;
+  justify-content: center;
   color: var(--pvp-muted);
   font-size: 12px;
   line-height: 1.35;
@@ -2044,12 +2015,13 @@
 
 .localHandTray {
   min-height: 118px;
-  margin: 4px 8px 0;
-  padding: 0 0 10px;
+  margin: 0 8px 0;
+  padding: 0 0 2px;
   border-color: transparent;
   background: transparent;
   box-shadow: none;
   overflow: visible;
+  align-content: end;
 }
 
 .localHandTray .battleLaneHeader {
@@ -2264,7 +2236,8 @@
 }
 
 .localHandTray .handFanGrid {
-  padding: 0 18px;
+  padding: 0 18px 0;
+  align-items: end;
 }
 
 .localHandTray .handFanGrid > .handCard {
@@ -2807,7 +2780,7 @@
   }
 
   .boardShell {
-    grid-template-columns: minmax(112px, 128px) minmax(0, 1fr);
+    grid-template-columns: minmax(150px, 174px) minmax(0, 1fr);
   }
 }
 
@@ -2826,12 +2799,8 @@
 
   .boardSideColumn {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: none;
+    grid-template-rows: auto auto;
     align-content: stretch;
-  }
-
-  .boardSideSpacer {
-    display: none;
   }
 }
 

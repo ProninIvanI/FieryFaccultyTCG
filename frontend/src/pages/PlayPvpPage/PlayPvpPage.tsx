@@ -416,21 +416,6 @@ const getActionCalloutToneClassName = (layer: ResolutionLayer): string => {
   }
 };
 
-const getRoundStatusLabel = (status: string): string => {
-  switch (status) {
-    case 'draft':
-      return 'Подготовка';
-    case 'locked_waiting':
-      return 'Ожидание соперника';
-    case 'resolving':
-      return 'Разыгрывание';
-    case 'resolved':
-      return 'Завершён';
-    default:
-      return status || 'Неизвестно';
-  }
-};
-
 const getConnectionStatusLabel = (status: PvpConnectionStatus): string => {
   switch (status) {
     case 'connected':
@@ -2768,21 +2753,13 @@ export const PlayPvpPage = () => {
       <div className={styles.sceneTopBar}>
         <div className={styles.sceneTitleBlock}>
           <h1 className={styles.sceneTitle}>Дуэль магов</h1>
-          <div className={styles.sceneMeta}>
-            <span className={styles.sceneChip}>{getConnectionStatusLabel(status)}</span>
-            {matchSummary ? (
-              <>
-                <span className={styles.sceneChip}>Раунд {matchSummary.roundNumber}</span>
-                <span className={styles.sceneChip}>
-                  {getRoundStatusLabel(matchSummary.roundStatus)}
-                </span>
-              </>
-            ) : (
+          {!matchSummary ? (
+            <div className={styles.sceneMeta}>
               <span className={styles.sceneHint}>
                 Подключись к матчу, чтобы открыть арену.
               </span>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
         <div className={styles.sceneActions}>
           <HomeLinkButton />
@@ -2799,7 +2776,6 @@ export const PlayPvpPage = () => {
               </div>
               <div className={styles.panelSectionMeta}>
                 <span className={styles.cardBadge}>{getConnectionStatusLabel(status)}</span>
-                {matchSummary ? <span className={styles.cardBadge}>Раунд {matchSummary.roundNumber}</span> : null}
               </div>
             </div>
             {hasActiveMatchConnection && !showConnectionControls ? (
@@ -2809,9 +2785,6 @@ export const PlayPvpPage = () => {
                     <span className={styles.summaryLabel}>Матч уже идёт</span>
                     <strong className={styles.spotlightValue}>Арена открыта</strong>
                   </div>
-                  {matchSummary ? (
-                    <span className={styles.cardBadge}>{getRoundStatusLabel(matchSummary.roundStatus)}</span>
-                  ) : null}
                 </div>
                 <div className={styles.hudGrid}>
                   <div className={styles.hudTile}>
@@ -3105,26 +3078,6 @@ export const PlayPvpPage = () => {
             className={`${styles.boardCard} ${styles.sceneBoardCard}`.trim()}
             contentClassName={styles.boardCardContent}
           >
-            <div className={styles.boardSceneHeader}>
-              <div className={styles.panelSectionHeading}>
-                <span className={styles.panelSectionKicker}>Арена дуэли</span>
-                <strong className={styles.panelSectionTitle}>
-                  {matchSummary ? `Раунд ${matchSummary.roundNumber}` : 'Ожидание матча'}
-                </strong>
-              </div>
-              <div className={styles.panelSectionMeta}>
-                {matchSummary ? (
-                  <>
-                    <span className={styles.cardBadge}>{getRoundStatusLabel(matchSummary.roundStatus)}</span>
-                    <span className={styles.cardBadge}>
-                      Инициатива: {getPlayerDisplayName(matchSummary.initiativePlayerId)}
-                    </span>
-                  </>
-                ) : (
-                  <span className={styles.cardBadge}>Подключись, чтобы открыть сцену</span>
-                )}
-              </div>
-            </div>
             {matchSummary ? (
               <div className={styles.matchOverview}>
                 <div className={styles.battlefield}>
@@ -3179,7 +3132,24 @@ export const PlayPvpPage = () => {
                           </div>
                         </button>
                       </div>
-                      <div className={styles.boardSideSpacer} aria-hidden="true" />
+                      <div className={styles.turnActionRail}>
+                        <button
+                          className={`${styles.primaryButton} ${styles.turnActionButton}`.trim()}
+                          type="button"
+                          onClick={handleLockRound}
+                          disabled={!canLockRound}
+                        >
+                          {roundSync?.selfLocked ? 'Ждём ход соперника' : 'Завершить ход'}
+                        </button>
+                        <div className={styles.turnActionStatus}>
+                          <span>
+                            Ты: <strong>{roundSync?.selfLocked ? 'Готово' : 'Собираешь ленту'}</strong>
+                          </span>
+                          <span>
+                            Соперник: <strong>{roundSync?.opponentLocked ? 'Готово' : 'Выбирает'}</strong>
+                          </span>
+                        </div>
+                      </div>
 
                       <div className={`${styles.playerSideCard} ${isLocalSideActive ? styles.playerSideCardActive : ''}`.trim()}>
                         <span className={styles.playerSideLabel}>Ты</span>
@@ -3659,33 +3629,6 @@ export const PlayPvpPage = () => {
                       ))}
                     </div>
                   ) : null}
-                    <div className={styles.turnActionRail}>
-                      <span className={styles.summaryLabel}>
-                        Раунд {matchSummary.roundNumber} · {getRoundStatusLabel(matchSummary.roundStatus)}
-                      </span>
-                      <button
-                        className={`${styles.primaryButton} ${styles.turnActionButton}`.trim()}
-                        type="button"
-                        onClick={handleLockRound}
-                        disabled={!canLockRound}
-                      >
-                        {roundSync?.selfLocked ? 'Ждём ход соперника' : 'Завершить ход'}
-                      </button>
-                      <div className={styles.turnActionStatus}>
-                        <span>
-                          Ты: <strong>{roundSync?.selfLocked ? 'Готово' : 'Собираешь ленту'}</strong>
-                        </span>
-                        <span>
-                          Соперник: <strong>{roundSync?.opponentLocked ? 'Готово' : 'Выбирает'}</strong>
-                        </span>
-                        {pendingTargetSelectionCount > 0 ? (
-                          <span>
-                            Выбери цель для <strong>{pendingTargetSelectionCount}</strong>{' '}
-                            {pendingTargetSelectionCount === 1 ? 'карты' : 'карт'}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
                     <section className={`${styles.handTray} ${styles.localHandTray}`.trim()}>
                       <div className={styles.battleLaneHeader}>
                         <div>
