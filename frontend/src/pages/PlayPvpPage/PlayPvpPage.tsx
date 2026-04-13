@@ -938,14 +938,6 @@ const getPlayerPublicRibbonBoardItems = (
   return orderedItems.length > 0 ? orderedItems : boardItems;
 };
 
-const getDeckVisualCount = (deckSize: number): number => {
-  if (deckSize <= 0) {
-    return 0;
-  }
-
-  return Math.min(Math.max(deckSize, 1), 18);
-};
-
 const buildSessionId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return `session_${crypto.randomUUID().slice(0, 8)}`;
@@ -3228,66 +3220,7 @@ export const PlayPvpPage = () => {
                           </div>
                         </button>
                       </div>
-
-                      <div className={`${styles.deckRail} ${styles.deckRailVertical} ${isEnemySideActive ? styles.deckRailActive : ''}`.trim()}>
-                        <div className={styles.deckRailHeader}>
-                          <span className={styles.summaryLabel}>Колода соперника</span>
-                          <span className={styles.deckRailMeta}>
-                            Колода: {primaryEnemyBoard?.deckSize ?? 0} · Рука: {primaryEnemyBoard?.handSize ?? 0}
-                          </span>
-                        </div>
-                        <div className={styles.deckRailCards} aria-hidden="true">
-                          {Array.from({ length: getDeckVisualCount(primaryEnemyBoard?.deckSize ?? 0) }).map((_, index, array) => (
-                            <span
-                              key={`enemy-deck-${index}`}
-                              className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <div className={styles.turnActionRail}>
-                        <span className={styles.summaryLabel}>
-                          Раунд {matchSummary.roundNumber} · {getRoundStatusLabel(matchSummary.roundStatus)}
-                        </span>
-                        <button
-                          className={`${styles.primaryButton} ${styles.turnActionButton}`.trim()}
-                          type="button"
-                          onClick={handleLockRound}
-                          disabled={!canLockRound}
-                        >
-                          {roundSync?.selfLocked ? 'Ждём ход соперника' : 'Завершить ход'}
-                        </button>
-                        <div className={styles.turnActionStatus}>
-                          <span>
-                            Ты: <strong>{roundSync?.selfLocked ? 'Готово' : 'Собираешь ленту'}</strong>
-                          </span>
-                          <span>
-                            Соперник: <strong>{roundSync?.opponentLocked ? 'Готово' : 'Выбирает'}</strong>
-                          </span>
-                          {pendingTargetSelectionCount > 0 ? (
-                            <span>
-                              Выбери цель для <strong>{pendingTargetSelectionCount}</strong>{' '}
-                              {pendingTargetSelectionCount === 1 ? 'карты' : 'карт'}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className={`${styles.deckRail} ${styles.deckRailVertical} ${isLocalSideActive ? styles.deckRailActive : ''}`.trim()}>
-                        <div className={styles.deckRailHeader}>
-                          <span className={styles.summaryLabel}>Твоя колода</span>
-                          <span className={styles.deckRailMeta}>
-                            Колода: {localBoard?.deckSize ?? 0} · Рука: {localBoard?.handSize ?? 0}
-                          </span>
-                        </div>
-                        <div className={styles.deckRailCards} aria-hidden="true">
-                          {Array.from({ length: getDeckVisualCount(localBoard?.deckSize ?? 0) }).map((_, index, array) => (
-                            <span
-                              key={`local-deck-${index}`}
-                              className={`${styles.deckCardBack} ${index === array.length - 1 ? styles.deckCardBackTop : ''}`.trim()}
-                            />
-                          ))}
-                        </div>
-                      </div>
+                      <div className={styles.boardSideSpacer} aria-hidden="true" />
 
                       <div className={`${styles.playerSideCard} ${isLocalSideActive ? styles.playerSideCardActive : ''}`.trim()}>
                         <span className={styles.playerSideLabel}>Ты</span>
@@ -3339,7 +3272,9 @@ export const PlayPvpPage = () => {
                       </div>
                     </aside>
 
-                    <section className={styles.fieldFrame}>
+                    <section
+                      className={`${styles.fieldFrame} ${isResolvedReplayOpen ? styles.fieldFrameReplay : styles.fieldFrameLive}`.trim()}
+                    >
                       {hasReplayAvailable ? (
                         <div className={styles.fieldFrameToolbar}>
                           <button
@@ -3410,9 +3345,11 @@ export const PlayPvpPage = () => {
                           <div className={styles.battleLaneHeader}>
                             <div>
                               <span className={styles.summaryLabel}>Рука соперника</span>
-                              <strong>Карты оппонента</strong>
+                              <strong>{(primaryEnemyBoard?.handSize ?? 0) > 0 ? 'Карты оппонента' : 'Рука пуста'}</strong>
                             </div>
-                            <span className={styles.battleCount}>{primaryEnemyBoard?.handSize ?? 0} карт</span>
+                            <span className={styles.battleCount}>
+                              {(primaryEnemyBoard?.handSize ?? 0)} карт · колода {primaryEnemyBoard?.deckSize ?? 0}
+                            </span>
                           </div>
                           {(primaryEnemyBoard?.handSize ?? 0) > 0 ? (
                             <div className={styles.opponentHandFanGrid} aria-hidden="true">
@@ -3841,13 +3778,42 @@ export const PlayPvpPage = () => {
                       ))}
                     </div>
                   ) : null}
+                    <div className={styles.turnActionRail}>
+                      <span className={styles.summaryLabel}>
+                        Раунд {matchSummary.roundNumber} · {getRoundStatusLabel(matchSummary.roundStatus)}
+                      </span>
+                      <button
+                        className={`${styles.primaryButton} ${styles.turnActionButton}`.trim()}
+                        type="button"
+                        onClick={handleLockRound}
+                        disabled={!canLockRound}
+                      >
+                        {roundSync?.selfLocked ? 'Ждём ход соперника' : 'Завершить ход'}
+                      </button>
+                      <div className={styles.turnActionStatus}>
+                        <span>
+                          Ты: <strong>{roundSync?.selfLocked ? 'Готово' : 'Собираешь ленту'}</strong>
+                        </span>
+                        <span>
+                          Соперник: <strong>{roundSync?.opponentLocked ? 'Готово' : 'Выбирает'}</strong>
+                        </span>
+                        {pendingTargetSelectionCount > 0 ? (
+                          <span>
+                            Выбери цель для <strong>{pendingTargetSelectionCount}</strong>{' '}
+                            {pendingTargetSelectionCount === 1 ? 'карты' : 'карт'}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
                     <section className={styles.handTray}>
                       <div className={styles.battleLaneHeader}>
                         <div>
                           <span className={styles.summaryLabel}>Твоя рука</span>
                           <strong>Карты для текущего раунда</strong>
                         </div>
-                        <span className={styles.battleCount}>{availableHandCards.length} карт</span>
+                        <span className={styles.battleCount}>
+                          {availableHandCards.length} карт · колода {localBoard?.deckSize ?? 0}
+                        </span>
                       </div>
                       {availableHandCards.length > 0 ? (
                         <div className={styles.handFanGrid}>

@@ -445,7 +445,7 @@
 .boardShell {
   display: grid;
   min-height: 0;
-  grid-template-columns: minmax(148px, 176px) minmax(0, 1fr);
+  grid-template-columns: minmax(124px, 144px) minmax(0, 1fr);
   gap: 14px;
   align-items: stretch;
   height: 100%;
@@ -453,8 +453,13 @@
 
 .boardSideColumn {
   display: grid;
-  gap: 16px;
-  align-content: start;
+  gap: 12px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+.boardSideSpacer {
+  min-height: 0;
 }
 
 .matchSpotlight,
@@ -846,6 +851,12 @@
   flex-wrap: wrap;
 }
 
+.battleLaneHeader > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .spotlightValue {
   display: block;
   font-size: 28px;
@@ -876,7 +887,19 @@
     0 18px 34px rgba(0, 0, 0, 0.28);
 }
 
+.fieldFrameLive {
+  grid-template-rows: minmax(52px, auto) minmax(0, 0.88fr) minmax(0, 1fr) auto minmax(156px, 182px);
+}
+
+.fieldFrameReplay {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .fieldFrameToolbar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -932,6 +955,8 @@
   position: relative;
   display: grid;
   gap: 12px;
+  min-height: 0;
+  height: 100%;
   padding: 14px;
   border-radius: 20px;
   border: 1px solid rgba(37, 99, 235, 0.2);
@@ -1123,10 +1148,10 @@
 }
 
 .playerSideCard {
-  padding: 10px;
+  padding: 8px;
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 6px;
 }
 
 .playerSideCardActive {
@@ -1248,6 +1273,7 @@
 .playerIdentity {
   display: grid;
   gap: 2px;
+  text-align: center;
 }
 
 .playerIdentity strong,
@@ -1288,9 +1314,10 @@
 .turnActionRail {
   position: relative;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   justify-items: center;
-  padding: 12px 10px;
+  padding: 10px 12px;
+  min-height: 0;
   text-align: center;
   background:
     linear-gradient(180deg, rgba(196, 154, 90, 0.08), rgba(255, 248, 236, 0.04)),
@@ -1333,11 +1360,6 @@
 
 .turnActionStatus strong {
   color: var(--pvp-text);
-}
-
-.deckRailVertical {
-  min-height: 132px;
-  align-content: start;
 }
 
 .deckRailActive {
@@ -1511,9 +1533,10 @@
 
 .battleLane,
 .handTray {
-  padding: 10px 12px;
+  padding: 9px 12px;
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -2000,7 +2023,7 @@
 }
 
 .opponentHandTray {
-  min-height: 88px;
+  min-height: 64px;
   align-content: start;
   background:
     linear-gradient(180deg, rgba(255, 248, 236, 0.06), rgba(255, 248, 236, 0.02)),
@@ -2008,7 +2031,7 @@
 }
 
 .battleLane {
-  min-height: 102px;
+  min-height: 96px;
   position: relative;
   overflow: hidden;
   align-content: start;
@@ -2045,7 +2068,7 @@
 }
 
 .compactZone {
-  min-height: 72px;
+  min-height: 56px;
 }
 
 .avatarTargetButton {
@@ -2185,7 +2208,7 @@
   align-items: end;
   justify-content: flex-start;
   gap: 0;
-  padding: 8px 10px 6px 6px;
+  padding: 4px 10px 2px 6px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
@@ -2198,7 +2221,7 @@
   align-items: start;
   justify-content: flex-end;
   gap: 0;
-  padding: 6px 6px 8px 10px;
+  padding: 2px 6px 4px 10px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
@@ -2671,7 +2694,7 @@
   }
 
   .boardShell {
-    grid-template-columns: minmax(136px, 156px) minmax(0, 1fr);
+    grid-template-columns: minmax(112px, 128px) minmax(0, 1fr);
   }
 }
 
@@ -2690,21 +2713,12 @@
 
   .boardSideColumn {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
     align-content: stretch;
   }
 
-  .turnActionRail {
-    grid-column: 1 / -1;
-  }
-
-  .deckRailVertical {
-    min-height: 0;
-  }
-
-  .deckRailVertical .deckRailCards {
-    min-height: 88px;
-    flex-direction: row;
-    justify-content: flex-start;
+  .boardSideSpacer {
+    display: none;
   }
 }
 
@@ -2789,6 +2803,8 @@
   }
 
   .fieldFrameToolbar {
+    top: 10px;
+    right: 10px;
     justify-content: flex-end;
   }
 
