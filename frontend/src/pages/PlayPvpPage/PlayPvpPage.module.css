@@ -2038,6 +2038,12 @@
   padding-top: 2px;
 }
 
+.opponentIntentEmpty {
+  color: var(--pvp-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .opponentIntentCard {
   width: 54px;
   height: 78px;

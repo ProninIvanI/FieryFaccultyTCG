@@ -268,20 +268,48 @@ describe('ws gateway integration', () => {
     ).toBe(false);
 
     playerOne.send(JSON.stringify({ type: 'roundDraft.lock', roundNumber: 1 }));
-    const playerOneLockStatus = await playerOneMessages.waitFor<{ type: 'roundStatus'; selfLocked: boolean; opponentLocked: boolean }>(
-      (message): message is { type: 'roundStatus'; selfLocked: boolean; opponentLocked: boolean } =>
+    const playerOneLockStatus = await playerOneMessages.waitFor<{
+      type: 'roundStatus';
+      selfLocked: boolean;
+      opponentLocked: boolean;
+      selfDraftCount: number;
+      opponentDraftCount: number;
+    }>(
+      (message): message is {
+        type: 'roundStatus';
+        selfLocked: boolean;
+        opponentLocked: boolean;
+        selfDraftCount: number;
+        opponentDraftCount: number;
+      } =>
         message.type === 'roundStatus' &&
         typeof message.selfLocked === 'boolean' &&
         message.selfLocked === true,
     );
-    const playerTwoLockStatus = await playerTwoMessages.waitFor<{ type: 'roundStatus'; selfLocked: boolean; opponentLocked: boolean }>(
-      (message): message is { type: 'roundStatus'; selfLocked: boolean; opponentLocked: boolean } =>
+    const playerTwoLockStatus = await playerTwoMessages.waitFor<{
+      type: 'roundStatus';
+      selfLocked: boolean;
+      opponentLocked: boolean;
+      selfDraftCount: number;
+      opponentDraftCount: number;
+    }>(
+      (message): message is {
+        type: 'roundStatus';
+        selfLocked: boolean;
+        opponentLocked: boolean;
+        selfDraftCount: number;
+        opponentDraftCount: number;
+      } =>
         message.type === 'roundStatus' &&
         typeof message.opponentLocked === 'boolean' &&
         message.opponentLocked === true,
     );
     expect(playerOneLockStatus.selfLocked).toBe(true);
     expect(playerTwoLockStatus.opponentLocked).toBe(true);
+    expect(playerOneLockStatus.selfDraftCount).toBe(0);
+    expect(playerOneLockStatus.opponentDraftCount).toBe(1);
+    expect(playerTwoLockStatus.selfDraftCount).toBe(1);
+    expect(playerTwoLockStatus.opponentDraftCount).toBe(0);
 
     playerTwo.send(JSON.stringify({ type: 'roundDraft.lock', roundNumber: 1 }));
     const resolvedOne = await playerOneMessages.waitFor<{

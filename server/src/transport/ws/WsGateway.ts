@@ -430,16 +430,22 @@ export class WsGateway {
       if (!binding) {
         return;
       }
-      const selfLocked = roundState.players[binding.playerId]?.locked ?? false;
-      const opponentLocked = Object.values(roundState.players).some(
-        (playerRoundState) => playerRoundState.playerId !== binding.playerId && playerRoundState.locked,
+      const selfRoundPlayer = roundState.players[binding.playerId];
+      const opponentRoundPlayer = Object.values(roundState.players).find(
+        (playerRoundState) => playerRoundState.playerId !== binding.playerId,
       );
+      const selfLocked = selfRoundPlayer?.locked ?? false;
+      const opponentLocked = opponentRoundPlayer?.locked ?? false;
+      const selfDraftCount = selfRoundPlayer?.draftCount ?? 0;
+      const opponentDraftCount = opponentRoundPlayer?.draftCount ?? 0;
 
       this.send(socket, {
         type: 'roundStatus',
         roundNumber: roundState.number,
         selfLocked,
         opponentLocked,
+        selfDraftCount,
+        opponentDraftCount,
       });
     });
   }

@@ -251,6 +251,8 @@ describe('PlayPvpPage', () => {
         roundNumber: 1,
         selfLocked: false,
         opponentLocked: false,
+        selfDraftCount: 0,
+        opponentDraftCount: 0,
       });
       await flushMicrotasks();
     });

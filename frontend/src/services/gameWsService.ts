@@ -108,7 +108,9 @@ const isRoundStatusMessage = (value: unknown): value is Extract<PvpServerMessage
   value.type === 'roundStatus' &&
   typeof value.roundNumber === 'number' &&
   typeof value.selfLocked === 'boolean' &&
-  typeof value.opponentLocked === 'boolean';
+  typeof value.opponentLocked === 'boolean' &&
+  typeof value.selfDraftCount === 'number' &&
+  typeof value.opponentDraftCount === 'number';
 
 const isRoundResolvedMessage = (value: unknown): value is Extract<PvpServerMessage, { type: 'roundResolved' }> =>
   isRecord(value) &&
@@ -326,6 +328,8 @@ class GameWsService {
         roundNumber: parsed.roundNumber,
         selfLocked: parsed.selfLocked,
         opponentLocked: parsed.opponentLocked,
+        selfDraftCount: parsed.selfDraftCount,
+        opponentDraftCount: parsed.opponentDraftCount,
       });
       return;
     }

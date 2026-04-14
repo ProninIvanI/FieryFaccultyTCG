@@ -180,6 +180,8 @@ interface RoundSyncSummary {
   roundNumber: number;
   selfLocked: boolean;
   opponentLocked: boolean;
+  selfDraftCount: number;
+  opponentDraftCount: number;
 }
 
 type RoundDraftRejectedSummary = Omit<RoundDraftRejectedServerMessage, 'type'>;
@@ -636,6 +638,12 @@ const getRoundSyncFromState = (state: GameStateSnapshot | null, playerId: string
       isRecord(opponentRoundPlayer) && typeof opponentRoundPlayer.locked === 'boolean'
         ? opponentRoundPlayer.locked
         : false,
+    selfDraftCount:
+      isRecord(selfRoundPlayer) && typeof selfRoundPlayer.draftCount === 'number' ? selfRoundPlayer.draftCount : 0,
+    opponentDraftCount:
+      isRecord(opponentRoundPlayer) && typeof opponentRoundPlayer.draftCount === 'number'
+        ? opponentRoundPlayer.draftCount
+        : 0,
   };
 };
 
@@ -986,6 +994,8 @@ const handleServiceEvent = (
       roundNumber: event.roundNumber,
       selfLocked: event.locked,
       opponentLocked: current?.roundNumber === event.roundNumber ? current.opponentLocked : false,
+      selfDraftCount: sortedDraft.length,
+      opponentDraftCount: current?.roundNumber === event.roundNumber ? current.opponentDraftCount : 0,
     }));
     setRoundDraftRejected(null);
     setError('');
@@ -997,6 +1007,8 @@ const handleServiceEvent = (
       roundNumber: event.roundNumber,
       selfLocked: event.selfLocked,
       opponentLocked: event.opponentLocked,
+      selfDraftCount: event.selfDraftCount,
+      opponentDraftCount: event.opponentDraftCount,
     });
     setError('');
     return;
@@ -2422,6 +2434,7 @@ export const PlayPvpPage = () => {
       : null;
   const isEnemyHandEmpty = (primaryEnemyBoard?.handSize ?? 0) === 0;
   const isLocalLaneEmpty = !hasLocalBattleRibbonEntries;
+  const enemyPreparationCount = Math.max(0, roundSync?.opponentDraftCount ?? 0);
   const enemyPreparationStateLabel = roundSync?.opponentLocked ? 'Ход зафиксирован' : 'Собирает скрытую ленту';
   const enemyPreparationToneClassName = roundSync?.opponentLocked
     ? styles.opponentIntentTrayLocked
@@ -3304,13 +3317,24 @@ export const PlayPvpPage = () => {
                         <strong>{enemyPreparationStateLabel}</strong>
                       </div>
                       <span className={styles.battleCount}>
-                        {roundSync?.opponentLocked ? 'Соперник готов' : 'Соперник выбирает'}
+                        {enemyPreparationCount > 0
+                          ? `${enemyPreparationCount} ${enemyPreparationCount === 1 ? 'действие' : enemyPreparationCount < 5 ? 'действия' : 'действий'}`
+                          : roundSync?.opponentLocked
+                            ? 'Соперник готов'
+                            : 'Пока пусто'}
                       </span>
                     </div>
                     <div className={styles.opponentIntentFan} aria-hidden="true">
-                      <span className={`${styles.opponentIntentCard} ${styles.opponentIntentCardLead}`.trim()} />
-                      <span className={styles.opponentIntentCard} />
-                      <span className={styles.opponentIntentCard} />
+                      {enemyPreparationCount > 0 ? (
+                        Array.from({ length: enemyPreparationCount }).map((_, index) => (
+                          <span
+                            key={`opponent-intent-${index}`}
+                            className={`${styles.opponentIntentCard} ${index === 0 ? styles.opponentIntentCardLead : ''}`.trim()}
+                          />
+                        ))
+                      ) : (
+                        <span className={styles.opponentIntentEmpty}>Соперник ещё не выложил действия</span>
+                      )}
                     </div>
                   </section>
                   <section className={`${styles.battleLane} ${styles.playerBattleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">

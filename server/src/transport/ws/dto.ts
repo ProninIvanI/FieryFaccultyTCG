@@ -48,7 +48,14 @@ export type ServerMessageDto =
       error: string;
       errors: RoundDraftValidationError[];
     }
-  | { type: 'roundStatus'; roundNumber: number; selfLocked: boolean; opponentLocked: boolean }
+  | {
+      type: 'roundStatus';
+      roundNumber: number;
+      selfLocked: boolean;
+      opponentLocked: boolean;
+      selfDraftCount: number;
+      opponentDraftCount: number;
+    }
   | { type: 'roundResolved'; result: RoundResolutionResult }
   | { type: 'error'; error: string }
   | { type: 'ack' };

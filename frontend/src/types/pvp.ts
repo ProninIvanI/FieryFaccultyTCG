@@ -106,6 +106,8 @@ export interface RoundStatusServerMessage {
   roundNumber: number;
   selfLocked: boolean;
   opponentLocked: boolean;
+  selfDraftCount: number;
+  opponentDraftCount: number;
 }
 
 export interface RoundResolvedServerMessage {
@@ -165,5 +167,12 @@ export type PvpServiceEvent =
       error: string;
       errors: RoundDraftValidationError[];
     }
-  | { type: 'roundStatus'; roundNumber: number; selfLocked: boolean; opponentLocked: boolean }
+  | {
+      type: 'roundStatus';
+      roundNumber: number;
+      selfLocked: boolean;
+      opponentLocked: boolean;
+      selfDraftCount: number;
+      opponentDraftCount: number;
+    }
   | { type: 'roundResolved'; result: RoundResolutionResult };
