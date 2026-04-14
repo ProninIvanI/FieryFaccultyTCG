@@ -2422,6 +2422,10 @@ export const PlayPvpPage = () => {
       : null;
   const isEnemyHandEmpty = (primaryEnemyBoard?.handSize ?? 0) === 0;
   const isLocalLaneEmpty = !hasLocalBattleRibbonEntries;
+  const enemyPreparationStateLabel = roundSync?.opponentLocked ? 'Ход зафиксирован' : 'Собирает скрытую ленту';
+  const enemyPreparationToneClassName = roundSync?.opponentLocked
+    ? styles.opponentIntentTrayLocked
+    : styles.opponentIntentTrayActive;
   const activeLocalPlaybackIntentId =
     isResolvedReplayOpen && activeResolvedTimelineEntry?.action.playerId === playerId
       ? activeResolvedTimelineEntry.action.intentId
@@ -3293,6 +3297,22 @@ export const PlayPvpPage = () => {
 
                   {!isResolvedReplayOpen ? (
                     <>
+                  <section className={`${styles.opponentIntentTray} ${enemyPreparationToneClassName}`.trim()}>
+                    <div className={styles.battleLaneHeader}>
+                      <div>
+                        <span className={styles.summaryLabel}>Скрытая подготовка</span>
+                        <strong>{enemyPreparationStateLabel}</strong>
+                      </div>
+                      <span className={styles.battleCount}>
+                        {roundSync?.opponentLocked ? 'Соперник готов' : 'Соперник выбирает'}
+                      </span>
+                    </div>
+                    <div className={styles.opponentIntentFan} aria-hidden="true">
+                      <span className={`${styles.opponentIntentCard} ${styles.opponentIntentCardLead}`.trim()} />
+                      <span className={styles.opponentIntentCard} />
+                      <span className={styles.opponentIntentCard} />
+                    </div>
+                  </section>
                   <section className={`${styles.battleLane} ${styles.playerBattleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">
                     <div className={styles.battleLaneHeader}>
                       <div>
