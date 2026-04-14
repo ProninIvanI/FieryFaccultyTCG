@@ -1518,16 +1518,16 @@
 
 .ribbonSection {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .ribbonGrid {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(184px, 210px);
+  grid-auto-columns: minmax(172px, 196px);
   justify-content: start;
   align-items: stretch;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 4px;
@@ -2007,7 +2007,7 @@
 }
 
 .battleLane {
-  min-height: 96px;
+  min-height: 88px;
   position: relative;
   overflow: hidden;
   align-content: start;
@@ -2060,7 +2060,7 @@
 }
 
 .compactZone {
-  min-height: 56px;
+  min-height: 52px;
 }
 
 .avatarTargetButton {
@@ -2245,13 +2245,13 @@
 }
 
 .localHandTray .handFanGrid > .handCard {
-  width: clamp(108px, 7.2vw, 132px);
-  flex: 0 0 clamp(108px, 7.2vw, 132px);
-  min-height: 118px;
-  margin-left: -26px;
+  width: clamp(116px, 7.4vw, 140px);
+  flex: 0 0 clamp(116px, 7.4vw, 140px);
+  min-height: 132px;
+  margin-left: -30px;
   padding: 10px 10px 12px;
   transform-origin: center bottom;
-  transform: translateY(var(--hand-offset-y, 26px)) rotate(var(--hand-rotation, 0deg));
+  transform: translateY(var(--hand-offset-y, 20px)) rotate(var(--hand-rotation, 0deg));
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
@@ -2297,9 +2297,9 @@
 }
 
 .opponentHandCard {
-  width: 120px;
-  flex: 0 0 120px;
-  margin-right: -16px;
+  width: clamp(108px, 6.4vw, 126px);
+  flex: 0 0 clamp(108px, 6.4vw, 126px);
+  margin-right: -26px;
   transform-origin: center top;
   transition: transform 0.18s ease, box-shadow 0.18s ease, margin 0.18s ease;
 }
@@ -2309,22 +2309,23 @@
 }
 
 .opponentHandCard:nth-child(odd) {
-  transform: translateY(-4px) rotate(1.8deg);
+  transform: translateY(-8px) rotate(4deg);
 }
 
 .opponentHandCard:nth-child(even) {
-  transform: translateY(-1px) rotate(-1.5deg);
+  transform: translateY(-2px) rotate(-3deg);
 }
 
 .opponentHandCardBack {
   display: block;
   width: 100%;
-  min-height: 144px;
+  min-height: 156px;
+  aspect-ratio: 0.7;
   border-radius: 20px;
   border: 1px solid rgba(196, 154, 90, 0.3);
   background:
-    radial-gradient(circle at 50% 32%, rgba(255, 248, 236, 0.12), transparent 24%),
-    radial-gradient(circle at 50% 50%, rgba(196, 154, 90, 0.2) 0, rgba(196, 154, 90, 0.06) 18%, transparent 22%),
+    radial-gradient(circle at 50% 24%, rgba(255, 248, 236, 0.12), transparent 20%),
+    radial-gradient(circle at 50% 48%, rgba(196, 154, 90, 0.22) 0, rgba(196, 154, 90, 0.08) 16%, transparent 18%),
     linear-gradient(160deg, rgba(70, 56, 46, 0.98) 0%, rgba(43, 35, 30, 0.98) 42%, rgba(27, 21, 19, 0.98) 100%);
   box-shadow:
     inset 0 0 0 2px rgba(255, 248, 236, 0.06),
@@ -2336,17 +2337,18 @@
 .opponentHandCardBack::after {
   content: "";
   position: absolute;
-  inset: 12px;
-  border-radius: 16px;
+  inset: 12px 12px 18px;
+  border-radius: 18px;
   border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .opponentHandCardBack::after {
-  inset: auto 18px 18px 18px;
-  height: 22px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.22), transparent);
-  border: none;
+  inset: 18px;
+  height: auto;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 248, 236, 0.08), transparent 18%),
+    linear-gradient(180deg, rgba(37, 99, 235, 0.12), rgba(15, 23, 42, 0.08));
 }
 
 .handFanGrid > .handCard:hover,
@@ -2359,7 +2361,7 @@
 
 .localHandTray .handFanGrid > .handCard:hover,
 .localHandTray .handFanGrid > .handCard:focus-within {
-  transform: translateY(calc(var(--hand-offset-y, 26px) - 132px)) rotate(0deg) scale(1.22);
+  transform: translateY(calc(var(--hand-offset-y, 20px) - 126px)) rotate(0deg) scale(1.18);
   margin-left: -4px;
   margin-right: -4px;
   z-index: 20;
@@ -2380,7 +2382,7 @@
 }
 
 .localHandTray .handCard {
-  grid-template-rows: auto minmax(42px, 1fr) auto;
+  grid-template-rows: auto auto minmax(42px, 1fr);
 }
 
 .handCard::after {
@@ -2443,7 +2445,7 @@
 }
 
 .localHandTray .handCardArtwork {
-  min-height: 54px;
+  min-height: 60px;
   aspect-ratio: 1.34 / 1;
 }
 
@@ -2532,7 +2534,8 @@
 }
 
 .localHandTray .handCardBody {
-  padding: 0;
+  gap: 5px;
+  padding: 4px 2px 0;
   background: transparent;
   border: none;
 }
@@ -2544,10 +2547,12 @@
 }
 
 .localHandTray .handCardTitle {
-  font-size: 13px;
-  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .handCardMeta {
@@ -2564,6 +2569,10 @@
   flex-wrap: wrap;
 }
 
+.localHandTray .handCardStats {
+  gap: 4px;
+}
+
 .handStatPill {
   display: inline-flex;
   align-items: center;
@@ -2574,6 +2583,12 @@
   color: var(--pvp-text);
   font-size: 11px;
   font-weight: 700;
+}
+
+.localHandTray .handStatPill {
+  padding: 2px 6px;
+  font-size: 10px;
+  background: rgba(255, 248, 236, 0.1);
 }
 
 .handCardEffect {
@@ -2588,17 +2603,21 @@
 
 .localHandTray .handCardEffect,
 .localHandTray .handCardSubtitle {
-  max-height: 0;
-  opacity: 0;
+  max-height: 2.8em;
+  opacity: 0.88;
   overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .localHandTray .handCard:hover .handCardEffect,
 .localHandTray .handCard:hover .handCardSubtitle,
 .localHandTray .handCard:focus-within .handCardEffect,
 .localHandTray .handCard:focus-within .handCardSubtitle {
-  max-height: 56px;
+  max-height: 5.6em;
   opacity: 1;
+  -webkit-line-clamp: 4;
 }
 
 .handCardSubtitle {
