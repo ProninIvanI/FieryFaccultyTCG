@@ -92,7 +92,7 @@ interface HandCardSummary {
 interface SceneInspectSummary {
   id: string;
   title: string;
-  kicker: string;
+  kicker?: string;
   cornerLabel: string;
   badges: string[];
   stats: Array<{ label: string; value: number | string }>;
@@ -119,6 +119,7 @@ interface BoardItemSummary {
   runtimeId: string;
   ownerId: string;
   subtype: 'creature' | 'effect';
+  school?: 'fire' | 'water' | 'earth' | 'air';
   lifetimeType: 'temporary' | 'persistent';
   placementLayer: ResolutionLayer;
   placementOrderIndex: number;
@@ -135,6 +136,8 @@ interface RoundRibbonActionSummary {
   id: string;
   title: string;
   subtitle: string;
+  mana?: number;
+  school?: 'fire' | 'water' | 'earth' | 'air';
   modeLabel: string;
   statusLabel: string;
   targetLabel?: string;
@@ -280,24 +283,9 @@ const getCardSchoolAccentClassName = (school?: string): string => {
   }
 };
 
-const getHandCardCompactMeta = (card: HandCardSummary): string => {
-  const parts = [getCardTypeLabel(card.cardType)];
-
-  if (card.school) {
-    parts.push(getCatalogSchoolLabel(card.school));
-  }
-
-  if (!card.hp && !card.attack && card.speed) {
-    parts.push(`SPD ${card.speed}`);
-  }
-
-  return parts.join(' · ');
-};
-
 const getHandCardInspectSummary = (card: HandCardSummary): SceneInspectSummary => ({
   id: card.instanceId,
   title: card.name,
-  kicker: 'Фокус карты',
   cornerLabel: `Мана ${card.mana}`,
   badges: [
     getCardTypeLabel(card.cardType),
@@ -320,20 +308,17 @@ const getBoardItemInspectSummary = (
   item: BoardItemSummary,
   options: {
     attachedActionCount: number;
-    isOwnedByLocalPlayer: boolean;
   },
 ): SceneInspectSummary => ({
   id: item.id,
   title: item.title,
-  kicker: item.subtype === 'creature' ? 'Фокус сущности' : 'Фокус эффекта',
-  cornerLabel: `Поле #${item.placementOrderIndex + 1}`,
+  cornerLabel: item.duration !== undefined ? getDurationLabel(item.duration) : 'На поле',
   badges: [
     item.subtype === 'creature' ? 'Существо' : 'Эффект',
     item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд',
-    getResolutionLayerLabel(item.placementLayer),
-    ...(options.isOwnedByLocalPlayer ? ['Твоё'] : []),
+    ...(item.school ? [getCatalogSchoolLabel(item.school)] : []),
     ...(item.duration !== undefined ? [getDurationLabel(item.duration)] : []),
-    ...(options.attachedActionCount > 0 ? [`Активно: ${options.attachedActionCount}`] : []),
+    ...(options.attachedActionCount > 0 ? [`Действий: ${options.attachedActionCount}`] : []),
   ],
   stats: [
     ...(item.hp !== undefined && item.maxHp !== undefined
@@ -348,19 +333,17 @@ const getBoardItemInspectSummary = (
 const getRoundActionInspectSummary = (action: RoundRibbonActionSummary): SceneInspectSummary => ({
   id: action.id,
   title: action.title,
-  kicker: 'Фокус действия',
-  cornerLabel: `Шаг #${action.orderIndex + 1}`,
+  cornerLabel: action.mana !== undefined ? `Мана ${action.mana}` : 'В ленте',
   badges: [
     action.modeLabel,
-    action.statusLabel,
-    getResolutionLayerLabel(action.layer),
-    ...(action.sourceType === 'boardItem' ? ['Связано с полем'] : []),
+    ...(action.school ? [getCatalogSchoolLabel(action.school)] : []),
+    ...(action.targetLabel ? ['Цель выбрана'] : []),
   ],
   stats: [...(action.cardSpeed ? [{ label: 'SPD', value: action.cardSpeed }] : [])],
   details: [
-    action.subtitle,
-    ...(action.targetLabel && action.targetLabel !== action.subtitle ? [`Цель: ${action.targetLabel}`] : []),
     ...(action.effectSummary ? [action.effectSummary] : []),
+    ...(action.targetLabel && action.targetLabel !== action.subtitle ? [`Цель: ${action.targetLabel}`] : []),
+    ...(!action.effectSummary || action.subtitle !== action.effectSummary ? [action.subtitle] : []),
   ],
 });
 
@@ -454,20 +437,22 @@ const getRoundActionTargetSubtitle = (
 const getRoundActionFocusLabel = (modeLabel: string, targetLabel?: string): string =>
   targetLabel ? `${modeLabel} -> ${targetLabel}` : modeLabel;
 
-const getRoundActionCompactStatusLabel = (action: RoundRibbonActionSummary): string => {
-  if (action.targetLabel) {
-    return 'Цель выбрана';
+const getRibbonArtworkAccentClassName = (
+  school?: 'fire' | 'water' | 'earth' | 'air',
+  variant: 'creature' | 'effect' | 'action' = 'action',
+): string => {
+  if (school) {
+    return getCardSchoolAccentClassName(school);
   }
 
-  if (action.subtitle === 'Цель уточняется' || action.subtitle === 'Цель не указана') {
-    return 'Нужна цель';
+  switch (variant) {
+    case 'creature':
+      return styles.ribbonArtworkCreature;
+    case 'effect':
+      return styles.ribbonArtworkEffect;
+    case 'action':
+      return styles.ribbonArtworkNeutral;
   }
-
-  if (action.subtitle === 'Без цели') {
-    return 'Без цели';
-  }
-
-  return action.statusLabel;
 };
 
 const getRoundActionTone = (
@@ -965,6 +950,7 @@ const getPlayerBoardItemSummaries = (
         runtimeId: item.runtimeId,
         ownerId: item.ownerId,
         subtype: item.subtype,
+        school: toCatalogSchool(card?.school),
         lifetimeType: item.lifetimeType,
         placementLayer:
           placement && typeof placement.layer === 'string'
@@ -1002,6 +988,7 @@ const getPlayerBoardItemSummaries = (
       runtimeId: creature.creatureId,
       ownerId: creature.ownerId,
       subtype: 'creature',
+      school: undefined,
       lifetimeType: 'persistent',
       placementLayer: 'summon',
       placementOrderIndex: index,
@@ -2343,6 +2330,8 @@ export const PlayPvpPage = () => {
               matchingCard?.name ??
               (matchingDraft ? getIntentLabel(matchingDraft) : `${action.kind} ${action.id}`),
             subtitle: resolvedSubtitle,
+            mana: matchingCard?.mana,
+            school: matchingCard?.school,
             modeLabel: getRoundActionModeLabel(action.placement.layer),
             statusLabel: getRoundActionStatusDisplay(action.status),
             targetLabel: resolvedTargetLabel,
@@ -2384,6 +2373,8 @@ export const PlayPvpPage = () => {
         id: intent.intentId,
         title: intentCard?.name ?? getIntentLabel(intent),
         subtitle: getIntentTargetLabel(intent),
+        mana: intentCard?.mana,
+        school: intentCard?.school,
         modeLabel: getRoundActionModeLabel(previewLayerByIntentId.get(intent.intentId) ?? 'other_modifiers'),
         statusLabel: getRoundActionStatusDisplay(roundSync?.selfLocked ? 'locked' : 'draft'),
         targetLabel: getActionTargetPreview(getIntentTargetLabel(intent)),
@@ -2535,13 +2526,8 @@ export const PlayPvpPage = () => {
       return { kind: 'hand', id: selection.instanceId };
     }
 
-    if (selection?.kind === 'creature') {
-      const boardItemId = localBoardItemIdByRuntimeId.get(selection.creatureId);
-      return boardItemId ? { kind: 'boardItem', id: boardItemId } : null;
-    }
-
     return null;
-  }, [localBoardItemIdByRuntimeId, sceneInspectTarget, selection]);
+  }, [sceneInspectTarget, selection]);
   const sceneInspectSummary = useMemo(() => {
     if (!resolvedSceneInspectTarget) {
       return null;
@@ -2560,7 +2546,6 @@ export const PlayPvpPage = () => {
 
       return getBoardItemInspectSummary(item, {
         attachedActionCount: localBoardItemAttachedActionCountById.get(item.id) ?? 0,
-        isOwnedByLocalPlayer: item.ownerId === playerId,
       });
     }
 
@@ -2571,7 +2556,6 @@ export const PlayPvpPage = () => {
     localBoardItemsById,
     localHandCards,
     localRoundRibbonItemsById,
-    playerId,
     resolvedSceneInspectTarget,
   ]);
   const inspectedHandCardId = resolvedSceneInspectTarget?.kind === 'hand' ? resolvedSceneInspectTarget.id : null;
@@ -3568,7 +3552,6 @@ export const PlayPvpPage = () => {
                     </div>
                     {hasLocalBattleRibbonEntries ? (
                       <div className={styles.ribbonSection}>
-                        <span className={styles.summaryLabel}>{isResolvedReplayOpen ? 'Твоя сцена' : 'Твоя боевая лента'}</span>
                         <div className={styles.ribbonGrid}>
                           {visibleLocalBattleRibbonEntries.map((entry) => {
                             if (entry.kind === 'boardItem') {
@@ -3609,33 +3592,28 @@ export const PlayPvpPage = () => {
                                         : setSelection({ kind: 'creature', creatureId: item.runtimeId })
                                     }
                                   >
-                                    <div className={styles.ribbonHeader}>
+                                    <div
+                                      className={`${styles.ribbonArtwork} ${getRibbonArtworkAccentClassName(item.school, 'creature')}`.trim()}
+                                    >
+                                      {attachedActions.length > 0 ? (
+                                        <span className={styles.ribbonArtworkBadge}>Действий: {attachedActions.length}</span>
+                                      ) : null}
+                                    </div>
+                                    <div className={styles.ribbonCardBody}>
                                       <strong className={styles.ribbonCompactTitle}>{item.title}</strong>
-                                      <div className={styles.ribbonBadgeRow}>
-                                        <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
-                                        {attachedActions.length > 0 ? (
-                                          <span className={styles.cardBadge}>Активно: {attachedActions.length}</span>
-                                        ) : null}
+                                      <div className={styles.ribbonStats}>
+                                        <span>HP {item.hp ?? 0}/{item.maxHp ?? 0}</span>
+                                        <span>ATK {item.attack ?? 0}</span>
+                                        <span>SPD {item.speed ?? 0}</span>
                                       </div>
                                     </div>
-                                    <div className={styles.ribbonStats}>
-                                      <span>HP {item.hp ?? 0}/{item.maxHp ?? 0}</span>
-                                      <span>ATK {item.attack ?? 0}</span>
-                                      <span>SPD {item.speed ?? 0}</span>
-                                    </div>
-                                    {showDiagnostics ? (
-                                      <div className={styles.ribbonCompactMeta}>
-                                        <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                        <span className={styles.cardBadge}>Твоё</span>
-                                        <span className={styles.ribbonCompactMetaText}>{item.runtimeId}</span>
-                                      </div>
-                                    ) : null}
                                   </button>
                                   {attachedActions.length > 0 ? (
                                     <div className={styles.ribbonActionStack}>
-                                      <span className={styles.summaryLabel}>Активность в раунде</span>
                                       {attachedActions.map((action) => {
                                         const actionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
+                                        const compactActionTitle =
+                                          action.sourceType === 'boardItem' ? action.modeLabel : action.title;
 
                                         return (
                                         <div
@@ -3647,29 +3625,18 @@ export const PlayPvpPage = () => {
                                               : `battle-ribbon-inline-action-${action.id}`
                                           }
                                           onMouseEnter={() => setSceneInspectTarget(actionInspectTarget)}
-                                          onMouseLeave={() => setSceneInspectTarget(boardItemInspectTarget)}
+                                          onMouseLeave={() => handleSceneInspectLeave(actionInspectTarget)}
                                           onFocusCapture={() => setSceneInspectTarget(actionInspectTarget)}
                                           onBlurCapture={(event) => handleSceneInspectBlur(event, actionInspectTarget)}
                                         >
                                           <div className={styles.ribbonInlineActionHeader}>
-                                            <strong className={styles.ribbonCompactTitle}>{action.title}</strong>
+                                            <strong className={styles.ribbonCompactTitle}>{compactActionTitle}</strong>
                                             <div className={styles.ribbonBadgeRow}>
-                                              <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
-                                              <span className={styles.cardBadge}>{getRoundActionCompactStatusLabel(action)}</span>
                                               {action.cardSpeed ? (
                                                 <span className={styles.handStatPill}>SPD {action.cardSpeed}</span>
                                               ) : null}
                                             </div>
                                           </div>
-                                          {showDiagnostics ? (
-                                            <div className={styles.ribbonCompactMeta}>
-                                              <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
-                                              <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
-                                              <span className={styles.ribbonCompactMetaText}>
-                                                {action.targetLabel ?? action.subtitle}
-                                              </span>
-                                            </div>
-                                          ) : null}
                                           {renderIntentValidationErrors(action.id)}
                                           <div className={styles.inlineActions}>
                                             <button
@@ -3745,27 +3712,30 @@ export const PlayPvpPage = () => {
                                   onFocusCapture={() => setSceneInspectTarget(boardItemInspectTarget)}
                                   onBlurCapture={(event) => handleSceneInspectBlur(event, boardItemInspectTarget)}
                                 >
-                                  <div className={styles.ribbonHeader}>
+                                  <div
+                                    className={`${styles.ribbonArtwork} ${getRibbonArtworkAccentClassName(item.school, 'effect')}`.trim()}
+                                  >
+                                    {item.duration !== undefined ? (
+                                      <span className={styles.ribbonArtworkBadge}>{getDurationLabel(item.duration)}</span>
+                                    ) : attachedActions.length > 0 ? (
+                                      <span className={styles.ribbonArtworkBadge}>Действий: {attachedActions.length}</span>
+                                    ) : null}
+                                  </div>
+                                  <div className={styles.ribbonCardBody}>
                                     <strong className={styles.ribbonCompactTitle}>{item.title}</strong>
                                     <div className={styles.ribbonBadgeRow}>
                                       <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
-                                      {item.duration !== undefined ? <span className={styles.cardBadge}>{getDurationLabel(item.duration)}</span> : null}
                                       {attachedActions.length > 0 ? (
-                                        <span className={styles.cardBadge}>Активно: {attachedActions.length}</span>
+                                        <span className={styles.cardBadge}>Действий: {attachedActions.length}</span>
                                       ) : null}
                                     </div>
                                   </div>
-                                  {showDiagnostics ? (
-                                    <div className={styles.ribbonCompactMeta}>
-                                      <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                      <span className={styles.ribbonCompactMetaText}>{item.subtitle}</span>
-                                    </div>
-                                  ) : null}
                                   {attachedActions.length > 0 ? (
                                     <div className={styles.ribbonActionStack}>
-                                      <span className={styles.summaryLabel}>Активность в раунде</span>
                                       {attachedActions.map((action) => {
                                         const actionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
+                                        const compactActionTitle =
+                                          action.sourceType === 'boardItem' ? action.modeLabel : action.title;
 
                                         return (
                                         <div
@@ -3777,29 +3747,18 @@ export const PlayPvpPage = () => {
                                               : `battle-ribbon-inline-action-${action.id}`
                                           }
                                           onMouseEnter={() => setSceneInspectTarget(actionInspectTarget)}
-                                          onMouseLeave={() => setSceneInspectTarget(boardItemInspectTarget)}
+                                          onMouseLeave={() => handleSceneInspectLeave(actionInspectTarget)}
                                           onFocusCapture={() => setSceneInspectTarget(actionInspectTarget)}
                                           onBlurCapture={(event) => handleSceneInspectBlur(event, actionInspectTarget)}
                                         >
                                           <div className={styles.ribbonInlineActionHeader}>
-                                            <strong className={styles.ribbonCompactTitle}>{action.title}</strong>
+                                            <strong className={styles.ribbonCompactTitle}>{compactActionTitle}</strong>
                                             <div className={styles.ribbonBadgeRow}>
-                                              <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
-                                              <span className={styles.cardBadge}>{getRoundActionCompactStatusLabel(action)}</span>
                                               {action.cardSpeed ? (
                                                 <span className={styles.handStatPill}>SPD {action.cardSpeed}</span>
                                               ) : null}
                                             </div>
                                           </div>
-                                          {showDiagnostics ? (
-                                            <div className={styles.ribbonCompactMeta}>
-                                              <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
-                                              <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
-                                              <span className={styles.ribbonCompactMetaText}>
-                                                {action.targetLabel ?? action.subtitle}
-                                              </span>
-                                            </div>
-                                          ) : null}
                                           {renderIntentValidationErrors(action.id)}
                                           <div className={styles.inlineActions}>
                                             <button
@@ -3857,33 +3816,22 @@ export const PlayPvpPage = () => {
                                     </div>
                                   ) : null}
                                   <div className={styles.ribbonActionBody}>
-                                    <div className={styles.ribbonHeader}>
+                                  <div
+                                      className={`${styles.ribbonArtwork} ${getRibbonArtworkAccentClassName(action.school, 'action')}`.trim()}
+                                    >
+                                      {action.mana !== undefined ? (
+                                        <span className={styles.ribbonArtworkMana}>{action.mana}</span>
+                                      ) : null}
+                                    </div>
+                                    <div className={styles.ribbonCardBody}>
                                       <strong className={`${styles.ribbonCompactTitle} ${styles.ribbonActionMain}`.trim()}>
                                         {action.title}
                                       </strong>
                                       <div className={styles.ribbonBadgeRow}>
-                                        <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
-                                        <span className={styles.cardBadge}>{getRoundActionCompactStatusLabel(action)}</span>
                                         {action.cardSpeed ? <span className={styles.handStatPill}>SPD {action.cardSpeed}</span> : null}
+                                        {showDiagnostics ? <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span> : null}
                                       </div>
                                     </div>
-                                    {showDiagnostics ? (
-                                      <div className={styles.ribbonCompactMeta}>
-                                        <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
-                                        <span className={styles.cardBadge}>{action.statusLabel}</span>
-                                        <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
-                                      </div>
-                                    ) : null}
-                                    {showDiagnostics && (action.targetLabel || action.subtitle) ? (
-                                      <div className={styles.ribbonCompactMeta}>
-                                        <span className={styles.ribbonCompactMetaText}>
-                                          {action.targetLabel ?? action.subtitle}
-                                        </span>
-                                      </div>
-                                    ) : null}
-                                    <span className={styles.ribbonActionAssistive}>
-                                      {action.targetLabel ?? action.subtitle}
-                                    </span>
                                     {renderIntentValidationErrors(action.id)}
                                     <div className={styles.inlineActions}>
                                       <button
@@ -3959,17 +3907,11 @@ export const PlayPvpPage = () => {
                                 >
                                   <div className={styles.handCardTop}>
                                     <span className={styles.handManaGem}>{card.mana}</span>
-                                    <div className={styles.handCardBadgeStack}>
-                                      <span className={styles.cardBadge}>{getCardTypeLabel(card.cardType)}</span>
-                                      {card.school ? (
-                                        <span className={styles.cardBadge}>{getCatalogSchoolLabel(card.school)}</span>
-                                      ) : null}
-                                    </div>
+                                    <span className={styles.handCardArtworkCaption}>Карточка</span>
                                   </div>
                                 </div>
                                 <div className={styles.handCardBody}>
                                   <strong className={styles.handCardTitle}>{card.name}</strong>
-                                  <span className={styles.handCardCompactMeta}>{getHandCardCompactMeta(card)}</span>
                                   {(card.hp || card.attack || card.speed) ? (
                                     <div className={styles.handCardStats}>
                                       {card.hp ? <span className={styles.handStatPill}>HP {card.hp}</span> : null}
@@ -3977,7 +3919,6 @@ export const PlayPvpPage = () => {
                                       {card.speed ? <span className={styles.handStatPill}>SPD {card.speed}</span> : null}
                                     </div>
                                   ) : null}
-                                  <span className={styles.handCardSubtitle}>Подробности по hover, focus или выбору</span>
                                 </div>
                               </button>
                             </div>
@@ -3996,7 +3937,9 @@ export const PlayPvpPage = () => {
                         <div className={styles.sceneInspectPanel}>
                           <div className={styles.sceneInspectHeader}>
                             <div className={styles.sceneInspectHeading}>
-                              <span className={styles.summaryLabel}>{sceneInspectSummary.kicker}</span>
+                              {sceneInspectSummary.kicker ? (
+                                <span className={styles.summaryLabel}>{sceneInspectSummary.kicker}</span>
+                              ) : null}
                               <strong className={styles.sceneInspectTitle}>{sceneInspectSummary.title}</strong>
                             </div>
                             <span className={styles.sceneInspectCorner}>{sceneInspectSummary.cornerLabel}</span>

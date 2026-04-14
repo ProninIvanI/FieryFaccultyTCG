@@ -174,6 +174,22 @@ const submitJoin = async (sessionId: string, buttonName: RegExp | string): Promi
   return socket;
 };
 
+const hoverSceneTarget = async (target: Element): Promise<HTMLElement> => {
+  await act(async () => {
+    fireEvent.mouseEnter(target);
+    await flushMicrotasks();
+  });
+
+  return screen.findByTestId('scene-inspect-panel');
+};
+
+const leaveSceneTarget = async (target: Element): Promise<void> => {
+  await act(async () => {
+    fireEvent.mouseLeave(target);
+    await flushMicrotasks();
+  });
+};
+
 const createRoundState = (overrides: Record<string, unknown> = {}) => ({
   round: {
     number: 1,
@@ -916,18 +932,12 @@ describe('PlayPvpPage', () => {
 
     const ribbonActionCard = await screen.findByTestId('battle-ribbon-action-draft_fireball');
 
-    await act(async () => {
-      fireEvent.mouseEnter(ribbonActionCard);
-      await flushMicrotasks();
-    });
+    const inspectPanel = await hoverSceneTarget(ribbonActionCard);
 
-    await waitFor(() => {
-      const inspectPanel = screen.getByTestId('scene-inspect-panel');
-      expect(inspectPanel).toHaveTextContent('Огненный шар');
-      expect(inspectPanel).toHaveTextContent('Шаг #1');
-      expect(inspectPanel).toHaveTextContent('Боевое заклинание');
-      expect(inspectPanel).toHaveTextContent('Нанести 4 урона.');
-    });
+    expect(inspectPanel).toHaveTextContent('Огненный шар');
+    expect(inspectPanel).toHaveTextContent('Мана 3');
+    expect(inspectPanel).toHaveTextContent('Боевое заклинание');
+    expect(inspectPanel).toHaveTextContent('Нанести 4 урона.');
   });
 
   it('shows scene inspect panel for hovered attached inline action in the battle ribbon', async () => {
@@ -1058,17 +1068,17 @@ describe('PlayPvpPage', () => {
 
     const inlineAction = await screen.findByTestId('battle-ribbon-inline-action-draft_attack_inline');
 
-    await act(async () => {
-      fireEvent.mouseEnter(inlineAction);
-      await flushMicrotasks();
-    });
+    const inspectPanel = await hoverSceneTarget(inlineAction);
+
+    expect(inspectPanel).toHaveTextContent('Атака: ally_creature_1');
+    expect(inspectPanel).toHaveTextContent('В ленте');
+    expect(inspectPanel).toHaveTextContent('Атака');
+    expect(inspectPanel).toHaveTextContent('Вражеский маг -> Маг user_2');
+
+    await leaveSceneTarget(inlineAction);
 
     await waitFor(() => {
-      const inspectPanel = screen.getByTestId('scene-inspect-panel');
-      expect(inspectPanel).toHaveTextContent('Атака: ally_creature_1');
-      expect(inspectPanel).toHaveTextContent('Шаг #1');
-      expect(inspectPanel).toHaveTextContent('Связано с полем');
-      expect(inspectPanel).toHaveTextContent('Вражеский маг -> Маг user_2');
+      expect(screen.queryByTestId('scene-inspect-panel')).not.toBeInTheDocument();
     });
   });
 
@@ -1194,7 +1204,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByText(/Боевое заклинание/i).length).toBeGreaterThan(0);
+      expect(screen.getByTestId('scene-inspect-panel')).toHaveTextContent('Заклинание');
     });
 
     await act(async () => {
@@ -1202,9 +1212,11 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    await waitFor(() => {
-      expect(screen.getAllByText(/Защита/i).length).toBeGreaterThan(0);
-    });
+    const queuedWaterAction = (await screen.findAllByTestId(/battle-ribbon-action-/)).find((element) =>
+      within(element).queryByText('Сфера воды'),
+    );
+    expect(queuedWaterAction).toBeTruthy();
+    expect(await hoverSceneTarget(queuedWaterAction!)).toHaveTextContent('Защита');
   });
 
   it('keeps the enemy target on offensive spells after queueing defensive and self cards', async () => {
@@ -1366,11 +1378,10 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    await waitFor(() => {
-      expect(
-        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
-      ).toBeGreaterThan(0);
-    });
+    const mergedTargetAction = await screen.findByTestId('battle-ribbon-action-user_1_round_1_CastSpell_1');
+    expect(await hoverSceneTarget(mergedTargetAction)).toHaveTextContent(
+      `${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`,
+    );
   });
 
   it('shows a default enemy target label for synced offensive spells while targetId is temporarily absent', async () => {
@@ -1455,11 +1466,10 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    await waitFor(() => {
-      expect(
-        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
-      ).toBeGreaterThan(0);
-    });
+    const defaultEnemyTargetAction = await screen.findByTestId('battle-ribbon-action-draft_fireball_missing_target');
+    expect(await hoverSceneTarget(defaultEnemyTargetAction)).toHaveTextContent(
+      `${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`,
+    );
   });
 
   it('builds and sends PlayCard roundDraft through self-target draft UI', async () => {
@@ -1528,8 +1538,12 @@ describe('PlayPvpPage', () => {
           );
         }),
       ).toBe(true);
-      expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('self')} -> Твой маг`, 'i')).length).toBeGreaterThan(0);
     });
+
+    const queuedPlayCardAction = (await screen.findAllByTestId(/battle-ribbon-action-/))[0];
+    expect(await hoverSceneTarget(queuedPlayCardAction)).toHaveTextContent(
+      `${getTargetTypeLabel('self')} -> Твой маг`,
+    );
   });
 
   it('keeps the remaining hand cards visible after queuing concentration before water spells', async () => {
@@ -2029,12 +2043,14 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
-      expect(
-        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
-      ).toBeGreaterThan(0);
       expect(screen.getByRole('button', { name: /Убрать из ленты/i })).toBeInTheDocument();
       expect(screen.queryByText(/Твой черновик раунда/i)).not.toBeInTheDocument();
     });
+
+    const restoredAction = await screen.findByTestId('battle-ribbon-action-draft_restore');
+    expect(await hoverSceneTarget(restoredAction)).toHaveTextContent(
+      `${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`,
+    );
   });
 
   it('renders battle ribbon from boardView and personal boardModel snapshot', async () => {
@@ -2185,7 +2201,6 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Твоя боевая лента/i)).toBeInTheDocument();
       expect(screen.getByText(/Подготовка соперника/i)).toBeInTheDocument();
       expect(screen.getByTestId('battle-ribbon-item-creature:ally_creature_1')).toBeInTheDocument();
       expect(screen.getAllByRole('button', { name: /Убрать из ленты/i }).length).toBeGreaterThan(0);
@@ -2308,13 +2323,17 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Сфера воды/i).length).toBeGreaterThan(0);
-      expect(
-        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
-      ).toBeGreaterThan(0);
-      expect(
-        screen.getAllByText(new RegExp(`${getTargetTypeLabel('allyCharacter')} -> Твой маг`, 'i')).length,
-      ).toBeGreaterThan(0);
     });
+
+    const fireballAction = await screen.findByTestId('battle-ribbon-action-draft_fireball');
+    expect(await hoverSceneTarget(fireballAction)).toHaveTextContent(
+      `${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`,
+    );
+
+    const waterAction = await screen.findByTestId('battle-ribbon-action-draft_water_sphere');
+    expect(await hoverSceneTarget(waterAction)).toHaveTextContent(
+      `${getTargetTypeLabel('allyCharacter')} -> Твой маг`,
+    );
   });
 
   it('embeds board-item round action inside the local battle ribbon card', async () => {
@@ -2443,11 +2462,9 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Твоя боевая лента/i)).toBeInTheDocument();
-      expect(screen.getByText(/Активность в раунде/i)).toBeInTheDocument();
-      expect(screen.getByText(/Активно: 1/i)).toBeInTheDocument();
-      expect(screen.getAllByText(/Атака: ally_creature_1/i).length).toBeGreaterThan(0);
-      expect(screen.getByText(/Цель выбрана/i)).toBeInTheDocument();
+      expect(screen.getByTestId('battle-ribbon-item-creature:ally_creature_1')).toBeInTheDocument();
+      expect(screen.getAllByText(/Действий: 1/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/^Атака$/i).length).toBeGreaterThan(0);
     });
   });
 
@@ -2635,7 +2652,6 @@ describe('PlayPvpPage', () => {
     await waitFor(
       () => {
         expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Второй шаг резолва');
-        expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Боевое заклинание');
       },
       { timeout: 2500 },
     );
@@ -2953,7 +2969,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByText(/Атака: ally_creature_1/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/^Атака$/i).length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -3144,11 +3160,10 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    await waitFor(() => {
-      expect(
-        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
-      ).toBeGreaterThan(0);
-    });
+    const restoredRejectedAction = await screen.findByTestId('battle-ribbon-action-draft_restore');
+    expect(await hoverSceneTarget(restoredRejectedAction)).toHaveTextContent(
+      `${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`,
+    );
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
@@ -3179,10 +3194,11 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(new RegExp(getRoundDraftRejectCodeLabel('validation_failed'), 'i'))).toBeInTheDocument();
       expect(screen.getAllByText(/target_type/i).length).toBeGreaterThan(0);
       expect(screen.getByText(new RegExp(getRoundDraftValidationCodeLabel('target_type'), 'i'))).toBeInTheDocument();
-      expect(
-        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
-      ).toBeGreaterThan(0);
     });
+
+    expect(await hoverSceneTarget(restoredRejectedAction)).toHaveTextContent(
+      `${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`,
+    );
   });
 
   it('shows non-validation roundDraft.rejected code in the shared reject box', async () => {
