@@ -445,7 +445,7 @@
 .boardShell {
   display: grid;
   min-height: 0;
-  grid-template-columns: minmax(170px, 196px) minmax(0, 1fr);
+  grid-template-columns: minmax(178px, 206px) minmax(0, 1fr);
   gap: 14px;
   align-items: stretch;
   height: 100%;
@@ -870,7 +870,7 @@
 .fieldFrame {
   display: grid;
   gap: 10px;
-  padding: 12px;
+  padding: 10px 12px 0;
   position: relative;
   min-height: 0;
   border-radius: 24px;
@@ -884,22 +884,11 @@
 }
 
 .fieldFrameLive {
-  grid-template-rows: minmax(52px, auto) minmax(0, 1fr) minmax(118px, 148px);
+  grid-template-rows: minmax(84px, auto) minmax(0, 1fr) minmax(136px, 168px);
 }
 
 .fieldFrameReplay {
   grid-template-rows: minmax(0, 1fr);
-}
-
-.fieldFrameToolbar {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 2;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  align-items: center;
 }
 
 .replayToggleButton {
@@ -1295,6 +1284,13 @@
     var(--pvp-panel-soft);
 }
 
+.turnActionControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
 .turnActionRail::before,
 .turnActionRail::after {
   content: none;
@@ -1304,6 +1300,13 @@
   width: 100%;
   min-width: 0;
   justify-content: center;
+}
+
+.turnActionReplayButton {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  padding: 0;
 }
 
 .turnActionStatus {
@@ -2015,13 +2018,14 @@
 
 .localHandTray {
   min-height: 118px;
-  margin: 0 8px 0;
-  padding: 0 0 2px;
+  margin: 0 4px -12px;
+  padding: 0;
   border-color: transparent;
   background: transparent;
   box-shadow: none;
   overflow: visible;
   align-content: end;
+  align-self: end;
 }
 
 .localHandTray .battleLaneHeader {
@@ -2207,11 +2211,11 @@
   display: flex;
   flex-wrap: nowrap;
   align-items: start;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 0;
-  padding: 2px 6px 4px 10px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  padding: 2px 18px 0;
+  overflow-x: visible;
+  overflow-y: visible;
   scrollbar-width: thin;
   scroll-padding-right: 6px;
 }
@@ -2780,7 +2784,7 @@
   }
 
   .boardShell {
-    grid-template-columns: minmax(150px, 174px) minmax(0, 1fr);
+    grid-template-columns: minmax(164px, 186px) minmax(0, 1fr);
   }
 }
 
@@ -2882,12 +2886,6 @@
 
   .resolveStageGrid {
     grid-auto-columns: minmax(180px, 1fr);
-  }
-
-  .fieldFrameToolbar {
-    top: 10px;
-    right: 10px;
-    justify-content: flex-end;
   }
 
   .resolveReplayScene {

@@ -3133,14 +3133,28 @@ export const PlayPvpPage = () => {
                         </button>
                       </div>
                       <div className={styles.turnActionRail}>
-                        <button
-                          className={`${styles.primaryButton} ${styles.turnActionButton}`.trim()}
-                          type="button"
-                          onClick={handleLockRound}
-                          disabled={!canLockRound}
-                        >
-                          {roundSync?.selfLocked ? 'Ждём ход соперника' : 'Завершить ход'}
-                        </button>
+                        <div className={styles.turnActionControls}>
+                          <button
+                            className={`${styles.primaryButton} ${styles.turnActionButton}`.trim()}
+                            type="button"
+                            onClick={handleLockRound}
+                            disabled={!canLockRound}
+                          >
+                            {roundSync?.selfLocked ? 'Ждём ход соперника' : 'Завершить ход'}
+                          </button>
+                          {hasReplayAvailable ? (
+                            <button
+                              className={`${styles.replayToggleButton} ${styles.turnActionReplayButton} ${isResolvedReplayOpen ? styles.replayToggleButtonActive : ''}`.trim()}
+                              type="button"
+                              aria-label={isResolvedReplayOpen ? 'Вернуться к текущему драфту' : 'Открыть прошлый резолв'}
+                              onClick={handleToggleResolvedReplay}
+                            >
+                              <span className={styles.replayToggleEye} aria-hidden="true">
+                                <span className={styles.replayToggleEyePupil} />
+                              </span>
+                            </button>
+                          ) : null}
+                        </div>
                         <div className={styles.turnActionStatus}>
                           <span>
                             Ты: <strong>{roundSync?.selfLocked ? 'Готово' : 'Собираешь ленту'}</strong>
@@ -3204,21 +3218,6 @@ export const PlayPvpPage = () => {
                     <section
                       className={`${styles.fieldFrame} ${isResolvedReplayOpen ? styles.fieldFrameReplay : styles.fieldFrameLive}`.trim()}
                     >
-                      {hasReplayAvailable ? (
-                        <div className={styles.fieldFrameToolbar}>
-                          <button
-                            className={`${styles.replayToggleButton} ${isResolvedReplayOpen ? styles.replayToggleButtonActive : ''}`.trim()}
-                            type="button"
-                            aria-label={isResolvedReplayOpen ? 'Вернуться к текущему драфту' : 'Открыть прошлый резолв'}
-                            onClick={handleToggleResolvedReplay}
-                          >
-                            <span className={styles.replayToggleEye} aria-hidden="true">
-                              <span className={styles.replayToggleEyePupil} />
-                            </span>
-                          </button>
-                        </div>
-                      ) : null}
-
                       {isResolvedReplayOpen ? (
                         <section className={styles.resolveReplayScene} data-testid="resolution-replay-strip">
                           <div className={styles.resolveReplayTrack}>
