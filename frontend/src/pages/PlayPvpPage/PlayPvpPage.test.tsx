@@ -2,7 +2,6 @@
 import { MemoryRouter } from 'react-router-dom';
 import { within } from '@testing-library/react';
 import {
-  getResolutionLayerLabel,
   getRoundDraftRejectCodeLabel,
   getRoundDraftValidationCodeLabel,
   getTargetTypeLabel,
@@ -258,8 +257,8 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Матч активен/i)).toBeInTheDocument();
-      expect(screen.getByText(/session_alpha/i)).toBeInTheDocument();
+      expect(screen.getByText(/Арена открыта/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Управление матчем/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Завершить ход/i })).toBeEnabled();
     });
 
@@ -539,8 +538,8 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Боевой режим/i)).toBeInTheDocument();
-      expect(screen.queryByText(/Debug state/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/Открыть raw snapshot/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Открыть JSON матча/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Открыть JSON матча/i)).not.toBeInTheDocument();
     });
 
     await act(async () => {
@@ -550,9 +549,8 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Диагностика включена/i)).toBeInTheDocument();
-      expect(screen.getByText(/Debug state/i)).toBeInTheDocument();
-      expect(screen.getByText(/Открыть raw snapshot/i)).toBeInTheDocument();
-      expect(screen.getByText(/Зоны игроков/i)).toBeInTheDocument();
+      expect(screen.getByText(/Открыть JSON матча/i)).toBeInTheDocument();
+      expect(screen.getByText(/Состояние сторон/i)).toBeInTheDocument();
     });
   });
 
@@ -607,15 +605,14 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Матч активен/i)).toBeInTheDocument();
-      expect(screen.getByText(/В игре/i)).toBeInTheDocument();
-      expect(screen.getByText(/session_hud_compact/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Параметры подключения/i })).toBeInTheDocument();
+      expect(screen.getByText(/Арена открыта/i)).toBeInTheDocument();
+      expect(screen.getByText(/Матч уже идёт/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Управление матчем/i })).toBeInTheDocument();
       expect(screen.queryByDisplayValue('session_hud_compact')).not.toBeInTheDocument();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Параметры подключения/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Управление матчем/i }));
       await flushMicrotasks();
     });
 
@@ -788,6 +785,291 @@ describe('PlayPvpPage', () => {
       ).toBe(true);
     });
 
+  });
+
+  it('shows scene inspect panel for hovered hand card without expanding the card body inline', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_scene_inspect', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    const spellCardButton = (await screen.findByText('Огненный шар')).closest('button');
+    expect(spellCardButton).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.mouseEnter(spellCardButton!);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const inspectPanel = screen.getByTestId('scene-inspect-panel');
+      expect(inspectPanel).toHaveTextContent('Огненный шар');
+      expect(inspectPanel).toHaveTextContent('Мана 3');
+      expect(inspectPanel).toHaveTextContent('Нанести 4 урона.');
+    });
+  });
+
+  it('shows scene inspect panel for hovered detached action in the battle ribbon', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_scene_ribbon_inspect', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_fireball',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 0,
+            kind: 'CastSpell',
+            cardInstanceId: 'spell_card_1',
+            target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+          },
+        ],
+        boardModel: {
+          playerId: 'user_1',
+          boardItems: [],
+          ribbonEntries: [
+            {
+              id: 'roundAction:draft_fireball',
+              kind: 'roundAction',
+              orderIndex: 0,
+              layer: 'offensive_control_spells',
+              roundActionId: 'draft_fireball',
+            },
+          ],
+          roundActions: [
+            {
+              id: 'draft_fireball',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'char_1',
+              kind: 'CastSpell',
+              source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              placement: { layer: 'offensive_control_spells', orderIndex: 0, queueIndex: 0 },
+              status: 'draft',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    const ribbonActionCard = await screen.findByTestId('battle-ribbon-action-draft_fireball');
+
+    await act(async () => {
+      fireEvent.mouseEnter(ribbonActionCard);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const inspectPanel = screen.getByTestId('scene-inspect-panel');
+      expect(inspectPanel).toHaveTextContent('Огненный шар');
+      expect(inspectPanel).toHaveTextContent('Шаг #1');
+      expect(inspectPanel).toHaveTextContent('Боевое заклинание');
+      expect(inspectPanel).toHaveTextContent('Нанести 4 урона.');
+    });
+  });
+
+  it('shows scene inspect panel for hovered attached inline action in the battle ribbon', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_scene_inline_inspect', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+          boardView: {
+            players: {
+              user_1: {
+                playerId: 'user_1',
+                boardItems: [
+                  {
+                    id: 'creature:ally_creature_1',
+                    runtimeId: 'ally_creature_1',
+                    ownerId: 'user_1',
+                    controllerId: 'user_1',
+                    subtype: 'creature',
+                    lifetimeType: 'persistent',
+                    definitionId: '81',
+                    placement: { layer: 'summon', orderIndex: 0, queueIndex: 0 },
+                    state: { hp: 4, maxHp: 4, attack: 2, speed: 3 },
+                  },
+                ],
+                ribbonEntries: [
+                  {
+                    id: 'boardItem:creature:ally_creature_1',
+                    kind: 'boardItem',
+                    orderIndex: 0,
+                    layer: 'summon',
+                    boardItemId: 'creature:ally_creature_1',
+                    attachedRoundActionIds: ['draft_attack_inline'],
+                  },
+                ],
+              },
+              user_2: {
+                playerId: 'user_2',
+                boardItems: [],
+                ribbonEntries: [],
+              },
+            },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_attack_inline',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'ally_creature_1',
+            queueIndex: 0,
+            kind: 'Attack',
+            sourceCreatureId: 'ally_creature_1',
+            target: {
+              targetType: 'enemyCharacter',
+              targetId: 'char_2',
+            },
+          },
+        ],
+        boardModel: {
+          playerId: 'user_1',
+          boardItems: [
+            {
+              id: 'creature:ally_creature_1',
+              runtimeId: 'ally_creature_1',
+              ownerId: 'user_1',
+              controllerId: 'user_1',
+              subtype: 'creature',
+              lifetimeType: 'persistent',
+              definitionId: '81',
+              placement: { layer: 'summon', orderIndex: 0, queueIndex: 0 },
+              state: { hp: 4, maxHp: 4, attack: 2, speed: 3 },
+            },
+          ],
+          ribbonEntries: [
+            {
+              id: 'boardItem:creature:ally_creature_1',
+              kind: 'boardItem',
+              orderIndex: 0,
+              layer: 'summon',
+              boardItemId: 'creature:ally_creature_1',
+              attachedRoundActionIds: ['draft_attack_inline'],
+            },
+          ],
+          roundActions: [
+            {
+              id: 'draft_attack_inline',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'ally_creature_1',
+              kind: 'Attack',
+              source: { type: 'boardItem', boardItemId: 'creature:ally_creature_1' },
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              placement: { layer: 'attacks', orderIndex: 0, queueIndex: 0 },
+              status: 'draft',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    const inlineAction = await screen.findByTestId('battle-ribbon-inline-action-draft_attack_inline');
+
+    await act(async () => {
+      fireEvent.mouseEnter(inlineAction);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const inspectPanel = screen.getByTestId('scene-inspect-panel');
+      expect(inspectPanel).toHaveTextContent('Атака: ally_creature_1');
+      expect(inspectPanel).toHaveTextContent('Шаг #1');
+      expect(inspectPanel).toHaveTextContent('Связано с полем');
+      expect(inspectPanel).toHaveTextContent('Вражеский маг -> Маг user_2');
+    });
   });
 
   it('does not carry an enemy target into another hand card with a different target contract', async () => {
@@ -1086,7 +1368,7 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getAllByText(new RegExp(`Цель: ${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
+        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
       ).toBeGreaterThan(0);
     });
   });
@@ -1175,7 +1457,7 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getAllByText(new RegExp(`Цель: ${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
+        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
       ).toBeGreaterThan(0);
     });
   });
@@ -1904,10 +2186,10 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Твоя боевая лента/i)).toBeInTheDocument();
-      expect(screen.getByText(/Боевая лента соперника/i)).toBeInTheDocument();
-      expect(screen.getAllByText(/ally_creature_1/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Подготовка соперника/i)).toBeInTheDocument();
+      expect(screen.getByTestId('battle-ribbon-item-creature:ally_creature_1')).toBeInTheDocument();
       expect(screen.getAllByRole('button', { name: /Убрать из ленты/i }).length).toBeGreaterThan(0);
-      expect(screen.getByText(/Ходы: 2/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Ходы: 2/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/Модификаторы/i)).not.toBeInTheDocument();
     });
   });
@@ -2027,10 +2309,10 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Сфера воды/i).length).toBeGreaterThan(0);
       expect(
-        screen.getAllByText(new RegExp(`Цель: ${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
+        screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`, 'i')).length,
       ).toBeGreaterThan(0);
       expect(
-        screen.getAllByText(new RegExp(`Цель: ${getTargetTypeLabel('allyCharacter')} -> Твой маг`, 'i')).length,
+        screen.getAllByText(new RegExp(`${getTargetTypeLabel('allyCharacter')} -> Твой маг`, 'i')).length,
       ).toBeGreaterThan(0);
     });
   });
@@ -2165,7 +2447,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(/Активность в раунде/i)).toBeInTheDocument();
       expect(screen.getByText(/Активно: 1/i)).toBeInTheDocument();
       expect(screen.getAllByText(/Атака: ally_creature_1/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(new RegExp(getResolutionLayerLabel('attacks'), 'i')).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Цель выбрана/i)).toBeInTheDocument();
     });
   });
 
@@ -2421,14 +2703,14 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
-      expect(screen.queryByTestId('enemy-live-workspace')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Подготовка соперника/i)).not.toBeInTheDocument();
       expect(screen.queryByTestId('local-draft-workspace')).not.toBeInTheDocument();
     });
 
     await waitFor(
       () => {
         expect(screen.queryByTestId('resolution-replay-strip')).not.toBeInTheDocument();
-        expect(screen.getByTestId('enemy-live-workspace')).toBeInTheDocument();
+        expect(screen.getByText(/Подготовка соперника/i)).toBeInTheDocument();
         expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
         expect(screen.getByTestId('local-draft-workspace')).toBeInTheDocument();
       },
@@ -2440,7 +2722,7 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
-      expect(screen.queryByTestId('enemy-live-workspace')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Подготовка соперника/i)).not.toBeInTheDocument();
       expect(screen.queryByTestId('local-draft-workspace')).not.toBeInTheDocument();
     });
 
@@ -2448,7 +2730,7 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId('resolution-replay-strip')).not.toBeInTheDocument();
-      expect(screen.getByTestId('enemy-live-workspace')).toBeInTheDocument();
+      expect(screen.getByText(/Подготовка соперника/i)).toBeInTheDocument();
       expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
       expect(screen.getByTestId('local-draft-workspace')).toBeInTheDocument();
     });
@@ -2794,7 +3076,7 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Соперник выставил существо на поле');
-      expect(screen.queryByTestId('enemy-live-workspace')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Подготовка соперника/i)).not.toBeInTheDocument();
       expect(screen.queryByTestId('enemy-playback-highlight-item')).not.toBeInTheDocument();
     });
   });
@@ -2999,7 +3281,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/session_full/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/В матче уже заняты оба PvP-слота/i)).toBeInTheDocument();
       expect(screen.getByText(/Сервер отклонил вход в сессию session_full/i)).toBeInTheDocument();
-      expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
+      expect(screen.getByText(/^Матч:/i)).toHaveTextContent('ещё не подключено');
       expect(screen.getByText('Ожидание матча')).toBeInTheDocument();
     });
   });
@@ -3023,7 +3305,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/Character is already taken in this session/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/Этот персонаж уже занят в матче. Выберите колоду с другим магом/i)).toBeInTheDocument();
       expect(screen.getByText(/Сервер отклонил вход в сессию session_duplicate_character/i)).toBeInTheDocument();
-      expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
+      expect(screen.getByText(/^Матч:/i)).toHaveTextContent('ещё не подключено');
     });
   });
 
@@ -3047,7 +3329,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/unknown_message_type/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/Тип WS-сообщения не поддерживается сервером/i)).toBeInTheDocument();
       expect(screen.getByText(/Сервер отклонил сообщение для action/i)).toBeInTheDocument();
-      expect(screen.getByText(/Активная сессия:/i)).toHaveTextContent('ещё не подключено');
+      expect(screen.getByText(/^Матч:/i)).toHaveTextContent('ещё не подключено');
       expect(screen.getByText('Ожидание матча')).toBeInTheDocument();
     });
   });

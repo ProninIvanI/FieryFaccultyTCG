@@ -1,4 +1,4 @@
-﻿import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { FocusEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCallback } from 'react';
 import {
@@ -88,6 +88,21 @@ interface HandCardSummary {
   attack?: number;
   speed?: number;
 }
+
+interface SceneInspectSummary {
+  id: string;
+  title: string;
+  kicker: string;
+  cornerLabel: string;
+  badges: string[];
+  stats: Array<{ label: string; value: number | string }>;
+  details: string[];
+}
+
+type SceneInspectTarget =
+  | { kind: 'hand'; id: string }
+  | { kind: 'boardItem'; id: string }
+  | { kind: 'roundAction'; id: string };
 
 interface CreatureSummary {
   creatureId: string;
@@ -265,6 +280,95 @@ const getCardSchoolAccentClassName = (school?: string): string => {
   }
 };
 
+const getHandCardCompactMeta = (card: HandCardSummary): string => {
+  const parts = [getCardTypeLabel(card.cardType)];
+
+  if (card.school) {
+    parts.push(getCatalogSchoolLabel(card.school));
+  }
+
+  if (!card.hp && !card.attack && card.speed) {
+    parts.push(`SPD ${card.speed}`);
+  }
+
+  return parts.join(' · ');
+};
+
+const getHandCardInspectSummary = (card: HandCardSummary): SceneInspectSummary => ({
+  id: card.instanceId,
+  title: card.name,
+  kicker: 'Фокус карты',
+  cornerLabel: `Мана ${card.mana}`,
+  badges: [
+    getCardTypeLabel(card.cardType),
+    ...(card.school ? [getCatalogSchoolLabel(card.school)] : []),
+  ],
+  stats: [
+    ...(card.hp ? [{ label: 'HP' as const, value: card.hp }] : []),
+    ...(card.attack ? [{ label: 'ATK' as const, value: card.attack }] : []),
+    ...(card.speed ? [{ label: 'SPD' as const, value: card.speed }] : []),
+  ],
+  details: [
+    card.effect ??
+      (card.cardType === 'summon'
+        ? 'Призыв существа из руки в фазу summon.'
+        : 'Розыгрыш эффекта после фиксации хода и резолва раунда.'),
+  ],
+});
+
+const getBoardItemInspectSummary = (
+  item: BoardItemSummary,
+  options: {
+    attachedActionCount: number;
+    isOwnedByLocalPlayer: boolean;
+  },
+): SceneInspectSummary => ({
+  id: item.id,
+  title: item.title,
+  kicker: item.subtype === 'creature' ? 'Фокус сущности' : 'Фокус эффекта',
+  cornerLabel: `Поле #${item.placementOrderIndex + 1}`,
+  badges: [
+    item.subtype === 'creature' ? 'Существо' : 'Эффект',
+    item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд',
+    getResolutionLayerLabel(item.placementLayer),
+    ...(options.isOwnedByLocalPlayer ? ['Твоё'] : []),
+    ...(item.duration !== undefined ? [getDurationLabel(item.duration)] : []),
+    ...(options.attachedActionCount > 0 ? [`Активно: ${options.attachedActionCount}`] : []),
+  ],
+  stats: [
+    ...(item.hp !== undefined && item.maxHp !== undefined
+      ? [{ label: 'HP', value: `${item.hp}/${item.maxHp}` }]
+      : []),
+    ...(item.attack !== undefined ? [{ label: 'ATK', value: item.attack }] : []),
+    ...(item.speed !== undefined ? [{ label: 'SPD', value: item.speed }] : []),
+  ],
+  details: [item.subtitle],
+});
+
+const getRoundActionInspectSummary = (action: RoundRibbonActionSummary): SceneInspectSummary => ({
+  id: action.id,
+  title: action.title,
+  kicker: 'Фокус действия',
+  cornerLabel: `Шаг #${action.orderIndex + 1}`,
+  badges: [
+    action.modeLabel,
+    action.statusLabel,
+    getResolutionLayerLabel(action.layer),
+    ...(action.sourceType === 'boardItem' ? ['Связано с полем'] : []),
+  ],
+  stats: [...(action.cardSpeed ? [{ label: 'SPD', value: action.cardSpeed }] : [])],
+  details: [
+    action.subtitle,
+    ...(action.targetLabel && action.targetLabel !== action.subtitle ? [`Цель: ${action.targetLabel}`] : []),
+    ...(action.effectSummary ? [action.effectSummary] : []),
+  ],
+});
+
+const isSameSceneInspectTarget = (
+  left: SceneInspectTarget | null,
+  right: SceneInspectTarget,
+): boolean => left?.kind === right.kind && left.id === right.id;
+
 const getRoundActionStatusDisplay = (status: string): string => {
   switch (status) {
     case 'draft':
@@ -350,6 +454,22 @@ const getRoundActionTargetSubtitle = (
 const getRoundActionFocusLabel = (modeLabel: string, targetLabel?: string): string =>
   targetLabel ? `${modeLabel} -> ${targetLabel}` : modeLabel;
 
+const getRoundActionCompactStatusLabel = (action: RoundRibbonActionSummary): string => {
+  if (action.targetLabel) {
+    return 'Цель выбрана';
+  }
+
+  if (action.subtitle === 'Цель уточняется' || action.subtitle === 'Цель не указана') {
+    return 'Нужна цель';
+  }
+
+  if (action.subtitle === 'Без цели') {
+    return 'Без цели';
+  }
+
+  return action.statusLabel;
+};
+
 const getRoundActionTone = (
   layer: ResolutionLayer,
 ): 'summon' | 'defense' | 'attack' | 'support' => {
@@ -402,19 +522,6 @@ const getActionToneBadgeClassName = (layer: ResolutionLayer): string => {
       return styles.cardBadgeToneAttack;
     case 'support':
       return styles.cardBadgeToneSupport;
-  }
-};
-
-const getActionCalloutToneClassName = (layer: ResolutionLayer): string => {
-  switch (getRoundActionTone(layer)) {
-    case 'summon':
-      return styles.ribbonActionCalloutSummon;
-    case 'defense':
-      return styles.ribbonActionCalloutDefense;
-    case 'attack':
-      return styles.ribbonActionCalloutAttack;
-    case 'support':
-      return styles.ribbonActionCalloutSupport;
   }
 };
 
@@ -1050,6 +1157,7 @@ export const PlayPvpPage = () => {
   const [transportRejected, setTransportRejected] = useState<TransportRejectedSummary | null>(null);
   const [joinRejected, setJoinRejected] = useState<JoinRejectedSummary | null>(null);
   const [selection, setSelection] = useState<BattlefieldSelection>(null);
+  const [sceneInspectTarget, setSceneInspectTarget] = useState<SceneInspectTarget | null>(null);
   const [draftTarget, setDraftTarget] = useState<TargetDraft | null>(null);
   const [roundDraft, setRoundDraft] = useState<RoundActionIntentDraft[]>([]);
   const [roundSync, setRoundSync] = useState<RoundSyncSummary | null>(null);
@@ -1405,6 +1513,7 @@ export const PlayPvpPage = () => {
     () => localHandCards.filter((card) => !stagedHandCardIds.has(card.instanceId)),
     [localHandCards, stagedHandCardIds],
   );
+
   const isSelfBoardModelDraftSynced = useMemo(() => {
     if (!selfBoardModel) {
       return false;
@@ -2404,6 +2513,127 @@ export const PlayPvpPage = () => {
           ),
     [isResolvedReplayOpen, localBattleRibbonEntries],
   );
+  const localRoundRibbonItemsById = useMemo(
+    () => new Map(localRoundRibbonItems.map((action) => [action.id, action] as const)),
+    [localRoundRibbonItems],
+  );
+  const localBoardItemAttachedActionCountById = useMemo(
+    () =>
+      new Map(
+        localBattleRibbonEntries.flatMap((entry) =>
+          entry.kind === 'boardItem' ? [[entry.item.id, entry.attachedActions.length] as const] : [],
+        ),
+      ),
+    [localBattleRibbonEntries],
+  );
+  const resolvedSceneInspectTarget = useMemo<SceneInspectTarget | null>(() => {
+    if (sceneInspectTarget) {
+      return sceneInspectTarget;
+    }
+
+    if (selection?.kind === 'hand') {
+      return { kind: 'hand', id: selection.instanceId };
+    }
+
+    if (selection?.kind === 'creature') {
+      const boardItemId = localBoardItemIdByRuntimeId.get(selection.creatureId);
+      return boardItemId ? { kind: 'boardItem', id: boardItemId } : null;
+    }
+
+    return null;
+  }, [localBoardItemIdByRuntimeId, sceneInspectTarget, selection]);
+  const sceneInspectSummary = useMemo(() => {
+    if (!resolvedSceneInspectTarget) {
+      return null;
+    }
+
+    if (resolvedSceneInspectTarget.kind === 'hand') {
+      const card = localHandCards.find((entry) => entry.instanceId === resolvedSceneInspectTarget.id);
+      return card ? getHandCardInspectSummary(card) : null;
+    }
+
+    if (resolvedSceneInspectTarget.kind === 'boardItem') {
+      const item = localBoardItemsById.get(resolvedSceneInspectTarget.id);
+      if (!item) {
+        return null;
+      }
+
+      return getBoardItemInspectSummary(item, {
+        attachedActionCount: localBoardItemAttachedActionCountById.get(item.id) ?? 0,
+        isOwnedByLocalPlayer: item.ownerId === playerId,
+      });
+    }
+
+    const action = localRoundRibbonItemsById.get(resolvedSceneInspectTarget.id);
+    return action ? getRoundActionInspectSummary(action) : null;
+  }, [
+    localBoardItemAttachedActionCountById,
+    localBoardItemsById,
+    localHandCards,
+    localRoundRibbonItemsById,
+    playerId,
+    resolvedSceneInspectTarget,
+  ]);
+  const inspectedHandCardId = resolvedSceneInspectTarget?.kind === 'hand' ? resolvedSceneInspectTarget.id : null;
+  const inspectedBoardItemId = resolvedSceneInspectTarget?.kind === 'boardItem' ? resolvedSceneInspectTarget.id : null;
+  const inspectedRoundActionId =
+    resolvedSceneInspectTarget?.kind === 'roundAction' ? resolvedSceneInspectTarget.id : null;
+  const sceneInspectSelectionLabel = useMemo(() => {
+    if (!resolvedSceneInspectTarget) {
+      return null;
+    }
+
+    if (resolvedSceneInspectTarget.kind === 'hand') {
+      return selection?.kind === 'hand' && selection.instanceId === resolvedSceneInspectTarget.id
+        ? 'Выбрана'
+        : null;
+    }
+
+    if (resolvedSceneInspectTarget.kind === 'boardItem') {
+      const selectedBoardItemId =
+        selection?.kind === 'creature' ? localBoardItemIdByRuntimeId.get(selection.creatureId) ?? null : null;
+      return selectedBoardItemId === resolvedSceneInspectTarget.id ? 'Выбрана' : null;
+    }
+
+    return null;
+  }, [localBoardItemIdByRuntimeId, resolvedSceneInspectTarget, selection]);
+  const handleSceneInspectLeave = useCallback((target: SceneInspectTarget) => {
+    setSceneInspectTarget((current) => (isSameSceneInspectTarget(current, target) ? null : current));
+  }, []);
+  const handleSceneInspectBlur = useCallback(
+    (event: FocusEvent<HTMLElement>, target: SceneInspectTarget) => {
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        return;
+      }
+
+      handleSceneInspectLeave(target);
+    },
+    [handleSceneInspectLeave],
+  );
+
+  useEffect(() => {
+    if (!sceneInspectTarget) {
+      return;
+    }
+
+    if (sceneInspectTarget.kind === 'hand') {
+      if (!localHandCards.some((card) => card.instanceId === sceneInspectTarget.id)) {
+        setSceneInspectTarget(null);
+      }
+      return;
+    }
+
+    if (sceneInspectTarget.kind === 'boardItem') {
+      if (!localBoardItemsById.has(sceneInspectTarget.id)) {
+        setSceneInspectTarget(null);
+      }
+      return;
+    }
+
+    if (!localRoundRibbonItemsById.has(sceneInspectTarget.id)) {
+      setSceneInspectTarget(null);
+    }
+  }, [localBoardItemsById, localHandCards, localRoundRibbonItemsById, sceneInspectTarget]);
   const hasLocalBattleRibbonEntries = visibleLocalBattleRibbonEntries.length > 0;
 
   const resolvedTimelineEntries = useMemo<ResolvedTimelineEntrySummary[]>(
@@ -2435,7 +2665,6 @@ export const PlayPvpPage = () => {
   const isEnemyHandEmpty = (primaryEnemyBoard?.handSize ?? 0) === 0;
   const isLocalLaneEmpty = !hasLocalBattleRibbonEntries;
   const enemyPreparationCount = Math.max(0, roundSync?.opponentDraftCount ?? 0);
-  const enemyPreparationStateLabel = roundSync?.opponentLocked ? 'Ход зафиксирован' : 'Собирает скрытую ленту';
   const enemyPreparationToneClassName = roundSync?.opponentLocked
     ? styles.opponentIntentTrayLocked
     : styles.opponentIntentTrayActive;
@@ -3288,13 +3517,10 @@ export const PlayPvpPage = () => {
                       {!isResolvedReplayOpen ? (
                         <section className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}>
                           <div className={styles.battleLaneHeader}>
-                            <div>
-                              <span className={styles.summaryLabel}>Рука соперника</span>
-                              <strong>{(primaryEnemyBoard?.handSize ?? 0) > 0 ? 'Карты оппонента' : 'Рука пуста'}</strong>
-                            </div>
-                            <span className={styles.battleCount}>
-                              {(primaryEnemyBoard?.handSize ?? 0)} карт · колода {primaryEnemyBoard?.deckSize ?? 0}
-                            </span>
+                            <strong className={styles.topZoneTitle}>
+                              {(primaryEnemyBoard?.handSize ?? 0) > 0 ? 'Рука соперника' : 'Рука пуста'}
+                            </strong>
+                            <span className={styles.battleCount}>{(primaryEnemyBoard?.handSize ?? 0)} карт</span>
                           </div>
                           {(primaryEnemyBoard?.handSize ?? 0) > 0 ? (
                             <div className={styles.opponentHandFanGrid} aria-hidden="true">
@@ -3312,17 +3538,14 @@ export const PlayPvpPage = () => {
                     <>
                   <section className={`${styles.opponentIntentTray} ${enemyPreparationToneClassName}`.trim()}>
                     <div className={styles.battleLaneHeader}>
-                      <div>
-                        <span className={styles.summaryLabel}>Скрытая подготовка</span>
-                        <strong>{enemyPreparationStateLabel}</strong>
-                      </div>
-                      <span className={styles.battleCount}>
-                        {enemyPreparationCount > 0
-                          ? `${enemyPreparationCount} ${enemyPreparationCount === 1 ? 'действие' : enemyPreparationCount < 5 ? 'действия' : 'действий'}`
-                          : roundSync?.opponentLocked
-                            ? 'Соперник готов'
-                            : 'Пока пусто'}
-                      </span>
+                      <strong className={styles.topZoneTitle}>Подготовка соперника</strong>
+                      {enemyPreparationCount > 0 || roundSync?.opponentLocked ? (
+                        <span className={styles.battleCount}>
+                          {enemyPreparationCount > 0
+                            ? `${enemyPreparationCount} ${enemyPreparationCount === 1 ? 'действие' : enemyPreparationCount < 5 ? 'действия' : 'действий'}`
+                            : 'Готово'}
+                        </span>
+                      ) : null}
                     </div>
                     <div className={styles.opponentIntentFan} aria-hidden="true">
                       {enemyPreparationCount > 0 ? (
@@ -3333,7 +3556,7 @@ export const PlayPvpPage = () => {
                           />
                         ))
                       ) : (
-                        <span className={styles.opponentIntentEmpty}>Соперник ещё не выложил действия</span>
+                        <span className={styles.opponentIntentEmpty} />
                       )}
                     </div>
                   </section>
@@ -3355,17 +3578,27 @@ export const PlayPvpPage = () => {
                                 selection?.kind === 'creature' &&
                                 selection.creatureId === item.runtimeId;
                               const isPlaybackBoardItemActive = visibleLocalPlaybackSourceBoardItemId === item.id;
+                              const boardItemInspectTarget: SceneInspectTarget = { kind: 'boardItem', id: item.id };
                               const localCardClassName = [
                                 styles.ribbonCard,
                                 item.subtype === 'effect' ? styles.ribbonCardEffect : styles.ribbonCardLocal,
                                 attachedActions.length > 0 ? styles.ribbonCardActive : '',
                                 isPlaybackBoardItemActive ? styles.ribbonCardPlaybackActive : '',
+                                inspectedBoardItemId === item.id ? styles.ribbonCardInspected : '',
                               ]
                                 .filter(Boolean)
                                 .join(' ');
 
                               return item.subtype === 'creature' ? (
-                                <div key={entry.id} className={localCardClassName}>
+                                <div
+                                  key={entry.id}
+                                  className={localCardClassName}
+                                  data-testid={`battle-ribbon-item-${item.id}`}
+                                  onMouseEnter={() => setSceneInspectTarget(boardItemInspectTarget)}
+                                  onMouseLeave={() => handleSceneInspectLeave(boardItemInspectTarget)}
+                                  onFocusCapture={() => setSceneInspectTarget(boardItemInspectTarget)}
+                                  onBlurCapture={(event) => handleSceneInspectBlur(event, boardItemInspectTarget)}
+                                >
                                   <button
                                     className={`${styles.selectionSurface} ${selection?.kind === 'creature' && selection.creatureId === item.runtimeId ? styles.selectionSurfaceActive : ''} ${isSelectableTarget(item.runtimeId) ? styles.selectionSurfaceTargetable : ''} ${isDraftTargetActive(item.runtimeId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
                                     aria-label={getTargetButtonAriaLabel(`Существо ${item.runtimeId}`, isSelectableTarget(item.runtimeId))}
@@ -3377,53 +3610,63 @@ export const PlayPvpPage = () => {
                                     }
                                   >
                                     <div className={styles.ribbonHeader}>
-                                      <div>
-                                        <span className={styles.summaryLabel}>Существо на поле</span>
-                                        <strong>{item.title}</strong>
-                                      </div>
+                                      <strong className={styles.ribbonCompactTitle}>{item.title}</strong>
                                       <div className={styles.ribbonBadgeRow}>
                                         <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
-                                        <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
-                                        <span className={styles.cardBadge}>Твоё</span>
                                         {attachedActions.length > 0 ? (
                                           <span className={styles.cardBadge}>Активно: {attachedActions.length}</span>
                                         ) : null}
                                       </div>
                                     </div>
-                                    <span className={styles.hint}>{item.runtimeId}</span>
                                     <div className={styles.ribbonStats}>
                                       <span>HP {item.hp ?? 0}/{item.maxHp ?? 0}</span>
                                       <span>ATK {item.attack ?? 0}</span>
                                       <span>SPD {item.speed ?? 0}</span>
                                     </div>
+                                    {showDiagnostics ? (
+                                      <div className={styles.ribbonCompactMeta}>
+                                        <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
+                                        <span className={styles.cardBadge}>Твоё</span>
+                                        <span className={styles.ribbonCompactMetaText}>{item.runtimeId}</span>
+                                      </div>
+                                    ) : null}
                                   </button>
                                   {attachedActions.length > 0 ? (
                                     <div className={styles.ribbonActionStack}>
                                       <span className={styles.summaryLabel}>Активность в раунде</span>
-                                      {attachedActions.map((action) => (
+                                      {attachedActions.map((action) => {
+                                        const actionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
+
+                                        return (
                                         <div
                                           key={`${item.id}_${action.id}`}
                                           className={`${styles.ribbonInlineAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonInlineActionActive : ''}`.trim()}
-                                          data-testid={activeLocalPlaybackIntentId === action.id ? 'local-playback-inline-action' : undefined}
+                                          data-testid={
+                                            activeLocalPlaybackIntentId === action.id
+                                              ? 'local-playback-inline-action'
+                                              : `battle-ribbon-inline-action-${action.id}`
+                                          }
+                                          onMouseEnter={() => setSceneInspectTarget(actionInspectTarget)}
+                                          onMouseLeave={() => setSceneInspectTarget(boardItemInspectTarget)}
+                                          onFocusCapture={() => setSceneInspectTarget(actionInspectTarget)}
+                                          onBlurCapture={(event) => handleSceneInspectBlur(event, actionInspectTarget)}
                                         >
-                                          <div className={styles.ribbonBadgeRow}>
-                                            <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
-                                            <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
-                                            <span className={styles.cardBadge}>{action.statusLabel}</span>
-                                            <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
-                                          </div>
-                                          <div className={styles.ribbonActionText}>
-                                            <strong>{action.title}</strong>
-                                            <span>{action.subtitle}</span>
-                                          </div>
-                                          <div className={`${styles.ribbonActionCallout} ${getActionCalloutToneClassName(action.layer)}`.trim()}>
-                                            <span className={styles.ribbonActionCalloutMode}>Сейчас выбрано</span>
-                                            <strong className={styles.ribbonActionCalloutFocus}>{action.focusLabel}</strong>
-                                          </div>
-                                          {action.targetLabel ? (
+                                          <div className={styles.ribbonInlineActionHeader}>
+                                            <strong className={styles.ribbonCompactTitle}>{action.title}</strong>
                                             <div className={styles.ribbonBadgeRow}>
-                                              <span className={`${styles.cardBadge} ${styles.cardBadgeTarget}`.trim()}>
-                                                Цель: {action.targetLabel}
+                                              <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
+                                              <span className={styles.cardBadge}>{getRoundActionCompactStatusLabel(action)}</span>
+                                              {action.cardSpeed ? (
+                                                <span className={styles.handStatPill}>SPD {action.cardSpeed}</span>
+                                              ) : null}
+                                            </div>
+                                          </div>
+                                          {showDiagnostics ? (
+                                            <div className={styles.ribbonCompactMeta}>
+                                              <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
+                                              <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
+                                              <span className={styles.ribbonCompactMetaText}>
+                                                {action.targetLabel ?? action.subtitle}
                                               </span>
                                             </div>
                                           ) : null}
@@ -3439,7 +3682,8 @@ export const PlayPvpPage = () => {
                                             </button>
                                           </div>
                                         </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   ) : null}
                                   {isSelectedBoardCreature && item.ownerId === playerId ? (
@@ -3492,49 +3736,67 @@ export const PlayPvpPage = () => {
                                   ) : null}
                                 </div>
                               ) : (
-                                <div key={entry.id} className={localCardClassName}>
+                                <div
+                                  key={entry.id}
+                                  className={localCardClassName}
+                                  data-testid={`battle-ribbon-item-${item.id}`}
+                                  onMouseEnter={() => setSceneInspectTarget(boardItemInspectTarget)}
+                                  onMouseLeave={() => handleSceneInspectLeave(boardItemInspectTarget)}
+                                  onFocusCapture={() => setSceneInspectTarget(boardItemInspectTarget)}
+                                  onBlurCapture={(event) => handleSceneInspectBlur(event, boardItemInspectTarget)}
+                                >
                                   <div className={styles.ribbonHeader}>
-                                    <div>
-                                      <span className={styles.summaryLabel}>Эффект на поле</span>
-                                      <strong>{item.title}</strong>
-                                    </div>
+                                    <strong className={styles.ribbonCompactTitle}>{item.title}</strong>
                                     <div className={styles.ribbonBadgeRow}>
                                       <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
-                                      <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
                                       {item.duration !== undefined ? <span className={styles.cardBadge}>{getDurationLabel(item.duration)}</span> : null}
                                       {attachedActions.length > 0 ? (
                                         <span className={styles.cardBadge}>Активно: {attachedActions.length}</span>
                                       ) : null}
                                     </div>
                                   </div>
-                                  <span className={styles.hint}>{item.subtitle}</span>
+                                  {showDiagnostics ? (
+                                    <div className={styles.ribbonCompactMeta}>
+                                      <span className={styles.cardBadge}>{getResolutionLayerLabel(item.placementLayer)}</span>
+                                      <span className={styles.ribbonCompactMetaText}>{item.subtitle}</span>
+                                    </div>
+                                  ) : null}
                                   {attachedActions.length > 0 ? (
                                     <div className={styles.ribbonActionStack}>
                                       <span className={styles.summaryLabel}>Активность в раунде</span>
-                                      {attachedActions.map((action) => (
+                                      {attachedActions.map((action) => {
+                                        const actionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
+
+                                        return (
                                         <div
                                           key={`${item.id}_${action.id}`}
                                           className={`${styles.ribbonInlineAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonInlineActionActive : ''}`.trim()}
-                                          data-testid={activeLocalPlaybackIntentId === action.id ? 'local-playback-inline-action' : undefined}
+                                          data-testid={
+                                            activeLocalPlaybackIntentId === action.id
+                                              ? 'local-playback-inline-action'
+                                              : `battle-ribbon-inline-action-${action.id}`
+                                          }
+                                          onMouseEnter={() => setSceneInspectTarget(actionInspectTarget)}
+                                          onMouseLeave={() => setSceneInspectTarget(boardItemInspectTarget)}
+                                          onFocusCapture={() => setSceneInspectTarget(actionInspectTarget)}
+                                          onBlurCapture={(event) => handleSceneInspectBlur(event, actionInspectTarget)}
                                         >
-                                          <div className={styles.ribbonBadgeRow}>
-                                            <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
-                                            <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
-                                            <span className={styles.cardBadge}>{action.statusLabel}</span>
-                                            <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
-                                          </div>
-                                          <div className={styles.ribbonActionText}>
-                                            <strong>{action.title}</strong>
-                                            <span>{action.subtitle}</span>
-                                          </div>
-                                          <div className={`${styles.ribbonActionCallout} ${getActionCalloutToneClassName(action.layer)}`.trim()}>
-                                            <span className={styles.ribbonActionCalloutMode}>Сейчас выбрано</span>
-                                            <strong className={styles.ribbonActionCalloutFocus}>{action.focusLabel}</strong>
-                                          </div>
-                                          {action.targetLabel ? (
+                                          <div className={styles.ribbonInlineActionHeader}>
+                                            <strong className={styles.ribbonCompactTitle}>{action.title}</strong>
                                             <div className={styles.ribbonBadgeRow}>
-                                              <span className={`${styles.cardBadge} ${styles.cardBadgeTarget}`.trim()}>
-                                                Цель: {action.targetLabel}
+                                              <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
+                                              <span className={styles.cardBadge}>{getRoundActionCompactStatusLabel(action)}</span>
+                                              {action.cardSpeed ? (
+                                                <span className={styles.handStatPill}>SPD {action.cardSpeed}</span>
+                                              ) : null}
+                                            </div>
+                                          </div>
+                                          {showDiagnostics ? (
+                                            <div className={styles.ribbonCompactMeta}>
+                                              <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
+                                              <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
+                                              <span className={styles.ribbonCompactMetaText}>
+                                                {action.targetLabel ?? action.subtitle}
                                               </span>
                                             </div>
                                           ) : null}
@@ -3550,7 +3812,8 @@ export const PlayPvpPage = () => {
                                             </button>
                                           </div>
                                         </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   ) : null}
                                 </div>
@@ -3560,12 +3823,21 @@ export const PlayPvpPage = () => {
                             const action = entry.action;
                             const ribbonTargetOptions = action.targetType ? getRibbonTargetOptions(action.targetType) : [];
                             const canAdjustActionTarget = action.sourceType === 'card' && ribbonTargetOptions.length > 0;
+                            const roundActionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
 
                             return (
                               <div
                                 key={entry.id}
-                                className={`${styles.ribbonCard} ${styles.ribbonCardAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonCardPlaybackActive : ''}`.trim()}
-                                data-testid={activeLocalPlaybackIntentId === action.id ? 'local-playback-action-card' : undefined}
+                                className={`${styles.ribbonCard} ${styles.ribbonCardAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonCardPlaybackActive : ''} ${inspectedRoundActionId === action.id ? styles.ribbonCardInspected : ''}`.trim()}
+                                data-testid={
+                                  activeLocalPlaybackIntentId === action.id
+                                    ? 'local-playback-action-card'
+                                    : `battle-ribbon-action-${action.id}`
+                                }
+                                onMouseEnter={() => setSceneInspectTarget(roundActionInspectTarget)}
+                                onMouseLeave={() => handleSceneInspectLeave(roundActionInspectTarget)}
+                                onFocusCapture={() => setSceneInspectTarget(roundActionInspectTarget)}
+                                onBlurCapture={(event) => handleSceneInspectBlur(event, roundActionInspectTarget)}
                               >
                                 <div className={styles.ribbonActionLayout}>
                                   {canAdjustActionTarget ? (
@@ -3586,51 +3858,33 @@ export const PlayPvpPage = () => {
                                   ) : null}
                                   <div className={styles.ribbonActionBody}>
                                     <div className={styles.ribbonHeader}>
-                                      <div className={styles.ribbonActionMain}>
-                                        <strong>{action.title}</strong>
-                                      </div>
+                                      <strong className={`${styles.ribbonCompactTitle} ${styles.ribbonActionMain}`.trim()}>
+                                        {action.title}
+                                      </strong>
                                       <div className={styles.ribbonBadgeRow}>
                                         <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(action.layer)}`.trim()}>{action.modeLabel}</span>
-                                        {showDiagnostics ? (
-                                          <>
-                                            <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
-                                            <span className={styles.cardBadge}>{action.statusLabel}</span>
-                                          </>
-                                        ) : null}
+                                        <span className={styles.cardBadge}>{getRoundActionCompactStatusLabel(action)}</span>
+                                        {action.cardSpeed ? <span className={styles.handStatPill}>SPD {action.cardSpeed}</span> : null}
                                       </div>
                                     </div>
-                                    {action.cardSpeed || action.effectSummary ? (
-                                      <div className={styles.ribbonActionDetails}>
-                                        {action.cardSpeed ? <span className={styles.handStatPill}>SPD {action.cardSpeed}</span> : null}
-                                        {action.effectSummary ? (
-                                          <span className={styles.ribbonActionEffect}>{action.effectSummary}</span>
-                                        ) : null}
+                                    {showDiagnostics ? (
+                                      <div className={styles.ribbonCompactMeta}>
+                                        <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span>
+                                        <span className={styles.cardBadge}>{action.statusLabel}</span>
+                                        <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
                                       </div>
                                     ) : null}
-                                    {showDiagnostics ? (
-                                      <div className={`${styles.ribbonActionCallout} ${getActionCalloutToneClassName(action.layer)}`.trim()}>
-                                        <span className={styles.ribbonActionCalloutMode}>
-                                          {canAdjustActionTarget ? 'Выбранная цель' : 'Сейчас выбрано'}
+                                    {showDiagnostics && (action.targetLabel || action.subtitle) ? (
+                                      <div className={styles.ribbonCompactMeta}>
+                                        <span className={styles.ribbonCompactMetaText}>
+                                          {action.targetLabel ?? action.subtitle}
                                         </span>
-                                        <strong className={styles.ribbonActionCalloutFocus}>
-                                          {action.targetLabel ?? action.focusLabel}
-                                        </strong>
                                       </div>
                                     ) : null}
                                     <span className={styles.ribbonActionAssistive}>
                                       {action.targetLabel ?? action.subtitle}
                                     </span>
                                     {renderIntentValidationErrors(action.id)}
-                                    {showDiagnostics ? (
-                                      <div className={styles.ribbonBadgeRow}>
-                                        <span className={styles.cardBadge}>{getResolutionLayerLabel(action.layer)}</span>
-                                        {action.targetLabel ? (
-                                          <span className={`${styles.cardBadge} ${styles.cardBadgeTarget}`.trim()}>
-                                            Цель: {action.targetLabel}
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                    ) : null}
                                     <div className={styles.inlineActions}>
                                       <button
                                         className={styles.secondaryButton}
@@ -3687,7 +3941,13 @@ export const PlayPvpPage = () => {
                           {availableHandCards.map((card) => (
                             <div
                               key={card.instanceId}
-                              className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''} ${getCardAccentClassName(card.cardType)}`.trim()}
+                              className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''} ${getCardAccentClassName(card.cardType)} ${inspectedHandCardId === card.instanceId ? styles.handCardInspected : ''}`.trim()}
+                              onMouseEnter={() => setSceneInspectTarget({ kind: 'hand', id: card.instanceId })}
+                              onMouseLeave={() => handleSceneInspectLeave({ kind: 'hand', id: card.instanceId })}
+                              onFocusCapture={() => setSceneInspectTarget({ kind: 'hand', id: card.instanceId })}
+                              onBlurCapture={(event) =>
+                                handleSceneInspectBlur(event, { kind: 'hand', id: card.instanceId })
+                              }
                             >
                               <button
                                 className={`${styles.selectionSurface} ${selection?.kind === 'hand' && selection.instanceId === card.instanceId ? styles.selectionSurfaceActive : ''}`.trim()}
@@ -3709,6 +3969,7 @@ export const PlayPvpPage = () => {
                                 </div>
                                 <div className={styles.handCardBody}>
                                   <strong className={styles.handCardTitle}>{card.name}</strong>
+                                  <span className={styles.handCardCompactMeta}>{getHandCardCompactMeta(card)}</span>
                                   {(card.hp || card.attack || card.speed) ? (
                                     <div className={styles.handCardStats}>
                                       {card.hp ? <span className={styles.handStatPill}>HP {card.hp}</span> : null}
@@ -3716,20 +3977,7 @@ export const PlayPvpPage = () => {
                                       {card.speed ? <span className={styles.handStatPill}>SPD {card.speed}</span> : null}
                                     </div>
                                   ) : null}
-                                  {card.effect ? (
-                                    <span className={styles.handCardEffect}>{card.effect}</span>
-                                  ) : (
-                                    <span className={styles.handCardSubtitle}>
-                                      {card.cardType === 'summon' ? 'Призыв существа' : 'Розыгрыш эффекта'}
-                                    </span>
-                                  )}
-                                  {handCardIntentIdsByInstanceId.has(card.instanceId) ? (
-                                    <div className={styles.handCardFooter}>
-                                      <div className={styles.handMetaRow}>
-                                        <span className={styles.cardBadge}>В ленте</span>
-                                      </div>
-                                    </div>
-                                  ) : null}
+                                  <span className={styles.handCardSubtitle}>Подробности по hover, focus или выбору</span>
                                 </div>
                               </button>
                             </div>
@@ -3743,6 +3991,47 @@ export const PlayPvpPage = () => {
                         )
                       )}
                     </section>
+                    {!isResolvedReplayOpen && sceneInspectSummary ? (
+                      <aside className={styles.fieldInspectPanel} data-testid="scene-inspect-panel" aria-live="polite">
+                        <div className={styles.sceneInspectPanel}>
+                          <div className={styles.sceneInspectHeader}>
+                            <div className={styles.sceneInspectHeading}>
+                              <span className={styles.summaryLabel}>{sceneInspectSummary.kicker}</span>
+                              <strong className={styles.sceneInspectTitle}>{sceneInspectSummary.title}</strong>
+                            </div>
+                            <span className={styles.sceneInspectCorner}>{sceneInspectSummary.cornerLabel}</span>
+                          </div>
+                          <div className={styles.sceneInspectBadgeRow}>
+                            {sceneInspectSummary.badges.map((badge) => (
+                              <span key={`${sceneInspectSummary.id}_${badge}`} className={styles.cardBadge}>
+                                {badge}
+                              </span>
+                            ))}
+                            {sceneInspectSelectionLabel ? (
+                              <span className={`${styles.cardBadge} ${styles.cardBadgeTarget}`.trim()}>
+                                {sceneInspectSelectionLabel}
+                              </span>
+                            ) : null}
+                          </div>
+                          {sceneInspectSummary.stats.length > 0 ? (
+                            <div className={styles.sceneInspectStats}>
+                              {sceneInspectSummary.stats.map((stat) => (
+                                <span key={`${sceneInspectSummary.id}_${stat.label}`} className={styles.handStatPill}>
+                                  {stat.label} {stat.value}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          <div className={styles.sceneInspectDetails}>
+                            {sceneInspectSummary.details.map((detail, index) => (
+                              <p key={`${sceneInspectSummary.id}_${index}`} className={styles.sceneInspectDetail}>
+                                {detail}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      </aside>
+                    ) : null}
                     </>
                   ) : null}
                     </section>

@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-14 update: continued the PvP battlefield presentation pass in `PlayPvpPage`. Hand, board, detached actions, and attached inline actions now share a scene-level `compact -> inspect` model with a unified hover/focus/selection inspect panel, while the local battle ribbon itself was compacted so detailed targets/effects no longer stay expanded inside every card by default.
+
 > 2026-04-11 update: removed the remaining dev-facing tone from the shared frontend chrome. The global page header no longer renders as a framed utility panel, Home and the main navigation now use academy-facing copy instead of debug/test wording, and Login/Register plus the major content sections were renamed toward player-facing language.
 
 > 2026-04-11 update: refreshed the library-theme UI shell across the frontend. Shared page headers now use the new academy-styled panel treatment, Home keeps theme switching only inside the authenticated user menu via the modal chooser, the chooser cards were compacted to title-plus-checkmark with hover descriptions, and Login/Register now include a direct path back to the home screen.
