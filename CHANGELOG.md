@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-15 update: simplified the PvP battlefield presentation inside `FieldFrame`. The internal enemy/local table zones now keep their layout structure but no longer render as boxed sub-panels with their own backgrounds, borders, and decorative divider lines, so the arena reads more like one continuous play surface.
+
 > 2026-04-15 update: polished two PvP interaction bugs. Removing a queued card or action from the local ribbon now clears the related inspect/selection state instead of re-sticking the card details, and the opponent hidden-draft area no longer renders the stray placeholder slash when it is empty.
 
 > 2026-04-15 update: revised the opponent upper battlefield in PvP. Enemy hand now shows only the cards still visibly in hand after hidden draft actions are staged, the old `Подготовка соперника` text chrome was removed, and the hidden staged card became much larger so the opponent turn reads as battlefield presence instead of a tiny marker.
