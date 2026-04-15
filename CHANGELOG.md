@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-15 update: corrected the PvP battlefield container chain so the inner `boardShell` stretches with the large `sceneBoardCard` instead of collapsing to content height, removing the false empty tail under the live scene. The temporary hand-card `Карточка` label was also removed.
+
 > 2026-04-15 update: refined the current PvP `compact -> inspect` pass in `PlayPvpPage`. Scene inspect now behaves as a true hover layer for laid cards and inline actions instead of sticking to board selection, the inspect panel itself is denser and no longer shows dev-facing headings, queued cards lean harder into an art-first compact state with details moved into inspect, and the opponent preparation zone was enlarged for better battlefield balance.
 
 > 2026-04-14 update: continued the PvP battlefield presentation pass in `PlayPvpPage`. Hand, board, detached actions, and attached inline actions now share a scene-level `compact -> inspect` model with a unified hover/focus/selection inspect panel, while the local battle ribbon itself was compacted so detailed targets/effects no longer stay expanded inside every card by default.

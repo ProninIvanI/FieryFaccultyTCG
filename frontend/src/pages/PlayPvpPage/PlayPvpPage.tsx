@@ -3907,7 +3907,6 @@ export const PlayPvpPage = () => {
                                 >
                                   <div className={styles.handCardTop}>
                                     <span className={styles.handManaGem}>{card.mana}</span>
-                                    <span className={styles.handCardArtworkCaption}>Карточка</span>
                                   </div>
                                 </div>
                                 <div className={styles.handCardBody}>
