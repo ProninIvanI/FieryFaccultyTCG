@@ -1598,40 +1598,64 @@
   grid-template-rows: minmax(0, 1fr);
   align-content: end;
   justify-items: center;
-  padding: 10px 0 18px;
+  padding: 0 0 8px;
 }
 
-.playerBattleLane .ribbonSection {
+.playerPrepBand {
+  width: min(100%, 640px);
+  min-height: 176px;
+  display: grid;
+  align-content: end;
+  justify-items: center;
+  padding: 54px 0 16px;
+  margin-top: auto;
+  position: relative;
+}
+
+.playerPrepBand::before {
+  content: "";
+  position: absolute;
+  inset: 18px 12px 0;
+  border-radius: 28px 28px 22px 22px;
+  background:
+    radial-gradient(circle at 50% 100%, rgba(196, 154, 90, 0.12), transparent 58%),
+    linear-gradient(180deg, rgba(255, 248, 236, 0.03), rgba(255, 248, 236, 0));
+  pointer-events: none;
+}
+
+.playerPrepBand .ribbonSection {
   width: min(100%, 560px);
   justify-self: center;
   align-self: end;
-  margin-bottom: 4px;
+  margin-bottom: 0;
+  position: relative;
+  z-index: 1;
 }
 
-.playerBattleLane .ribbonGrid {
+.playerPrepBand .ribbonGrid {
   justify-content: center;
   grid-auto-columns: minmax(150px, 176px);
   gap: 14px;
-  padding: 8px 18px 6px;
+  padding: 6px 18px 6px;
 }
 
-.playerBattleLane .ribbonGrid > * {
+.playerPrepBand .ribbonGrid > * {
   position: relative;
   transform-origin: center bottom;
   transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
-.playerBattleLane .ribbonGrid > *:nth-child(odd) {
-  transform: translateY(10px) rotate(-2.2deg);
+.playerPrepBand .ribbonGrid > *:nth-child(odd) {
+  transform: translateY(8px) rotate(-2.2deg);
 }
 
-.playerBattleLane .ribbonGrid > *:nth-child(even) {
-  transform: translateY(4px) rotate(1.8deg);
+.playerPrepBand .ribbonGrid > *:nth-child(even) {
+  transform: translateY(2px) rotate(1.8deg);
 }
 
-.playerBattleLane .ribbonGrid > *:hover,
-.playerBattleLane .ribbonGrid > *:focus-within {
-  transform: translateY(-8px) rotate(0deg) scale(1.02);
+.playerPrepBand .ribbonGrid > *:hover,
+.playerPrepBand .ribbonGrid > *:focus-within {
+  transform: translateY(-10px) rotate(0deg) scale(1.02);
   z-index: 3;
 }
 
@@ -2290,7 +2314,7 @@
 
 .localHandTray {
   min-height: 108px;
-  margin: 0 4px -4px;
+  margin: -8px 4px -4px;
   padding: 0;
   border-color: transparent;
   background: transparent;

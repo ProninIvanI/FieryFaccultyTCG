@@ -3574,9 +3574,10 @@ export const PlayPvpPage = () => {
                   </section>
                   <section className={`${styles.battleLane} ${styles.playerBattleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">
                     {hasLocalBattleRibbonEntries ? (
-                      <div className={styles.ribbonSection}>
-                        <div className={styles.ribbonGrid}>
-                          {visibleLocalBattleRibbonEntries.map((entry) => {
+                      <div className={styles.playerPrepBand}>
+                        <div className={styles.ribbonSection}>
+                          <div className={styles.ribbonGrid}>
+                            {visibleLocalBattleRibbonEntries.map((entry) => {
                             if (entry.kind === 'boardItem') {
                               const { item, attachedActions } = entry;
                               const isSelectedBoardCreature =
@@ -3807,70 +3808,71 @@ export const PlayPvpPage = () => {
                             const canAdjustActionTarget = action.sourceType === 'card' && ribbonTargetOptions.length > 0;
                             const roundActionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
 
-                            return (
-                              <div
-                                key={entry.id}
-                                className={`${styles.ribbonCard} ${styles.ribbonCardAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonCardPlaybackActive : ''} ${inspectedRoundActionId === action.id ? styles.ribbonCardInspected : ''}`.trim()}
-                                data-testid={
-                                  activeLocalPlaybackIntentId === action.id
-                                    ? 'local-playback-action-card'
-                                    : `battle-ribbon-action-${action.id}`
-                                }
-                                onMouseEnter={() => setSceneInspectTarget(roundActionInspectTarget)}
-                                onMouseLeave={() => handleSceneInspectLeave(roundActionInspectTarget)}
-                                onFocusCapture={() => setSceneInspectTarget(roundActionInspectTarget)}
-                                onBlurCapture={(event) => handleSceneInspectBlur(event, roundActionInspectTarget)}
-                              >
-                                <div className={styles.ribbonActionLayout}>
-                                  {canAdjustActionTarget ? (
-                                    <div className={styles.ribbonTargetTabs} aria-label="Выбор цели для действия">
-                                      {ribbonTargetOptions.map((candidate) => (
+                              return (
+                                <div
+                                  key={entry.id}
+                                  className={`${styles.ribbonCard} ${styles.ribbonCardAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonCardPlaybackActive : ''} ${inspectedRoundActionId === action.id ? styles.ribbonCardInspected : ''}`.trim()}
+                                  data-testid={
+                                    activeLocalPlaybackIntentId === action.id
+                                      ? 'local-playback-action-card'
+                                      : `battle-ribbon-action-${action.id}`
+                                  }
+                                  onMouseEnter={() => setSceneInspectTarget(roundActionInspectTarget)}
+                                  onMouseLeave={() => handleSceneInspectLeave(roundActionInspectTarget)}
+                                  onFocusCapture={() => setSceneInspectTarget(roundActionInspectTarget)}
+                                  onBlurCapture={(event) => handleSceneInspectBlur(event, roundActionInspectTarget)}
+                                >
+                                  <div className={styles.ribbonActionLayout}>
+                                    {canAdjustActionTarget ? (
+                                      <div className={styles.ribbonTargetTabs} aria-label="Выбор цели для действия">
+                                        {ribbonTargetOptions.map((candidate) => (
+                                          <button
+                                            key={`${action.id}_${candidate.id}`}
+                                            className={`${styles.ribbonTargetTab} ${action.targetId === candidate.id ? styles.ribbonTargetTabActive : ''}`.trim()}
+                                            type="button"
+                                            aria-label={getRibbonTargetTabAriaLabel(candidate.label)}
+                                            onClick={() => handleRoundIntentTargetSelect(action.id, action.targetType!, candidate.id)}
+                                            disabled={Boolean(roundSync?.selfLocked)}
+                                          >
+                                            <span className={styles.ribbonTargetTabIcon}>{candidate.compactLabel}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    ) : null}
+                                    <div className={styles.ribbonActionBody}>
+                                    <div
+                                        className={`${styles.ribbonArtwork} ${getRibbonArtworkAccentClassName(action.school, 'action')}`.trim()}
+                                      >
+                                        {action.mana !== undefined ? (
+                                          <span className={styles.ribbonArtworkMana}>{action.mana}</span>
+                                        ) : null}
+                                      </div>
+                                      <div className={styles.ribbonCardBody}>
+                                        <strong className={`${styles.ribbonCompactTitle} ${styles.ribbonActionMain}`.trim()}>
+                                          {action.title}
+                                        </strong>
+                                        <div className={styles.ribbonBadgeRow}>
+                                          {action.cardSpeed ? <span className={styles.handStatPill}>SPD {action.cardSpeed}</span> : null}
+                                          {showDiagnostics ? <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span> : null}
+                                        </div>
+                                      </div>
+                                      {renderIntentValidationErrors(action.id)}
+                                      <div className={styles.inlineActions}>
                                         <button
-                                          key={`${action.id}_${candidate.id}`}
-                                          className={`${styles.ribbonTargetTab} ${action.targetId === candidate.id ? styles.ribbonTargetTabActive : ''}`.trim()}
+                                          className={styles.secondaryButton}
                                           type="button"
-                                          aria-label={getRibbonTargetTabAriaLabel(candidate.label)}
-                                          onClick={() => handleRoundIntentTargetSelect(action.id, action.targetType!, candidate.id)}
+                                          onClick={() => handleRemoveRoundIntent(action.id)}
                                           disabled={Boolean(roundSync?.selfLocked)}
                                         >
-                                          <span className={styles.ribbonTargetTabIcon}>{candidate.compactLabel}</span>
+                                          Убрать из ленты
                                         </button>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                  <div className={styles.ribbonActionBody}>
-                                  <div
-                                      className={`${styles.ribbonArtwork} ${getRibbonArtworkAccentClassName(action.school, 'action')}`.trim()}
-                                    >
-                                      {action.mana !== undefined ? (
-                                        <span className={styles.ribbonArtworkMana}>{action.mana}</span>
-                                      ) : null}
-                                    </div>
-                                    <div className={styles.ribbonCardBody}>
-                                      <strong className={`${styles.ribbonCompactTitle} ${styles.ribbonActionMain}`.trim()}>
-                                        {action.title}
-                                      </strong>
-                                      <div className={styles.ribbonBadgeRow}>
-                                        {action.cardSpeed ? <span className={styles.handStatPill}>SPD {action.cardSpeed}</span> : null}
-                                        {showDiagnostics ? <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span> : null}
                                       </div>
-                                    </div>
-                                    {renderIntentValidationErrors(action.id)}
-                                    <div className={styles.inlineActions}>
-                                      <button
-                                        className={styles.secondaryButton}
-                                        type="button"
-                                        onClick={() => handleRemoveRoundIntent(action.id)}
-                                        disabled={Boolean(roundSync?.selfLocked)}
-                                      >
-                                        Убрать из ленты
-                                      </button>
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     ) : null}

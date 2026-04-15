@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-15 update: introduced an explicit lower `open prep` band for the player's PvP side. Local queued cards in `PlayPvpPage` now sit inside a dedicated staging strip above the hand instead of floating in the middle of the battlefield, and the lower hand spacing was tightened to read as a two-layer player side: `prep -> hand`.
+
 > 2026-04-15 update: corrected the PvP lower battlefield composition after the previous readability pass. The local `playerBattleLane` now actually behaves as a stage-aligned grid, its ribbon cluster is centered and grouped as part of the player's lower side, local queued cards use a softer tabletop tilt closer to the opponent hand language, and the `Убрать из ленты` control was visually demoted so the card itself stays primary.
 
 > 2026-04-15 update: refined PvP table readability after the border-removal pass. `PlayPvpPage` now drops the extra local/enemy hand labels from the battlefield surface, keeps only lightweight card counts, tones down the bright purple target flag into the warmer arena palette, and softens the local hand fan so it reads closer to the opponent's top-side card presentation.
