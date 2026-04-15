@@ -1593,13 +1593,46 @@
 }
 
 .playerBattleLane {
+  display: grid;
   min-height: 0;
-  grid-template-rows: auto 1fr;
-  padding-bottom: 14px;
+  grid-template-rows: minmax(0, 1fr);
+  align-content: end;
+  justify-items: center;
+  padding: 10px 0 18px;
 }
 
 .playerBattleLane .ribbonSection {
+  width: min(100%, 560px);
+  justify-self: center;
   align-self: end;
+  margin-bottom: 4px;
+}
+
+.playerBattleLane .ribbonGrid {
+  justify-content: center;
+  grid-auto-columns: minmax(150px, 176px);
+  gap: 14px;
+  padding: 8px 18px 6px;
+}
+
+.playerBattleLane .ribbonGrid > * {
+  position: relative;
+  transform-origin: center bottom;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.playerBattleLane .ribbonGrid > *:nth-child(odd) {
+  transform: translateY(10px) rotate(-2.2deg);
+}
+
+.playerBattleLane .ribbonGrid > *:nth-child(even) {
+  transform: translateY(4px) rotate(1.8deg);
+}
+
+.playerBattleLane .ribbonGrid > *:hover,
+.playerBattleLane .ribbonGrid > *:focus-within {
+  transform: translateY(-8px) rotate(0deg) scale(1.02);
+  z-index: 3;
 }
 
 .ribbonSection {
@@ -1906,6 +1939,26 @@
   border-radius: 12px;
   border: 1px solid rgba(125, 211, 252, 0.5);
   background: rgba(240, 249, 255, 0.9);
+}
+
+.ribbonActionStack .secondaryButton,
+.ribbonCardAction .secondaryButton {
+  justify-self: start;
+  min-height: 32px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border-color: rgba(196, 154, 90, 0.18);
+  background: rgba(255, 248, 236, 0.03);
+  color: var(--pvp-muted);
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.ribbonActionStack .secondaryButton:hover,
+.ribbonCardAction .secondaryButton:hover {
+  border-color: rgba(196, 154, 90, 0.28);
+  background: rgba(255, 248, 236, 0.06);
+  color: var(--pvp-text);
 }
 
 .ribbonInlineActionActive {
