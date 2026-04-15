@@ -953,7 +953,7 @@
 }
 
 .fieldFrameLive {
-  grid-template-rows: minmax(72px, auto) minmax(104px, 0.8fr) minmax(160px, 1.2fr) minmax(120px, 146px);
+  grid-template-rows: minmax(34px, auto) minmax(104px, 0.82fr) minmax(196px, 1.28fr) minmax(68px, 94px);
 }
 
 .fieldFrameReplay {
@@ -2184,17 +2184,20 @@
 }
 
 .opponentHandTray {
-  min-height: 56px;
-  margin-bottom: -4px;
-  align-content: end;
+  min-height: 22px;
+  margin-top: -22px;
+  margin-bottom: -26px;
+  align-content: start;
   overflow: visible;
   background: transparent;
+  position: relative;
+  z-index: 1;
 }
 
 .opponentHandTray .battleLaneHeader {
   justify-content: flex-end;
   min-height: 18px;
-  margin-bottom: 2px;
+  margin-bottom: 0;
 }
 
 .opponentIntentTray {
@@ -2289,8 +2292,8 @@
 }
 
 .localHandTray {
-  min-height: 108px;
-  margin: 0 4px -4px;
+  min-height: 64px;
+  margin: -18px 4px -56px;
   padding: 0;
   border-color: transparent;
   background: transparent;
@@ -2298,6 +2301,8 @@
   overflow: visible;
   align-content: end;
   align-self: end;
+  position: relative;
+  z-index: 1;
 }
 
 .localHandTray .battleLaneHeader {
@@ -2485,11 +2490,12 @@
   align-items: end;
   justify-content: center;
   gap: 0;
-  padding: 0 18px 2px;
+  padding: 0 18px 0;
   overflow-x: visible;
   overflow-y: visible;
   scrollbar-width: thin;
   scroll-padding-right: 6px;
+  transform: translateY(-54px);
 }
 
 .handFanGrid::-webkit-scrollbar,
@@ -2512,8 +2518,9 @@
 }
 
 .localHandTray .handFanGrid {
-  padding: 0 36px 10px;
+  padding: 0 36px 0;
   align-items: end;
+  transform: translateY(56px);
 }
 
 .localHandTray .handFanGrid > .handCard {

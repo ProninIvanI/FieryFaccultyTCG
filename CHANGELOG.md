@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-15 update: freed more vertical space for the live PvP table by compressing the hand rows at the viewport edges. The opponent hand now sits deeper toward the top edge, the local hand sits deeper toward the bottom edge, and the `FieldFrame` row proportions were tightened so the battlefield gets more usable center height without changing the core table layout.
+
 > 2026-04-15 update: corrected the PvP lower battlefield composition after the previous readability pass. The local `playerBattleLane` now actually behaves as a stage-aligned grid, its ribbon cluster is centered and grouped as part of the player's lower side, local queued cards use a softer tabletop tilt closer to the opponent hand language, and the `Убрать из ленты` control was visually demoted so the card itself stays primary.
 
 > 2026-04-15 update: refined PvP table readability after the border-removal pass. `PlayPvpPage` now drops the extra local/enemy hand labels from the battlefield surface, keeps only lightweight card counts, tones down the bright purple target flag into the warmer arena palette, and softens the local hand fan so it reads closer to the opponent's top-side card presentation.
