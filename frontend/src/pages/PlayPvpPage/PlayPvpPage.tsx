@@ -2650,9 +2650,10 @@ export const PlayPvpPage = () => {
     resolvedPlaybackIndex >= 0 && resolvedPlaybackIndex < resolvedTimelineEntries.length
       ? resolvedTimelineEntries[resolvedPlaybackIndex]
       : null;
-  const isEnemyHandEmpty = (primaryEnemyBoard?.handSize ?? 0) === 0;
-  const isLocalLaneEmpty = !hasLocalBattleRibbonEntries;
   const enemyPreparationCount = Math.max(0, roundSync?.opponentDraftCount ?? 0);
+  const visibleEnemyHandCount = Math.max(0, (primaryEnemyBoard?.handSize ?? 0) - enemyPreparationCount);
+  const isEnemyHandEmpty = visibleEnemyHandCount === 0;
+  const isLocalLaneEmpty = !hasLocalBattleRibbonEntries;
   const enemyPreparationToneClassName = roundSync?.opponentLocked
     ? styles.opponentIntentTrayLocked
     : styles.opponentIntentTrayActive;
@@ -3506,13 +3507,13 @@ export const PlayPvpPage = () => {
                         <section className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}>
                           <div className={styles.battleLaneHeader}>
                             <strong className={styles.topZoneTitle}>
-                              {(primaryEnemyBoard?.handSize ?? 0) > 0 ? 'Рука соперника' : 'Рука пуста'}
+                              {visibleEnemyHandCount > 0 ? 'Рука соперника' : 'Рука пуста'}
                             </strong>
-                            <span className={styles.battleCount}>{(primaryEnemyBoard?.handSize ?? 0)} карт</span>
+                            <span className={styles.battleCount}>{visibleEnemyHandCount} карт</span>
                           </div>
-                          {(primaryEnemyBoard?.handSize ?? 0) > 0 ? (
+                          {visibleEnemyHandCount > 0 ? (
                             <div className={styles.opponentHandFanGrid} aria-hidden="true">
-                              {Array.from({ length: primaryEnemyBoard?.handSize ?? 0 }).map((_, index) => (
+                              {Array.from({ length: visibleEnemyHandCount }).map((_, index) => (
                                 <div key={`enemy-hand-${index}`} className={styles.opponentHandCard}>
                                   <span className={styles.opponentHandCardBack} />
                                 </div>
@@ -3524,17 +3525,11 @@ export const PlayPvpPage = () => {
 
                   {!isResolvedReplayOpen ? (
                     <>
-                  <section className={`${styles.opponentIntentTray} ${enemyPreparationToneClassName}`.trim()}>
-                    <div className={styles.battleLaneHeader}>
-                      <strong className={styles.topZoneTitle}>Подготовка соперника</strong>
-                      {enemyPreparationCount > 0 || roundSync?.opponentLocked ? (
-                        <span className={styles.battleCount}>
-                          {enemyPreparationCount > 0
-                            ? `${enemyPreparationCount} ${enemyPreparationCount === 1 ? 'действие' : enemyPreparationCount < 5 ? 'действия' : 'действий'}`
-                            : 'Готово'}
-                        </span>
-                      ) : null}
-                    </div>
+                  <section
+                    className={`${styles.opponentIntentTray} ${enemyPreparationToneClassName}`.trim()}
+                    data-testid="opponent-hidden-draft-zone"
+                    aria-label="Скрытая подготовка соперника"
+                  >
                     <div className={styles.opponentIntentFan} aria-hidden="true">
                       {enemyPreparationCount > 0 ? (
                         Array.from({ length: enemyPreparationCount }).map((_, index) => (

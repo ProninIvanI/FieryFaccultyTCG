@@ -2295,11 +2295,62 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Подготовка соперника/i)).toBeInTheDocument();
+      expect(screen.getByTestId('opponent-hidden-draft-zone')).toBeInTheDocument();
       expect(screen.getByTestId('battle-ribbon-item-creature:ally_creature_1')).toBeInTheDocument();
       expect(screen.getAllByRole('button', { name: /Убрать из ленты/i }).length).toBeGreaterThan(0);
       expect(screen.queryByText(/Ходы: 2/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/Модификаторы/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('subtracts opponent hidden draft cards from the visible enemy hand count', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_enemy_hand_visible_count', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          round: {
+            number: 1,
+            status: 'draft',
+            initiativePlayerId: 'user_1',
+            players: {
+              user_1: { playerId: 'user_1', locked: false, draftCount: 0 },
+              user_2: { playerId: 'user_2', locked: false, draftCount: 1 },
+            },
+          },
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: ['enemy_card_1', 'enemy_card_2', 'enemy_card_3'],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            enemy_card_1: { id: 'enemy_card_1', definitionId: '1', ownerId: 'user_2', zone: 'hand' },
+            enemy_card_2: { id: 'enemy_card_2', definitionId: '17', ownerId: 'user_2', zone: 'hand' },
+            enemy_card_3: { id: 'enemy_card_3', definitionId: '41', ownerId: 'user_2', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      const enemyHandSection = screen.getByText(/Рука соперника/i).closest('section');
+      expect(enemyHandSection).toBeTruthy();
+      expect(within(enemyHandSection!).getByText(/2 карт/i)).toBeInTheDocument();
     });
   });
 
@@ -2813,14 +2864,14 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/Подготовка соперника/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('opponent-hidden-draft-zone')).not.toBeInTheDocument();
       expect(screen.queryByTestId('local-draft-workspace')).not.toBeInTheDocument();
     });
 
     await waitFor(
       () => {
         expect(screen.queryByTestId('resolution-replay-strip')).not.toBeInTheDocument();
-        expect(screen.getByText(/Подготовка соперника/i)).toBeInTheDocument();
+        expect(screen.getByTestId('opponent-hidden-draft-zone')).toBeInTheDocument();
         expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
         expect(screen.getByTestId('local-draft-workspace')).toBeInTheDocument();
       },
@@ -2832,7 +2883,7 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/Подготовка соперника/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('opponent-hidden-draft-zone')).not.toBeInTheDocument();
       expect(screen.queryByTestId('local-draft-workspace')).not.toBeInTheDocument();
     });
 
@@ -2840,7 +2891,7 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId('resolution-replay-strip')).not.toBeInTheDocument();
-      expect(screen.getByText(/Подготовка соперника/i)).toBeInTheDocument();
+      expect(screen.getByTestId('opponent-hidden-draft-zone')).toBeInTheDocument();
       expect(screen.getByText(/Твоя рука/i)).toBeInTheDocument();
       expect(screen.getByTestId('local-draft-workspace')).toBeInTheDocument();
     });
