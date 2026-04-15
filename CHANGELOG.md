@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-16 update: stabilized the live PvP table after the edge-compression pass. The local ribbon no longer falls back to a bottom scrollbar, opponent hidden-draft placeholders now keep one consistent card-back size regardless of count, local queued cards sit larger and higher toward the table center, and hover lift is no longer clipped by the battlefield container.
+
 > 2026-04-15 update: freed more vertical space for the live PvP table by compressing the hand rows at the viewport edges. The opponent hand now sits deeper toward the top edge, the local hand sits deeper toward the bottom edge, and the `FieldFrame` row proportions were tightened so the battlefield gets more usable center height without changing the core table layout.
 
 > 2026-04-15 update: corrected the PvP lower battlefield composition after the previous readability pass. The local `playerBattleLane` now actually behaves as a stage-aligned grid, its ribbon cluster is centered and grouped as part of the player's lower side, local queued cards use a softer tabletop tilt closer to the opponent hand language, and the `Убрать из ленты` control was visually demoted so the card itself stays primary.

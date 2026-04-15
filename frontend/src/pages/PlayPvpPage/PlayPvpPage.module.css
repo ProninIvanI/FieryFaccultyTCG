@@ -1598,21 +1598,21 @@
   grid-template-rows: minmax(0, 1fr);
   align-content: end;
   justify-items: center;
-  padding: 10px 0 18px;
+  padding: 0 0 28px;
 }
 
 .playerBattleLane .ribbonSection {
-  width: min(100%, 560px);
+  width: min(100%, 760px);
   justify-self: center;
   align-self: end;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .playerBattleLane .ribbonGrid {
   justify-content: center;
-  grid-auto-columns: minmax(150px, 176px);
-  gap: 14px;
-  padding: 8px 18px 6px;
+  grid-auto-columns: minmax(168px, 198px);
+  gap: 12px;
+  padding: 8px 10px 2px;
 }
 
 .playerBattleLane .ribbonGrid > * {
@@ -1622,16 +1622,16 @@
 }
 
 .playerBattleLane .ribbonGrid > *:nth-child(odd) {
-  transform: translateY(10px) rotate(-2.2deg);
+  transform: translateY(-8px) rotate(-2.2deg);
 }
 
 .playerBattleLane .ribbonGrid > *:nth-child(even) {
-  transform: translateY(4px) rotate(1.8deg);
+  transform: translateY(-14px) rotate(1.8deg);
 }
 
 .playerBattleLane .ribbonGrid > *:hover,
 .playerBattleLane .ribbonGrid > *:focus-within {
-  transform: translateY(-8px) rotate(0deg) scale(1.02);
+  transform: translateY(-24px) rotate(0deg) scale(1.02);
   z-index: 3;
 }
 
@@ -1647,26 +1647,15 @@
   justify-content: start;
   align-items: stretch;
   gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
   padding-bottom: 4px;
-  scrollbar-width: thin;
-}
-
-.ribbonGrid::-webkit-scrollbar {
-  height: 8px;
-}
-
-.ribbonGrid::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 999px;
 }
 
 .ribbonCard {
   display: grid;
   gap: 8px;
-  min-height: 118px;
-  padding: 12px;
+  min-height: 126px;
+  padding: 13px;
   border-radius: 18px;
   border: 1px solid var(--pvp-border);
   background:
@@ -2267,8 +2256,6 @@
 }
 
 .opponentIntentCard:only-child {
-  width: 112px;
-  height: 160px;
   margin-left: 0;
   transform: translateY(8px) rotate(-7deg);
 }
@@ -2286,7 +2273,7 @@
 .battleLane {
   min-height: 0;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   align-content: start;
   background: transparent;
 }
