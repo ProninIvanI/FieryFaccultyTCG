@@ -2120,6 +2120,37 @@ export const PlayPvpPage = () => {
   };
 
   const handleRemoveRoundIntent = (intentId: string) => {
+    const removedIntent = roundDraftRef.current.find((intent) => intent.intentId === intentId);
+
+    if (removedIntent) {
+      if ('cardInstanceId' in removedIntent) {
+        setSceneInspectTarget((current) =>
+          current?.kind === 'hand' && current.id === removedIntent.cardInstanceId ? null : current,
+        );
+        setSelection((current) =>
+          current?.kind === 'hand' && current.instanceId === removedIntent.cardInstanceId ? null : current,
+        );
+        setDraftTarget((current) =>
+          current?.sourceInstanceId === removedIntent.cardInstanceId ? null : current,
+        );
+      }
+
+      if (removedIntent.kind === 'Attack') {
+        setSceneInspectTarget((current) =>
+          current?.kind === 'roundAction' && current.id === removedIntent.intentId ? null : current,
+        );
+        setDraftTarget((current) =>
+          current?.sourceInstanceId === removedIntent.sourceCreatureId ? null : current,
+        );
+      }
+
+      if (removedIntent.kind === 'Evade') {
+        setSceneInspectTarget((current) =>
+          current?.kind === 'roundAction' && current.id === removedIntent.intentId ? null : current,
+        );
+      }
+    }
+
     syncRoundDraft(roundDraftRef.current.filter((intent) => intent.intentId !== intentId));
   };
   const handleRoundIntentTargetSelect = useCallback((intentId: string, targetType: TargetType, targetId: string) => {
@@ -3538,9 +3569,7 @@ export const PlayPvpPage = () => {
                             className={`${styles.opponentIntentCard} ${index === 0 ? styles.opponentIntentCardLead : ''}`.trim()}
                           />
                         ))
-                      ) : (
-                        <span className={styles.opponentIntentEmpty} />
-                      )}
+                      ) : null}
                     </div>
                   </section>
                   <section className={`${styles.battleLane} ${styles.playerBattleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">

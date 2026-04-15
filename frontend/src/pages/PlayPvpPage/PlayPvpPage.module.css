@@ -2171,13 +2171,6 @@
   width: min(100%, 340px);
 }
 
-.opponentIntentEmpty {
-  width: 120px;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgba(196, 154, 90, 0.22), transparent);
-}
-
 .opponentIntentCard {
   width: 88px;
   height: 128px;

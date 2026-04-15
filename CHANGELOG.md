@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-15 update: polished two PvP interaction bugs. Removing a queued card or action from the local ribbon now clears the related inspect/selection state instead of re-sticking the card details, and the opponent hidden-draft area no longer renders the stray placeholder slash when it is empty.
+
 > 2026-04-15 update: revised the opponent upper battlefield in PvP. Enemy hand now shows only the cards still visibly in hand after hidden draft actions are staged, the old `Подготовка соперника` text chrome was removed, and the hidden staged card became much larger so the opponent turn reads as battlefield presence instead of a tiny marker.
 
 > 2026-04-15 update: pushed the PvP hand further toward an art-first fan layout. Local hand cards now overlap more like a real played hand, keep only mana plus title in compact view, and distinguish `selected` from `hover` so the chosen card stays readable without overpowering transient inspect focus.
