@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-15 update: pushed the PvP hand further toward an art-first fan layout. Local hand cards now overlap more like a real played hand, keep only mana plus title in compact view, and distinguish `selected` from `hover` so the chosen card stays readable without overpowering transient inspect focus.
+
 > 2026-04-15 update: widened the PvP opponent preparation zone for better battlefield balance and fixed scene inspect so hand-card details disappear as soon as the hovered card is moved into the local battle ribbon. Tests were updated to lock this hover-only inspect contract in place.
 
 > 2026-04-15 update: corrected the PvP battlefield container chain so the inner `boardShell` stretches with the large `sceneBoardCard` instead of collapsing to content height, removing the false empty tail under the live scene. The temporary hand-card `Карточка` label was also removed.

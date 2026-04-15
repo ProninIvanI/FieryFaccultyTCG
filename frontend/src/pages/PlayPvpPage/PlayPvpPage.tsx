@@ -3893,7 +3893,7 @@ export const PlayPvpPage = () => {
                           {availableHandCards.map((card) => (
                             <div
                               key={card.instanceId}
-                              className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''} ${getCardAccentClassName(card.cardType)} ${inspectedHandCardId === card.instanceId ? styles.handCardInspected : ''}`.trim()}
+                              className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''} ${getCardAccentClassName(card.cardType)} ${inspectedHandCardId === card.instanceId ? styles.handCardInspected : ''} ${selection?.kind === 'hand' && selection.instanceId === card.instanceId ? styles.handCardSelected : ''}`.trim()}
                               onMouseEnter={() => setSceneInspectTarget({ kind: 'hand', id: card.instanceId })}
                               onMouseLeave={() => handleSceneInspectLeave({ kind: 'hand', id: card.instanceId })}
                               onFocusCapture={() => setSceneInspectTarget({ kind: 'hand', id: card.instanceId })}
@@ -3915,13 +3915,6 @@ export const PlayPvpPage = () => {
                                 </div>
                                 <div className={styles.handCardBody}>
                                   <strong className={styles.handCardTitle}>{card.name}</strong>
-                                  {(card.hp || card.attack || card.speed) ? (
-                                    <div className={styles.handCardStats}>
-                                      {card.hp ? <span className={styles.handStatPill}>HP {card.hp}</span> : null}
-                                      {card.attack ? <span className={styles.handStatPill}>ATK {card.attack}</span> : null}
-                                      {card.speed ? <span className={styles.handStatPill}>SPD {card.speed}</span> : null}
-                                    </div>
-                                  ) : null}
                                 </div>
                               </button>
                             </div>

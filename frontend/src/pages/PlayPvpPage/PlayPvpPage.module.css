@@ -954,7 +954,7 @@
 }
 
 .fieldFrameLive {
-  grid-template-rows: minmax(72px, auto) minmax(82px, 102px) minmax(0, 1fr) minmax(120px, 146px);
+  grid-template-rows: minmax(72px, auto) minmax(104px, 0.8fr) minmax(160px, 1.2fr) minmax(120px, 146px);
 }
 
 .fieldFrameReplay {
@@ -2139,7 +2139,7 @@
 }
 
 .opponentIntentTray {
-  min-height: 102px;
+  min-height: 0;
   margin-top: -4px;
   padding: 12px 18px 12px;
   border-radius: 18px;
@@ -2225,7 +2225,7 @@
 }
 
 .battleLane {
-  min-height: 88px;
+  min-height: 0;
   position: relative;
   overflow: hidden;
   align-content: start;
@@ -2379,13 +2379,17 @@
 
 .selectionSurfaceActive .creaturePortrait,
 .selectionSurfaceActive .handManaGem {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 24px rgba(228, 166, 99, 0.18);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 14px 24px rgba(228, 166, 99, 0.24);
 }
 
 .selectionSurfaceActive .creatureStat,
 .selectionSurfaceActive .handCardBody {
   border-color: rgba(241, 195, 134, 0.48);
+}
+
+.selectionSurfaceActive .handCardTitle {
+  color: #fff7ea;
 }
 
 .selectionSurface:focus-visible {
@@ -2464,18 +2468,18 @@
 }
 
 .localHandTray .handFanGrid {
-  padding: 0 18px 4px;
+  padding: 0 28px 8px;
   align-items: end;
 }
 
 .localHandTray .handFanGrid > .handCard {
-  width: clamp(116px, 7.4vw, 140px);
-  flex: 0 0 clamp(116px, 7.4vw, 140px);
-  min-height: 126px;
-  margin-left: -30px;
-  padding: 10px 10px 12px;
+  width: clamp(124px, 8vw, 150px);
+  flex: 0 0 clamp(124px, 8vw, 150px);
+  min-height: 164px;
+  margin-left: -42px;
+  padding: 10px 10px 14px;
   transform-origin: center bottom;
-  transform: translateY(var(--hand-offset-y, 12px)) rotate(var(--hand-rotation, 0deg));
+  transform: translateY(var(--hand-offset-y, 20px)) rotate(var(--hand-rotation, 0deg));
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
@@ -2489,23 +2493,28 @@
 }
 
 .localHandTray .handFanGrid > .handCard:nth-child(5n + 1) {
-  --hand-rotation: -7.5deg;
+  --hand-rotation: -11deg;
+  --hand-offset-y: 24px;
 }
 
 .localHandTray .handFanGrid > .handCard:nth-child(5n + 2) {
-  --hand-rotation: -4deg;
+  --hand-rotation: -6deg;
+  --hand-offset-y: 12px;
 }
 
 .localHandTray .handFanGrid > .handCard:nth-child(5n + 3) {
   --hand-rotation: 0deg;
+  --hand-offset-y: 2px;
 }
 
 .localHandTray .handFanGrid > .handCard:nth-child(5n + 4) {
-  --hand-rotation: 4deg;
+  --hand-rotation: 6deg;
+  --hand-offset-y: 12px;
 }
 
 .localHandTray .handFanGrid > .handCard:nth-child(5n + 5) {
-  --hand-rotation: 7.5deg;
+  --hand-rotation: 11deg;
+  --hand-offset-y: 24px;
 }
 
 .handFanGrid > .handCard:first-child {
@@ -2585,14 +2594,19 @@
 
 .localHandTray .handFanGrid > .handCard:hover,
 .localHandTray .handFanGrid > .handCard:focus-within {
-  transform: translateY(calc(var(--hand-offset-y, 12px) - 118px)) rotate(0deg) scale(1.16);
-  margin-left: -4px;
-  margin-right: -4px;
-  z-index: 20;
+  transform: translateY(calc(var(--hand-offset-y, 20px) - 132px)) rotate(0deg) scale(1.2);
+  margin-left: -8px;
+  margin-right: -8px;
+  z-index: 24;
   box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.34),
+    0 28px 56px rgba(0, 0, 0, 0.38),
     0 0 0 1px rgba(255, 248, 236, 0.08),
     var(--theme-glow-accent);
+}
+
+.localHandTray .handFanGrid > .handCardSelected:hover,
+.localHandTray .handFanGrid > .handCardSelected:focus-within {
+  z-index: 28;
 }
 
 .handCard {
@@ -2606,7 +2620,11 @@
 }
 
 .localHandTray .handCard {
-  grid-template-rows: auto auto minmax(42px, 1fr);
+  grid-template-rows: auto minmax(38px, auto);
+  border-radius: 22px 22px 18px 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 248, 236, 0.09), rgba(255, 248, 236, 0.02)),
+    linear-gradient(180deg, rgba(32, 25, 23, 0.96), rgba(18, 14, 13, 0.98));
 }
 
 .handCard::after {
@@ -2632,6 +2650,20 @@
   box-shadow:
     0 16px 28px rgba(0, 0, 0, 0.24),
     0 0 0 1px rgba(196, 154, 90, 0.18);
+}
+
+.localHandTray .handCardSelected {
+  transform: translateY(calc(var(--hand-offset-y, 20px) - 42px)) rotate(calc(var(--hand-rotation, 0deg) * 0.45)) scale(1.08);
+  z-index: 14;
+  border-color: rgba(230, 189, 128, 0.52);
+  box-shadow:
+    0 20px 38px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(230, 189, 128, 0.18);
+}
+
+.localHandTray .handCardSelected::after {
+  border-color: rgba(245, 201, 137, 0.4);
+  background: radial-gradient(circle at center, rgba(245, 201, 137, 0.52) 0, rgba(245, 201, 137, 0.18) 28%, transparent 30%);
 }
 
 .cardAccentSummon::before,
@@ -2676,8 +2708,13 @@
 }
 
 .localHandTray .handCardArtwork {
-  min-height: 60px;
-  aspect-ratio: 1.34 / 1;
+  min-height: 86px;
+  aspect-ratio: 1.02 / 1;
+  border-radius: 18px;
+  border-color: rgba(255, 248, 236, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -18px 24px rgba(15, 23, 42, 0.16);
 }
 
 .handCardArtwork::before {
@@ -2765,10 +2802,14 @@
 }
 
 .localHandTray .handCardBody {
-  gap: 5px;
-  padding: 4px 2px 0;
+  gap: 3px;
+  padding: 8px 4px 0;
   background: transparent;
   border: none;
+}
+
+.localHandTray .handCardSelected .handCardBody {
+  transform: translateY(-1px);
 }
 
 .handCardTitle {
@@ -2778,12 +2819,22 @@
 }
 
 .localHandTray .handCardTitle {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.15;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-align: left;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.34);
+}
+
+.localHandTray .handCardSelected .handCardArtwork {
+  border-color: rgba(255, 244, 222, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    inset 0 -18px 24px rgba(15, 23, 42, 0.16),
+    0 10px 24px rgba(0, 0, 0, 0.18);
 }
 
 .handCardMeta {
