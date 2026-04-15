@@ -1598,14 +1598,14 @@
   grid-template-rows: minmax(0, 1fr);
   align-content: end;
   justify-items: center;
-  padding: 0 0 28px;
+  padding: 0 0 34px;
 }
 
 .playerBattleLane .ribbonSection {
   width: min(100%, 760px);
   justify-self: center;
   align-self: end;
-  margin-bottom: 0;
+  margin-bottom: clamp(44px, 7vh, 86px);
 }
 
 .playerBattleLane .ribbonGrid {
@@ -1613,6 +1613,11 @@
   grid-auto-columns: minmax(168px, 198px);
   gap: 12px;
   padding: 8px 10px 2px;
+}
+
+.playerBattleLane .ribbonCard {
+  min-height: 146px;
+  padding: 14px 14px 12px;
 }
 
 .playerBattleLane .ribbonGrid > * {
@@ -1633,6 +1638,12 @@
 .playerBattleLane .ribbonGrid > *:focus-within {
   transform: translateY(-24px) rotate(0deg) scale(1.02);
   z-index: 3;
+}
+
+.playerBattleLane .ribbonArtwork {
+  min-height: 96px;
+  aspect-ratio: 1.18 / 0.9;
+  border-radius: 18px;
 }
 
 .ribbonSection {
