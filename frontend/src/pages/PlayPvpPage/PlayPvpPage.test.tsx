@@ -853,6 +853,98 @@ describe('PlayPvpPage', () => {
     });
   });
 
+  it('clears hand scene inspect when the hovered card moves into the battle ribbon', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_scene_hand_inspect_clear', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    const spellCardButton = (await screen.findByText('Огненный шар')).closest('button');
+    expect(spellCardButton).toBeTruthy();
+
+    const inspectPanel = await hoverSceneTarget(spellCardButton!);
+    expect(inspectPanel).toHaveTextContent('Огненный шар');
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'roundDraft.snapshot',
+        roundNumber: 1,
+        locked: false,
+        intents: [
+          {
+            intentId: 'draft_fireball_clear',
+            roundNumber: 1,
+            playerId: 'user_1',
+            actorId: 'char_1',
+            queueIndex: 0,
+            kind: 'CastSpell',
+            cardInstanceId: 'spell_card_1',
+            target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+          },
+        ],
+        boardModel: {
+          playerId: 'user_1',
+          boardItems: [],
+          ribbonEntries: [
+            {
+              id: 'roundAction:draft_fireball_clear',
+              kind: 'roundAction',
+              orderIndex: 0,
+              layer: 'offensive_control_spells',
+              roundActionId: 'draft_fireball_clear',
+            },
+          ],
+          roundActions: [
+            {
+              id: 'draft_fireball_clear',
+              roundNumber: 1,
+              playerId: 'user_1',
+              actorId: 'char_1',
+              kind: 'CastSpell',
+              source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
+              target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+              placement: { layer: 'offensive_control_spells', orderIndex: 0, queueIndex: 0 },
+              status: 'draft',
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('scene-inspect-panel')).not.toBeInTheDocument();
+    });
+  });
+
   it('shows scene inspect panel for hovered detached action in the battle ribbon', async () => {
     await renderPage('char_1', 'user_1');
 
@@ -1203,9 +1295,11 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    await waitFor(() => {
-      expect(screen.getByTestId('scene-inspect-panel')).toHaveTextContent('Заклинание');
-    });
+    const queuedFireballAction = (await screen.findAllByTestId(/battle-ribbon-action-/)).find((element) =>
+      within(element).queryByText('Огненный шар'),
+    );
+    expect(queuedFireballAction).toBeTruthy();
+    expect(await hoverSceneTarget(queuedFireballAction!)).toHaveTextContent('Боевое заклинание');
 
     await act(async () => {
       fireEvent.click(screen.getByText('Сфера воды').closest('button')!);

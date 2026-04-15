@@ -1500,6 +1500,10 @@ export const PlayPvpPage = () => {
     () => localHandCards.filter((card) => !stagedHandCardIds.has(card.instanceId)),
     [localHandCards, stagedHandCardIds],
   );
+  const availableHandCardIds = useMemo(
+    () => new Set(availableHandCards.map((card) => card.instanceId)),
+    [availableHandCards],
+  );
 
   const isSelfBoardModelDraftSynced = useMemo(() => {
     if (!selfBoardModel) {
@@ -2522,19 +2526,19 @@ export const PlayPvpPage = () => {
       return sceneInspectTarget;
     }
 
-    if (selection?.kind === 'hand') {
+    if (selection?.kind === 'hand' && availableHandCardIds.has(selection.instanceId)) {
       return { kind: 'hand', id: selection.instanceId };
     }
 
     return null;
-  }, [sceneInspectTarget, selection]);
+  }, [availableHandCardIds, sceneInspectTarget, selection]);
   const sceneInspectSummary = useMemo(() => {
     if (!resolvedSceneInspectTarget) {
       return null;
     }
 
     if (resolvedSceneInspectTarget.kind === 'hand') {
-      const card = localHandCards.find((entry) => entry.instanceId === resolvedSceneInspectTarget.id);
+      const card = availableHandCards.find((entry) => entry.instanceId === resolvedSceneInspectTarget.id);
       return card ? getHandCardInspectSummary(card) : null;
     }
 
@@ -2554,7 +2558,7 @@ export const PlayPvpPage = () => {
   }, [
     localBoardItemAttachedActionCountById,
     localBoardItemsById,
-    localHandCards,
+    availableHandCards,
     localRoundRibbonItemsById,
     resolvedSceneInspectTarget,
   ]);
@@ -2601,7 +2605,7 @@ export const PlayPvpPage = () => {
     }
 
     if (sceneInspectTarget.kind === 'hand') {
-      if (!localHandCards.some((card) => card.instanceId === sceneInspectTarget.id)) {
+      if (!availableHandCardIds.has(sceneInspectTarget.id)) {
         setSceneInspectTarget(null);
       }
       return;
@@ -2617,7 +2621,7 @@ export const PlayPvpPage = () => {
     if (!localRoundRibbonItemsById.has(sceneInspectTarget.id)) {
       setSceneInspectTarget(null);
     }
-  }, [localBoardItemsById, localHandCards, localRoundRibbonItemsById, sceneInspectTarget]);
+  }, [availableHandCardIds, localBoardItemsById, localRoundRibbonItemsById, sceneInspectTarget]);
   const hasLocalBattleRibbonEntries = visibleLocalBattleRibbonEntries.length > 0;
 
   const resolvedTimelineEntries = useMemo<ResolvedTimelineEntrySummary[]>(
