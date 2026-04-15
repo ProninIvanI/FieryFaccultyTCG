@@ -700,7 +700,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      const handSection = screen.getByText('Карты для текущего раунда').closest('section');
+      const handSection = screen.getByTestId('local-hand-tray');
       expect(handSection).toBeTruthy();
       expect(within(handSection!).queryByText('Огненный элементаль')).not.toBeInTheDocument();
     });
@@ -727,7 +727,7 @@ describe('PlayPvpPage', () => {
           );
         }),
       ).toBe(true);
-      const handSection = screen.getByText('Карты для текущего раунда').closest('section');
+      const handSection = screen.getByTestId('local-hand-tray');
       expect(handSection).toBeTruthy();
       expect(within(handSection!).getByText('Огненный элементаль')).toBeInTheDocument();
     });
@@ -1676,7 +1676,7 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    const handSection = () => screen.getByText('Карты для текущего раунда').closest('section');
+    const handSection = () => screen.getByTestId('local-hand-tray');
 
     await waitFor(() => {
       expect(within(handSection()!).getByText('Концентрация силы')).toBeInTheDocument();
@@ -2348,7 +2348,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      const enemyHandSection = screen.getByText(/Рука соперника/i).closest('section');
+      const enemyHandSection = screen.getByTestId('opponent-hand-tray');
       expect(enemyHandSection).toBeTruthy();
       expect(within(enemyHandSection!).getByText(/2 карт/i)).toBeInTheDocument();
     });

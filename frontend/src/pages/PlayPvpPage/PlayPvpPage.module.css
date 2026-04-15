@@ -2008,7 +2008,7 @@
 .ribbonTargetTabs {
   position: absolute;
   top: 12px;
-  right: -34px;
+  right: -30px;
   z-index: 1;
   display: grid;
   gap: 6px;
@@ -2023,13 +2023,13 @@
   height: 48px;
   padding: 0;
   border-radius: 0 12px 8px 0;
-  border: 1px solid rgba(192, 132, 252, 0.34);
+  border: 1px solid rgba(186, 149, 110, 0.3);
   border-left: none;
-  background: linear-gradient(180deg, rgba(250, 245, 255, 0.98), rgba(255, 255, 255, 0.96));
-  color: var(--pvp-text);
+  background: linear-gradient(180deg, rgba(65, 50, 42, 0.98), rgba(35, 28, 24, 0.96));
+  color: rgba(245, 234, 218, 0.92);
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-  box-shadow: 0 10px 18px rgba(168, 85, 247, 0.12);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.16);
   position: relative;
   overflow: visible;
 }
@@ -2044,13 +2044,13 @@
 }
 
 .ribbonTargetTabActive {
-  border-color: rgba(126, 34, 206, 0.82);
+  border-color: rgba(196, 154, 90, 0.66);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.78),
-    0 0 0 3px rgba(192, 132, 252, 0.28),
-    0 12px 20px rgba(168, 85, 247, 0.2);
-  background: linear-gradient(180deg, rgba(192, 132, 252, 0.96), rgba(147, 51, 234, 0.92));
-  color: #ffffff;
+    0 0 0 1px rgba(255, 248, 236, 0.22),
+    0 0 0 3px rgba(196, 154, 90, 0.12),
+    0 12px 20px rgba(0, 0, 0, 0.18);
+  background: linear-gradient(180deg, rgba(148, 108, 72, 0.96), rgba(93, 67, 48, 0.94));
+  color: #fff8eb;
 }
 
 .ribbonTargetTabIcon {
@@ -2060,16 +2060,17 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(147, 51, 234, 0.88), rgba(192, 132, 252, 0.72));
-  color: #ffffff;
+  background: linear-gradient(180deg, rgba(225, 198, 165, 0.92), rgba(174, 138, 101, 0.82));
+  color: #2b201a;
   font-size: 10px;
   font-weight: 800;
   flex: 0 0 auto;
 }
 
 .ribbonTargetTabActive .ribbonTargetTabIcon {
-  background: rgba(255, 255, 255, 0.2);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
+  background: rgba(255, 248, 236, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 236, 0.28);
+  color: #fff8eb;
 }
 
 .ribbonTargetTabLabel {
@@ -2084,8 +2085,8 @@
   bottom: 10px;
   width: 8px;
   border-radius: 999px 0 0 999px;
-  background: linear-gradient(180deg, rgba(192, 132, 252, 0.5), rgba(221, 214, 254, 0.28));
-  opacity: 0.9;
+  background: linear-gradient(180deg, rgba(174, 138, 101, 0.42), rgba(110, 85, 63, 0.18));
+  opacity: 0.8;
   z-index: -1;
 }
 
@@ -2094,15 +2095,15 @@
   position: absolute;
   inset: auto -1px -8px 0;
   height: 10px;
-  border-right: 1px solid rgba(192, 132, 252, 0.34);
-  border-bottom: 1px solid rgba(192, 132, 252, 0.34);
+  border-right: 1px solid rgba(186, 149, 110, 0.3);
+  border-bottom: 1px solid rgba(186, 149, 110, 0.3);
   background: inherit;
   clip-path: polygon(0 0, 100% 0, 100% 100%, 52% 70%, 0 100%);
 }
 
 .ribbonTargetTabActive::after {
-  border-right-color: rgba(126, 34, 206, 0.82);
-  border-bottom-color: rgba(126, 34, 206, 0.82);
+  border-right-color: rgba(196, 154, 90, 0.66);
+  border-bottom-color: rgba(196, 154, 90, 0.66);
 }
 
 .ribbonActionMain {
@@ -2135,6 +2136,12 @@
   align-content: end;
   overflow: visible;
   background: transparent;
+}
+
+.opponentHandTray .battleLaneHeader {
+  justify-content: flex-end;
+  min-height: 18px;
+  margin-bottom: 2px;
 }
 
 .opponentIntentTray {
@@ -2452,18 +2459,18 @@
 }
 
 .localHandTray .handFanGrid {
-  padding: 0 28px 8px;
+  padding: 0 36px 10px;
   align-items: end;
 }
 
 .localHandTray .handFanGrid > .handCard {
-  width: clamp(124px, 8vw, 150px);
-  flex: 0 0 clamp(124px, 8vw, 150px);
-  min-height: 164px;
-  margin-left: -42px;
+  width: clamp(128px, 8.2vw, 152px);
+  flex: 0 0 clamp(128px, 8.2vw, 152px);
+  min-height: 168px;
+  margin-left: -30px;
   padding: 10px 10px 14px;
   transform-origin: center bottom;
-  transform: translateY(var(--hand-offset-y, 20px)) rotate(var(--hand-rotation, 0deg));
+  transform: translateY(var(--hand-offset-y, 12px)) rotate(var(--hand-rotation, 0deg));
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
@@ -2477,13 +2484,13 @@
 }
 
 .localHandTray .handFanGrid > .handCard:nth-child(5n + 1) {
-  --hand-rotation: -11deg;
-  --hand-offset-y: 24px;
+  --hand-rotation: -6deg;
+  --hand-offset-y: 14px;
 }
 
 .localHandTray .handFanGrid > .handCard:nth-child(5n + 2) {
-  --hand-rotation: -6deg;
-  --hand-offset-y: 12px;
+  --hand-rotation: -3deg;
+  --hand-offset-y: 8px;
 }
 
 .localHandTray .handFanGrid > .handCard:nth-child(5n + 3) {
@@ -2492,13 +2499,13 @@
 }
 
 .localHandTray .handFanGrid > .handCard:nth-child(5n + 4) {
-  --hand-rotation: 6deg;
-  --hand-offset-y: 12px;
+  --hand-rotation: 3deg;
+  --hand-offset-y: 8px;
 }
 
 .localHandTray .handFanGrid > .handCard:nth-child(5n + 5) {
-  --hand-rotation: 11deg;
-  --hand-offset-y: 24px;
+  --hand-rotation: 6deg;
+  --hand-offset-y: 14px;
 }
 
 .handFanGrid > .handCard:first-child {
@@ -2578,9 +2585,9 @@
 
 .localHandTray .handFanGrid > .handCard:hover,
 .localHandTray .handFanGrid > .handCard:focus-within {
-  transform: translateY(calc(var(--hand-offset-y, 20px) - 132px)) rotate(0deg) scale(1.2);
-  margin-left: -8px;
-  margin-right: -8px;
+  transform: translateY(calc(var(--hand-offset-y, 12px) - 114px)) rotate(0deg) scale(1.16);
+  margin-left: -4px;
+  margin-right: -4px;
   z-index: 24;
   box-shadow:
     0 28px 56px rgba(0, 0, 0, 0.38),
@@ -2637,7 +2644,7 @@
 }
 
 .localHandTray .handCardSelected {
-  transform: translateY(calc(var(--hand-offset-y, 20px) - 42px)) rotate(calc(var(--hand-rotation, 0deg) * 0.45)) scale(1.08);
+  transform: translateY(calc(var(--hand-offset-y, 12px) - 30px)) rotate(calc(var(--hand-rotation, 0deg) * 0.55)) scale(1.05);
   z-index: 14;
   border-color: rgba(230, 189, 128, 0.52);
   box-shadow:

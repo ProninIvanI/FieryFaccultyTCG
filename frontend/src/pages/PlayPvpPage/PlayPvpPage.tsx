@@ -3535,11 +3535,11 @@ export const PlayPvpPage = () => {
                       ) : null}
 
                       {!isResolvedReplayOpen ? (
-                        <section className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}>
+                        <section
+                          className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}
+                          data-testid="opponent-hand-tray"
+                        >
                           <div className={styles.battleLaneHeader}>
-                            <strong className={styles.topZoneTitle}>
-                              {visibleEnemyHandCount > 0 ? 'Рука соперника' : 'Рука пуста'}
-                            </strong>
                             <span className={styles.battleCount}>{visibleEnemyHandCount} карт</span>
                           </div>
                           {visibleEnemyHandCount > 0 ? (
@@ -3573,11 +3573,6 @@ export const PlayPvpPage = () => {
                     </div>
                   </section>
                   <section className={`${styles.battleLane} ${styles.playerBattleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">
-                    <div className={styles.battleLaneHeader}>
-                      <div>
-                        <strong>{localDisplayName}</strong>
-                      </div>
-                    </div>
                     {hasLocalBattleRibbonEntries ? (
                       <div className={styles.ribbonSection}>
                         <div className={styles.ribbonGrid}>
@@ -3902,7 +3897,7 @@ export const PlayPvpPage = () => {
                       ))}
                     </div>
                   ) : null}
-                    <section className={`${styles.handTray} ${styles.localHandTray}`.trim()}>
+                    <section className={`${styles.handTray} ${styles.localHandTray}`.trim()} data-testid="local-hand-tray">
                       <div className={styles.battleLaneHeader}>
                         <div>
                           <span className={styles.summaryLabel}>Твоя рука</span>
