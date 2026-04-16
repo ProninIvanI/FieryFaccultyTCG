@@ -3535,44 +3535,45 @@ export const PlayPvpPage = () => {
                       ) : null}
 
                       {!isResolvedReplayOpen ? (
-                        <section
-                          className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}
-                          data-testid="opponent-hand-tray"
-                        >
-                          <div className={styles.battleLaneHeader}>
-                            <span className={styles.battleCount}>{visibleEnemyHandCount} карт</span>
-                          </div>
-                          {visibleEnemyHandCount > 0 ? (
-                            <div className={styles.opponentHandFanGrid} aria-hidden="true">
-                              {Array.from({ length: visibleEnemyHandCount }).map((_, index) => (
-                                <div key={`enemy-hand-${index}`} className={styles.opponentHandCard}>
-                                  <span className={styles.opponentHandCardBack} />
+                        <div className={styles.sceneStage} data-testid="pvp-scene-stage">
+                          <div className={styles.enemyBand}>
+                            <section
+                              className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}
+                              data-testid="opponent-hand-tray"
+                            >
+                              <div className={styles.battleLaneHeader}>
+                                <span className={styles.battleCount}>{visibleEnemyHandCount} карт</span>
+                              </div>
+                              {visibleEnemyHandCount > 0 ? (
+                                <div className={styles.opponentHandFanGrid} aria-hidden="true">
+                                  {Array.from({ length: visibleEnemyHandCount }).map((_, index) => (
+                                    <div key={`enemy-hand-${index}`} className={styles.opponentHandCard}>
+                                      <span className={styles.opponentHandCardBack} />
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                          ) : null}
-                        </section>
-                      ) : null}
-
-                  {!isResolvedReplayOpen ? (
-                    <>
-                  <section
-                    className={`${styles.opponentIntentTray} ${enemyPreparationToneClassName}`.trim()}
-                    data-testid="opponent-hidden-draft-zone"
-                    aria-label="Скрытая подготовка соперника"
-                  >
-                    <div className={styles.opponentIntentFan} aria-hidden="true">
-                      {enemyPreparationCount > 0 ? (
-                        Array.from({ length: enemyPreparationCount }).map((_, index) => (
-                          <span
-                            key={`opponent-intent-${index}`}
-                            className={`${styles.opponentIntentCard} ${index === 0 ? styles.opponentIntentCardLead : ''}`.trim()}
-                          />
-                        ))
-                      ) : null}
-                    </div>
-                  </section>
-                  <section className={`${styles.battleLane} ${styles.playerBattleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">
+                              ) : null}
+                            </section>
+                            <section
+                              className={`${styles.opponentIntentTray} ${enemyPreparationToneClassName}`.trim()}
+                              data-testid="opponent-hidden-draft-zone"
+                              aria-label="Скрытая подготовка соперника"
+                            >
+                              <div className={styles.opponentIntentFan} aria-hidden="true">
+                                {enemyPreparationCount > 0 ? (
+                                  Array.from({ length: enemyPreparationCount }).map((_, index) => (
+                                    <span
+                                      key={`opponent-intent-${index}`}
+                                      className={`${styles.opponentIntentCard} ${index === 0 ? styles.opponentIntentCardLead : ''}`.trim()}
+                                    />
+                                  ))
+                                ) : null}
+                              </div>
+                            </section>
+                          </div>
+                          <div className={styles.battlefieldCore} aria-hidden="true" />
+                          <div className={styles.playerBand}>
+                            <section className={`${styles.battleLane} ${styles.playerBattleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">
                     {hasLocalBattleRibbonEntries ? (
                       <div className={styles.ribbonSection}>
                         <div className={styles.ribbonGrid}>
@@ -3874,30 +3875,30 @@ export const PlayPvpPage = () => {
                         </div>
                       </div>
                     ) : null}
-                  </section>
+                            </section>
 
-                  {visibleRoundDraftRejected ? (
-                    <div className={styles.roundRejectBox}>
-                      <strong>
-                        Сервер отклонил: {visibleRoundDraftRejected.operation === 'lock' ? 'завершение хода' : 'обновление'}{' '}
-                        {visibleRoundDraftRejected.roundNumber > 0
-                          ? `раунда ${visibleRoundDraftRejected.roundNumber}`
-                          : 'текущей ленты'}
-                      </strong>
-                      <div className={styles.roundQueueError}>
-                        <span className={styles.cardBadge}>{visibleRoundDraftRejected.code}</span>
-                        <span>{getRoundDraftRejectCodeLabel(visibleRoundDraftRejected.code)}</span>
-                      </div>
-                      <span>{visibleRoundDraftRejected.error}</span>
-                      {draftRejectionCommonErrors.map((entry) => (
-                        <div key={`${entry.code}_${entry.message}`} className={styles.roundQueueError}>
-                          <span className={styles.cardBadge}>{entry.code}</span>
-                          <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                    <section className={`${styles.handTray} ${styles.localHandTray}`.trim()} data-testid="local-hand-tray">
+                            {visibleRoundDraftRejected ? (
+                              <div className={styles.roundRejectBox}>
+                                <strong>
+                                  Сервер отклонил: {visibleRoundDraftRejected.operation === 'lock' ? 'завершение хода' : 'обновление'}{' '}
+                                  {visibleRoundDraftRejected.roundNumber > 0
+                                    ? `раунда ${visibleRoundDraftRejected.roundNumber}`
+                                    : 'текущей ленты'}
+                                </strong>
+                                <div className={styles.roundQueueError}>
+                                  <span className={styles.cardBadge}>{visibleRoundDraftRejected.code}</span>
+                                  <span>{getRoundDraftRejectCodeLabel(visibleRoundDraftRejected.code)}</span>
+                                </div>
+                                <span>{visibleRoundDraftRejected.error}</span>
+                                {draftRejectionCommonErrors.map((entry) => (
+                                  <div key={`${entry.code}_${entry.message}`} className={styles.roundQueueError}>
+                                    <span className={styles.cardBadge}>{entry.code}</span>
+                                    <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                            <section className={`${styles.handTray} ${styles.localHandTray}`.trim()} data-testid="local-hand-tray">
                       <div className={styles.battleLaneHeader}>
                         <div>
                           <span className={styles.summaryLabel}>Твоя рука</span>
@@ -3946,7 +3947,10 @@ export const PlayPvpPage = () => {
                           <div className={styles.emptyStateSpacer} aria-hidden="true" />
                         )
                       )}
-                    </section>
+                            </section>
+                          </div>
+                        </div>
+                      ) : null}
                     {!isResolvedReplayOpen && sceneInspectSummary ? (
                       <aside className={styles.fieldInspectPanel} data-testid="scene-inspect-panel" aria-live="polite">
                         <div className={styles.sceneInspectPanel}>
@@ -3990,8 +3994,6 @@ export const PlayPvpPage = () => {
                         </div>
                       </aside>
                     ) : null}
-                    </>
-                  ) : null}
                     </section>
                   </section>
                 </div>

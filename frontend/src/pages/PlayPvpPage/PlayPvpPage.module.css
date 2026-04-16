@@ -953,11 +953,63 @@
 }
 
 .fieldFrameLive {
-  grid-template-rows: minmax(34px, auto) minmax(104px, 0.82fr) minmax(196px, 1.28fr) minmax(68px, 94px);
+  --scene-scale: 1;
+  --hand-card-width: calc(132px * var(--scene-scale));
+  --hand-card-height: calc(var(--hand-card-width) * 1.18);
+  --enemy-band-ratio: 0.92fr;
+  --core-band-ratio: 0.3fr;
+  --player-band-ratio: 1.44fr;
+  --scene-zone-gap: clamp(8px, calc(var(--hand-card-width) * 0.06), 14px);
+  --enemy-hand-card-width: calc(var(--hand-card-width) * 0.9);
+  --enemy-hand-card-height: calc(var(--enemy-hand-card-width) * 1.31);
+  --stage-card-width: calc(var(--hand-card-width) * 1.24);
+  --stage-card-height: calc(var(--stage-card-width) * 0.9);
+  --stage-art-height: calc(var(--stage-card-height) * 0.66);
+  --hidden-card-width: calc(var(--hand-card-width) * 0.67);
+  --hidden-card-height: calc(var(--hidden-card-width) * 1.45);
+  --enemy-hand-sink: calc(var(--enemy-hand-card-height) * 0.35);
+  --player-hand-sink: calc(var(--hand-card-height) * 0.38);
+  --player-stage-offset: calc(var(--stage-card-height) * 0.46);
 }
 
 .fieldFrameReplay {
   grid-template-rows: minmax(0, 1fr);
+}
+
+.sceneStage {
+  display: grid;
+  grid-template-rows:
+    minmax(0, var(--enemy-band-ratio))
+    minmax(0, var(--core-band-ratio))
+    minmax(0, var(--player-band-ratio));
+  gap: var(--scene-zone-gap);
+  min-height: 0;
+  height: 100%;
+}
+
+.enemyBand,
+.playerBand,
+.battlefieldCore {
+  position: relative;
+  min-height: 0;
+}
+
+.enemyBand {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--scene-zone-gap);
+  align-content: start;
+}
+
+.battlefieldCore {
+  pointer-events: none;
+}
+
+.playerBand {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: var(--scene-zone-gap);
+  align-content: end;
 }
 
 .fieldInspectPanel {
@@ -1598,25 +1650,25 @@
   grid-template-rows: minmax(0, 1fr);
   align-content: end;
   justify-items: center;
-  padding: 0 0 34px;
+  padding: 0 0 calc(var(--player-stage-offset) * 0.52);
 }
 
 .playerBattleLane .ribbonSection {
   width: min(100%, 760px);
   justify-self: center;
   align-self: end;
-  margin-bottom: clamp(44px, 7vh, 86px);
+  margin-bottom: clamp(42px, calc(var(--player-stage-offset) * 0.94), 82px);
 }
 
 .playerBattleLane .ribbonGrid {
   justify-content: center;
-  grid-auto-columns: minmax(168px, 198px);
+  grid-auto-columns: minmax(var(--stage-card-width), calc(var(--stage-card-width) * 1.12));
   gap: 12px;
   padding: 8px 10px 2px;
 }
 
 .playerBattleLane .ribbonCard {
-  min-height: 146px;
+  min-height: var(--stage-card-height);
   padding: 14px 14px 12px;
 }
 
@@ -1641,7 +1693,7 @@
 }
 
 .playerBattleLane .ribbonArtwork {
-  min-height: 96px;
+  min-height: var(--stage-art-height);
   aspect-ratio: 1.18 / 0.9;
   border-radius: 18px;
 }
@@ -2184,9 +2236,9 @@
 }
 
 .opponentHandTray {
-  min-height: 22px;
-  margin-top: -22px;
-  margin-bottom: -26px;
+  min-height: calc(var(--enemy-hand-card-height) * 0.14);
+  margin-top: calc(var(--enemy-hand-sink) * -0.4);
+  margin-bottom: calc(var(--enemy-hand-sink) * -0.46);
   align-content: start;
   overflow: visible;
   background: transparent;
@@ -2203,7 +2255,7 @@
 .opponentIntentTray {
   min-height: 0;
   margin-top: -4px;
-  padding: 16px 18px;
+  padding: calc(var(--scene-zone-gap) * 1.5) calc(var(--scene-zone-gap) * 1.8);
   border-radius: 18px;
   border: 1px solid transparent;
   background: transparent;
@@ -2225,13 +2277,13 @@
   display: flex;
   justify-content: center;
   align-items: end;
-  min-height: 132px;
-  width: min(100%, 340px);
+  min-height: calc(var(--hidden-card-height) + 4px);
+  width: min(100%, calc(var(--hidden-card-width) * 3.9));
 }
 
 .opponentIntentCard {
-  width: 88px;
-  height: 128px;
+  width: var(--hidden-card-width);
+  height: var(--hidden-card-height);
   margin-left: -28px;
   border-radius: 18px;
   border: 1px solid rgba(196, 154, 90, 0.26);
@@ -2290,8 +2342,8 @@
 }
 
 .localHandTray {
-  min-height: 64px;
-  margin: -18px 4px -56px;
+  min-height: calc(var(--hand-card-height) * 0.38);
+  margin: calc(var(--player-hand-sink) * -0.26) 4px calc(var(--player-hand-sink) * -0.86);
   padding: 0;
   border-color: transparent;
   background: transparent;
@@ -2488,12 +2540,12 @@
   align-items: end;
   justify-content: center;
   gap: 0;
-  padding: 0 18px 0;
+  padding: 0 calc(var(--enemy-hand-card-width) * 0.15) 0;
   overflow-x: visible;
   overflow-y: visible;
   scrollbar-width: thin;
   scroll-padding-right: 6px;
-  transform: translateY(-54px);
+  transform: translateY(calc(var(--enemy-hand-sink) * -1));
 }
 
 .handFanGrid::-webkit-scrollbar,
@@ -2516,16 +2568,16 @@
 }
 
 .localHandTray .handFanGrid {
-  padding: 0 36px 0;
+  padding: 0 calc(var(--hand-card-width) * 0.28) 0;
   align-items: end;
-  transform: translateY(56px);
+  transform: translateY(var(--player-hand-sink));
 }
 
 .localHandTray .handFanGrid > .handCard {
-  width: clamp(128px, 8.2vw, 152px);
-  flex: 0 0 clamp(128px, 8.2vw, 152px);
-  min-height: 168px;
-  margin-left: -30px;
+  width: var(--hand-card-width);
+  flex: 0 0 var(--hand-card-width);
+  min-height: var(--hand-card-height);
+  margin-left: calc(var(--hand-card-width) * -0.23);
   padding: 10px 10px 14px;
   transform-origin: center bottom;
   transform: translateY(var(--hand-offset-y, 12px)) rotate(var(--hand-rotation, 0deg));
@@ -2579,8 +2631,8 @@
 }
 
 .opponentHandCard {
-  width: clamp(108px, 6.4vw, 126px);
-  flex: 0 0 clamp(108px, 6.4vw, 126px);
+  width: var(--enemy-hand-card-width);
+  flex: 0 0 var(--enemy-hand-card-width);
   margin-right: -26px;
   transform-origin: center top;
   transition: transform 0.18s ease, box-shadow 0.18s ease, margin 0.18s ease;
@@ -2601,7 +2653,7 @@
 .opponentHandCardBack {
   display: block;
   width: 100%;
-  min-height: 156px;
+  min-height: var(--enemy-hand-card-height);
   aspect-ratio: 0.7;
   border-radius: 20px;
   border: 1px solid rgba(196, 154, 90, 0.3);
@@ -2643,7 +2695,7 @@
 
 .localHandTray .handFanGrid > .handCard:hover,
 .localHandTray .handFanGrid > .handCard:focus-within {
-  transform: translateY(calc(var(--hand-offset-y, 12px) - 114px)) rotate(0deg) scale(1.16);
+  transform: translateY(calc(var(--hand-offset-y, 12px) - (var(--hand-card-height) * 0.68))) rotate(0deg) scale(1.16);
   margin-left: -4px;
   margin-right: -4px;
   z-index: 24;
@@ -2664,12 +2716,12 @@
   min-width: 0;
   position: relative;
   overflow: hidden;
-  min-height: 170px;
+  min-height: var(--hand-card-height);
   align-content: start;
 }
 
 .localHandTray .handCard {
-  grid-template-rows: auto minmax(38px, auto);
+  grid-template-rows: auto minmax(calc(var(--hand-card-height) * 0.22), auto);
   border-radius: 22px 22px 18px 18px;
   background:
     linear-gradient(180deg, rgba(255, 248, 236, 0.09), rgba(255, 248, 236, 0.02)),
@@ -2757,7 +2809,7 @@
 }
 
 .localHandTray .handCardArtwork {
-  min-height: 86px;
+  min-height: calc(var(--hand-card-height) * 0.52);
   aspect-ratio: 1.02 / 1;
   border-radius: 18px;
   border-color: rgba(255, 248, 236, 0.42);
@@ -3111,6 +3163,15 @@
   line-height: 1.5;
 }
 
+@media (max-width: 1600px) {
+  .fieldFrameLive {
+    --scene-scale: 0.93;
+    --enemy-band-ratio: 0.88fr;
+    --core-band-ratio: 0.26fr;
+    --player-band-ratio: 1.52fr;
+  }
+}
+
 @media (max-width: 1440px) {
   .scenePage {
     padding: 16px 18px 18px;
@@ -3249,7 +3310,7 @@
     margin-left: 0;
     margin-right: 0;
     transform: none;
-    width: 132px;
-    flex-basis: 132px;
+    width: var(--hand-card-width);
+    flex-basis: var(--hand-card-width);
   }
 }
