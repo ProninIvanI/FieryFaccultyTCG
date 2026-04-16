@@ -953,12 +953,13 @@
 }
 
 .fieldFrameLive {
-  --scene-scale: 1;
+  --scene-scale: 1.03;
   --hand-card-width: calc(132px * var(--scene-scale));
   --hand-card-height: calc(var(--hand-card-width) * 1.18);
-  --enemy-band-ratio: 0.92fr;
-  --core-band-ratio: 0.3fr;
-  --player-band-ratio: 1.44fr;
+  --enemy-band-ratio: 0.96fr;
+  --core-band-ratio: 0.22fr;
+  --player-band-ratio: 1.34fr;
+  --player-stage-offset-factor: 0.8;
   --scene-zone-gap: clamp(8px, calc(var(--hand-card-width) * 0.06), 14px);
   --enemy-hand-card-width: calc(var(--hand-card-width) * 0.9);
   --enemy-hand-card-height: calc(var(--enemy-hand-card-width) * 1.31);
@@ -969,7 +970,7 @@
   --hidden-card-height: calc(var(--hidden-card-width) * 1.45);
   --enemy-hand-sink: calc(var(--enemy-hand-card-height) * 0.35);
   --player-hand-sink: calc(var(--hand-card-height) * 0.38);
-  --player-stage-offset: calc(var(--stage-card-height) * 0.46);
+  --player-stage-offset: calc(var(--stage-card-height) * var(--player-stage-offset-factor));
 }
 
 .fieldFrameReplay {
@@ -3165,10 +3166,11 @@
 
 @media (max-width: 1600px) {
   .fieldFrameLive {
-    --scene-scale: 0.93;
-    --enemy-band-ratio: 0.88fr;
-    --core-band-ratio: 0.26fr;
-    --player-band-ratio: 1.52fr;
+    --scene-scale: 0.95;
+    --enemy-band-ratio: 0.9fr;
+    --core-band-ratio: 0.2fr;
+    --player-band-ratio: 1.42fr;
+    --player-stage-offset-factor: 0.68;
   }
 }
 
