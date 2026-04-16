@@ -3164,13 +3164,13 @@
   line-height: 1.5;
 }
 
-@media (max-width: 1600px) {
+@media (max-width: 1920px), (max-height: 1100px) {
   .fieldFrameLive {
     --scene-scale: 0.95;
     --enemy-band-ratio: 0.9fr;
     --core-band-ratio: 0.2fr;
     --player-band-ratio: 1.42fr;
-    --player-stage-offset-factor: 0.68;
+    --player-stage-offset-factor: 0.58;
   }
 }
 
