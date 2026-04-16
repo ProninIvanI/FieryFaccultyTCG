@@ -3170,7 +3170,7 @@
     --enemy-band-ratio: 0.9fr;
     --core-band-ratio: 0.2fr;
     --player-band-ratio: 1.42fr;
-    --player-stage-offset-factor: 0.58;
+    --player-stage-offset-factor: 0.42;
   }
 }
 
