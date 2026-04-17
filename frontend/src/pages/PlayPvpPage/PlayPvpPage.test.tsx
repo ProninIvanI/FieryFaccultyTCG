@@ -2711,9 +2711,9 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText(/Атака: Существо enemy_creature_1/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')}.+Твой маг`, 'i')).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Цель: Твой маг/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(new RegExp(`${getTargetTypeLabel('enemyCharacter')}.+Маг user_2`, 'i')).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Цель: user_2/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Цель исчезла до резолва/i).length).toBeGreaterThan(0);
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
       expect(screen.getAllByTestId(/resolution-replay-item/)).toHaveLength(2);
@@ -2791,6 +2791,8 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByTestId(/resolution-replay-item/)).toHaveLength(2);
       expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Первый шаг резолва');
       expect(screen.getByTestId('resolution-replay-item-active')).toHaveTextContent('Атака');
+      expect(screen.getByTestId('resolution-replay-item-active')).not.toHaveTextContent('Сработало');
+      expect(screen.getByTestId('resolution-replay-item-active')).not.toHaveTextContent('Игрок ');
       expect(screen.getByTestId('resolution-replay-item-active')).not.toHaveTextContent('Второй шаг резолва');
     });
 

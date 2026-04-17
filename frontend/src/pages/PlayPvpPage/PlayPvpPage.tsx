@@ -2667,12 +2667,14 @@ export const PlayPvpPage = () => {
           getResolvedCharacterLabel,
         },
         lastResolvedRound,
+        matchState,
       ),
     [
       getPlayerDisplayName,
       getResolvedBoardItemLabel,
       getResolvedCharacterLabel,
       knownTargetLabelsById,
+      matchState,
       lastResolvedRound,
       playerId,
     ],
@@ -3503,7 +3505,8 @@ export const PlayPvpPage = () => {
                             {resolvedTimelineEntries.map((entry, index) => {
                               const isReplayItemActive = index === resolvedPlaybackIndex;
                               const isReplayItemResolved =
-                                index < resolvedPlaybackIndex || (resolvedPlaybackComplete && isReplayItemActive);
+                                index < resolvedPlaybackIndex ||
+                                (resolvedPlaybackComplete && index <= resolvedPlaybackIndex);
 
                               return (
                                 <article
@@ -3531,15 +3534,30 @@ export const PlayPvpPage = () => {
                                       <strong>{entry.title}</strong>
                                     </div>
                                   </div>
-                                  <span className={styles.resolveReplayItemSubtitle}>{entry.subtitle}</span>
+                                  {entry.subtitle ? (
+                                    <span className={styles.resolveReplayItemSubtitle}>{entry.subtitle}</span>
+                                  ) : null}
                                   <div className={styles.resolveReplayItemMeta}>
                                     <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(entry.action.layer)}`.trim()}>
                                       {getRoundActionModeLabel(entry.action.layer)}
                                     </span>
-                                    <span className={styles.cardBadge}>{getRoundActionStatusDisplay(entry.action.status)}</span>
+                                    {entry.action.status !== 'resolved' ? (
+                                      <span className={styles.cardBadge}>{getResolvedActionOutcomeLabel(entry.action)}</span>
+                                    ) : null}
                                     {isReplayItemActive ? <span className={styles.cardBadge}>Сейчас</span> : null}
                                   </div>
-                                  <span className={styles.resolveReplayItemSummary}>{entry.action.summary}</span>
+                                  {entry.summary ? (
+                                    <span className={styles.resolveReplayItemSummary}>{entry.summary}</span>
+                                  ) : null}
+                                  {entry.detailItems.length ? (
+                                    <div className={styles.resolveReplayItemDetails}>
+                                      {entry.detailItems.map((detailItem) => (
+                                        <div key={detailItem} className={styles.resolveReplayItemDetail}>
+                                          {detailItem}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : null}
                                 </article>
                               );
                             })}

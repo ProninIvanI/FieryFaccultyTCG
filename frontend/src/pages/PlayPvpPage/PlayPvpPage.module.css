@@ -114,6 +114,7 @@
 }
 
 .sidebarFeedCard {
+  display: grid;
   min-height: 0;
 }
 
@@ -122,6 +123,7 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: start;
+  overflow: hidden;
 }
 
 .themedCard,
@@ -1260,6 +1262,30 @@
   overflow: hidden;
 }
 
+.resolveReplayItemDetails {
+  display: grid;
+  gap: 4px;
+}
+
+.resolveReplayItemDetail {
+  position: relative;
+  padding-left: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--pvp-text);
+}
+
+.resolveReplayItemDetail::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(196, 154, 90, 0.9);
+}
+
 @keyframes resolveReplayPulse {
   from {
     box-shadow:
@@ -1570,14 +1596,16 @@
 }
 
 .sidebarFeedCardContent .matchFeed {
-  max-height: min(34vh, 420px);
-  overflow: auto;
+  height: min(34vh, 420px);
+  overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
   min-height: 0;
+  scrollbar-gutter: stable;
 }
 
 .matchFeedRound {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .matchFeedRoundToggle {
