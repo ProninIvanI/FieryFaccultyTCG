@@ -2802,6 +2802,13 @@ describe('PlayPvpPage', () => {
       },
       { timeout: 2500 },
     );
+
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('resolution-replay-item-active')).not.toBeInTheDocument();
+      },
+      { timeout: 2500 },
+    );
   });
 
   it('returns to the live draft after autoplay and reopens the last resolve by eye toggle', async () => {

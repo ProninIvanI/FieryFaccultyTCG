@@ -1273,7 +1273,7 @@ export const PlayPvpPage = () => {
     }
 
     setResolvedPlaybackIndex(0);
-    setResolvedPlaybackComplete(totalSteps === 1);
+    setResolvedPlaybackComplete(false);
     setIsResolvedReplayOpen(true);
     setIsResolvedReplayPinned(false);
   }, [lastResolvedRound]);
@@ -1283,7 +1283,7 @@ export const PlayPvpPage = () => {
 
     if (
       !lastResolvedRound ||
-      totalSteps <= 1 ||
+      totalSteps === 0 ||
       resolvedPlaybackComplete ||
       resolvedPlaybackIndex < 0
     ) {
@@ -1291,13 +1291,12 @@ export const PlayPvpPage = () => {
     }
 
     const timeoutId = window.setTimeout(() => {
-      setResolvedPlaybackIndex((currentIndex) => {
-        const nextIndex = Math.min(currentIndex + 1, totalSteps - 1);
-        if (nextIndex >= totalSteps - 1) {
-          setResolvedPlaybackComplete(true);
-        }
-        return nextIndex;
-      });
+      if (resolvedPlaybackIndex >= totalSteps - 1) {
+        setResolvedPlaybackComplete(true);
+        return;
+      }
+
+      setResolvedPlaybackIndex((currentIndex) => Math.min(currentIndex + 1, totalSteps - 1));
     }, ROUND_RESOLUTION_PLAYBACK_STEP_MS);
 
     return () => {
@@ -2679,8 +2678,12 @@ export const PlayPvpPage = () => {
       playerId,
     ],
   );
+  const hasResolvedPlaybackActiveStep =
+    !resolvedPlaybackComplete || resolvedTimelineEntries.length <= 1;
   const activeResolvedTimelineEntry =
-    resolvedPlaybackIndex >= 0 && resolvedPlaybackIndex < resolvedTimelineEntries.length
+    hasResolvedPlaybackActiveStep &&
+    resolvedPlaybackIndex >= 0 &&
+    resolvedPlaybackIndex < resolvedTimelineEntries.length
       ? resolvedTimelineEntries[resolvedPlaybackIndex]
       : null;
   const enemyPreparationCount = Math.max(0, roundSync?.opponentDraftCount ?? 0);
@@ -3503,7 +3506,8 @@ export const PlayPvpPage = () => {
                               .join(' ')}
                           >
                             {resolvedTimelineEntries.map((entry, index) => {
-                              const isReplayItemActive = index === resolvedPlaybackIndex;
+                              const isReplayItemActive =
+                                hasResolvedPlaybackActiveStep && index === resolvedPlaybackIndex;
                               const isReplayItemResolved =
                                 index < resolvedPlaybackIndex ||
                                 (resolvedPlaybackComplete && index <= resolvedPlaybackIndex);
