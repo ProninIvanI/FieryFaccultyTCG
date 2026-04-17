@@ -3486,7 +3486,20 @@ export const PlayPvpPage = () => {
                     >
                       {isResolvedReplayOpen ? (
                         <section className={styles.resolveReplayScene} data-testid="resolution-replay-strip">
-                          <div className={styles.resolveReplayTrack}>
+                          <div
+                            className={[
+                              styles.resolveReplayTrack,
+                              resolvedTimelineEntries.length === 1
+                                ? styles.resolveReplayTrackSolo
+                                : resolvedTimelineEntries.length <= 3
+                                  ? styles.resolveReplayTrackSparse
+                                  : resolvedTimelineEntries.length >= 6
+                                    ? styles.resolveReplayTrackDense
+                                    : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                          >
                             {resolvedTimelineEntries.map((entry, index) => {
                               const isReplayItemActive = index === resolvedPlaybackIndex;
                               const isReplayItemResolved =
