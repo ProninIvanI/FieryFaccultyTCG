@@ -256,6 +256,14 @@ export const DeckPage = () => {
         0,
       ) / totalCards
     : 0;
+  const saveDeckLabel = isSaving
+    ? "Сохраняем..."
+    : deckId
+      ? "Сохранить изменения"
+      : "Сохранить колоду";
+  const createDeckCopyLabel = "Сохранить как новую";
+  const createDraftLabel = "Новый черновик";
+  const deleteDeckLabel = deckId ? "Удалить колоду" : "Сбросить";
 
   const countsByType = deckCards.reduce<Record<CardType, number>>(
     (acc, card) => {
@@ -649,36 +657,44 @@ export const DeckPage = () => {
 
                 <div className={styles.deckManagerActions}>
                   <button
-                    className={styles.presetButton}
+                    className={`${styles.deckActionButton} ${styles.deckActionPrimary}`.trim()}
                     type="button"
                     onClick={() => void handleSaveDeck()}
                     disabled={isSaving || !session?.token}
+                    aria-label={saveDeckLabel}
+                    title={saveDeckLabel}
                   >
-                    {isSaving ? "Сохраняем..." : deckId ? "Сохранить изменения" : "Сохранить колоду"}
+                    <span aria-hidden="true" className={styles.deckActionIcon}>↺</span>
                   </button>
                   <button
-                    className={styles.presetButton}
+                    className={styles.deckActionButton}
                     type="button"
                     onClick={() => void handleSaveDeck("create-new")}
                     disabled={isSaving || !session?.token}
+                    aria-label={createDeckCopyLabel}
+                    title={createDeckCopyLabel}
                   >
-                    Сохранить как новую
+                    <span aria-hidden="true" className={styles.deckActionIcon}>⎘</span>
                   </button>
                   <button
-                    className={styles.presetButton}
+                    className={styles.deckActionButton}
                     type="button"
                     onClick={handleCreateDraft}
                     disabled={isSaving}
+                    aria-label={createDraftLabel}
+                    title={createDraftLabel}
                   >
-                    Новый черновик
+                    <span aria-hidden="true" className={styles.deckActionIcon}>＋</span>
                   </button>
                   <button
-                    className={styles.presetButton}
+                    className={`${styles.deckActionButton} ${styles.deckActionDanger}`.trim()}
                     type="button"
                     onClick={handleDeleteDeck}
                     disabled={isSaving}
+                    aria-label={deleteDeckLabel}
+                    title={deleteDeckLabel}
                   >
-                    {deckId ? "Удалить колоду" : "Сбросить"}
+                    <span aria-hidden="true" className={styles.deckActionIcon}>✕</span>
                   </button>
                 </div>
 

@@ -1,6 +1,6 @@
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
   gap: 24px;
   align-items: stretch;
   min-height: 100vh;
@@ -408,8 +408,48 @@
 
 .deckManagerActions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
+}
+
+.deckActionButton {
+  border: 1px solid var(--theme-line);
+  background: var(--theme-surface-panel-soft);
+  border-radius: 12px;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-text-strong);
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.deckActionButton:hover:not(:disabled) {
+  border-color: var(--theme-line-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--theme-shadow-float);
+}
+
+.deckActionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deckActionPrimary {
+  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
+  color: #120f0d;
+  border-color: rgba(196, 154, 90, 0.42);
+}
+
+.deckActionDanger {
+  border-color: rgba(196, 154, 90, 0.16);
+  color: #d8b48f;
+}
+
+.deckActionIcon {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .deckStatusError {
@@ -500,6 +540,12 @@
   color: var(--theme-text-dim);
 }
 
+@media (max-width: 1400px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 388px);
+  }
+}
+
 @media (max-width: 1024px) {
   .layout {
     grid-template-columns: 1fr;
@@ -540,7 +586,7 @@
   }
 
   .deckManagerActions {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .presetGrid {
