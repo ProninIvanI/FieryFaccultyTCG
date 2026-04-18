@@ -257,11 +257,12 @@
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
   max-width: 100%;
-  align-items: start;
+  align-items: stretch;
 }
 
 .poolCard {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 10px;
   padding: 14px;
   border-radius: 16px;
@@ -269,6 +270,7 @@
   border: 1px solid var(--theme-line);
   max-width: 100%;
   min-width: 0;
+  height: 100%;
 }
 
 .poolCardHeader {
@@ -344,6 +346,7 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  min-height: calc(2 * 1.4em);
 }
 
 .smallButton {
