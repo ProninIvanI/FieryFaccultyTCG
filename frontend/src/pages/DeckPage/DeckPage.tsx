@@ -552,8 +552,21 @@ export const DeckPage = () => {
             <div className={styles.cardList}>
               {filteredCards.map((card) => (
                 <div key={card.id} className={styles.cardRow}>
-                  <div>
-                    <div className={styles.cardName}>{card.name}</div>
+                  <div className={styles.cardRowBody}>
+                    <div className={styles.cardHeaderRow}>
+                      <div className={styles.cardName}>{card.name}</div>
+                      <div className={styles.cardActionCluster}>
+                        <span className={styles.cardMana}>{card.mana} mana</span>
+                        <button
+                          className={styles.smallButton}
+                          type="button"
+                          onClick={() => updateDeck(card.id, 1)}
+                          aria-label={`Добавить ${card.name} в колоду`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
                     <div className={styles.cardMeta}>
                       {getCatalogCardTypeLabel(card.type)}
                       {card.school ? ` · ${getCatalogSchoolLabel(card.school)}` : ""}
@@ -570,16 +583,6 @@ export const DeckPage = () => {
                       <div className={styles.cardEffect}>{card.effect}</div>
                     ) : null}
                   </div>
-                  <div className={styles.cardControls}>
-                    <span className={styles.cardMana}>{card.mana} mana</span>
-                    <button
-                      className={styles.smallButton}
-                      type="button"
-                      onClick={() => updateDeck(card.id, 1)}
-                    >
-                      +
-                    </button>
-                  </div>
                 </div>
               ))}
             </div>
@@ -588,7 +591,11 @@ export const DeckPage = () => {
 
         <section className={styles.rightColumn}>
           <div className={styles.stickyStack}>
-            <Card title="Конструктор колоды">
+            <Card
+              title="Конструктор колоды"
+              className={styles.deckWorkspaceCard}
+              contentClassName={styles.deckWorkspaceCardContent}
+            >
               <div className={styles.deckManager}>
                 <div className={styles.deckManagerHeader}>
                   <div>
@@ -690,65 +697,66 @@ export const DeckPage = () => {
                   <p className={styles.deckStatusInfo}>{deckRequestInfo}</p>
                 ) : null}
               </div>
-
-              <div className={styles.deckSummary}>
-                <div>
-                  <div className={styles.summaryValue}>{totalCards}</div>
-                  <div className={styles.summaryLabel}>карт всего</div>
-                </div>
-                <div>
-                  <div className={styles.summaryValue}>
-                    {averageMana.toFixed(1)}
+              <div className={styles.deckWorkspaceBody}>
+                <div className={styles.deckSummary}>
+                  <div>
+                    <div className={styles.summaryValue}>{totalCards}</div>
+                    <div className={styles.summaryLabel}>карт всего</div>
                   </div>
-                  <div className={styles.summaryLabel}>ср. мана</div>
-                </div>
-                <div>
-                  <div className={styles.summaryValue}>
-                    {countsByType.spell}
+                  <div>
+                    <div className={styles.summaryValue}>
+                      {averageMana.toFixed(1)}
+                    </div>
+                    <div className={styles.summaryLabel}>ср. мана</div>
                   </div>
-                  <div className={styles.summaryLabel}>заклинания</div>
-                </div>
-              </div>
-              <div className={styles.deckList}>
-                {deckCards.length === 0 ? (
-                  <div className={styles.emptyState}>
-                    Добавьте карты из пула слева
+                  <div>
+                    <div className={styles.summaryValue}>
+                      {countsByType.spell}
+                    </div>
+                    <div className={styles.summaryLabel}>заклинания</div>
                   </div>
-                ) : (
-                  deckCards.map((card) => (
-                    <div key={card.id} className={styles.deckRow}>
-                      <div>
-                        <div className={styles.cardName}>{card.name}</div>
-                        <div className={styles.cardMeta}>
-                          {getCatalogCardTypeLabel(card.type)} · {card.mana} mana
+                </div>
+                <div className={styles.deckList}>
+                  {deckCards.length === 0 ? (
+                    <div className={styles.emptyState}>
+                      Добавьте карты из пула слева
+                    </div>
+                  ) : (
+                    deckCards.map((card) => (
+                      <div key={card.id} className={styles.deckRow}>
+                        <div>
+                          <div className={styles.cardName}>{card.name}</div>
+                          <div className={styles.cardMeta}>
+                            {getCatalogCardTypeLabel(card.type)} · {card.mana} mana
+                          </div>
+                        </div>
+                        <div className={styles.deckControls}>
+                          <button
+                            className={styles.smallButton}
+                            type="button"
+                            onClick={() => updateDeck(card.id, -1)}
+                          >
+                            -
+                          </button>
+                          <span className={styles.deckCount}>
+                            {deck[card.id]}
+                          </span>
+                          <button
+                            className={styles.smallButton}
+                            type="button"
+                            onClick={() => updateDeck(card.id, 1)}
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
-                      <div className={styles.deckControls}>
-                        <button
-                          className={styles.smallButton}
-                          type="button"
-                          onClick={() => updateDeck(card.id, -1)}
-                        >
-                          -
-                        </button>
-                        <span className={styles.deckCount}>
-                          {deck[card.id]}
-                        </span>
-                        <button
-                          className={styles.smallButton}
-                          type="button"
-                          onClick={() => updateDeck(card.id, 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
+                </div>
               </div>
             </Card>
 
-            <Card title="Пресеты для тестов">
+            <Card title="Пресеты для тестов" className={styles.presetWorkspaceCard}>
               <div className={styles.presetGrid}>
                 <button className={styles.presetButton} type="button">
                   Aggro Fire

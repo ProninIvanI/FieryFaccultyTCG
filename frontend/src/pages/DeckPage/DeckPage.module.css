@@ -28,8 +28,35 @@
   top: 0;
   align-self: start;
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 20px;
+  min-height: calc(100vh - 24px);
   max-height: calc(100vh - 24px);
+  overflow: hidden;
+}
+
+.deckWorkspaceCard {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.deckWorkspaceCardContent {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+}
+
+.deckWorkspaceBody {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.presetWorkspaceCard {
+  align-self: end;
 }
 
 .characterScrollerWrap {
@@ -233,21 +260,28 @@
 }
 
 .cardRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--theme-surface-panel-soft);
   border: 1px solid var(--theme-line);
   gap: 8px;
-  flex-wrap: wrap;
   max-width: 100%;
   overflow: hidden;
 }
 
-.cardRow > div {
+.cardRowBody {
+  display: grid;
+  gap: 4px;
   min-width: 0;
+}
+
+.cardHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .cardName {
@@ -256,6 +290,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--theme-text-strong);
+}
+
+.cardActionCluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .cardMeta {
@@ -275,6 +316,10 @@
   color: var(--theme-text);
   margin-top: 4px;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .cardControls {
@@ -393,8 +438,8 @@
 .deckList {
   display: grid;
   gap: 10px;
-  max-height: clamp(200px, 28vh, 300px);
   min-height: 0;
+  height: 100%;
   overflow-y: auto;
   padding-right: 6px;
 }
@@ -459,6 +504,25 @@
   .layout {
     grid-template-columns: 1fr;
   }
+
+  .stickyStack {
+    position: static;
+    min-height: auto;
+    max-height: none;
+    overflow: visible;
+    grid-template-rows: auto auto;
+  }
+
+  .deckWorkspaceCard,
+  .deckWorkspaceCardContent,
+  .deckWorkspaceBody {
+    min-height: auto;
+  }
+
+  .deckList {
+    height: auto;
+    max-height: clamp(220px, 36vh, 360px);
+  }
 }
 
 @media (max-width: 720px) {
@@ -481,5 +545,14 @@
 
   .presetGrid {
     grid-template-columns: 1fr;
+  }
+
+  .cardHeaderRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cardActionCluster {
+    justify-content: space-between;
   }
 }
