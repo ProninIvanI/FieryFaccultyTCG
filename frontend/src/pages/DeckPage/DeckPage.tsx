@@ -687,14 +687,38 @@ export const DeckPage = () => {
 
                 <div className={styles.deckManagerActions}>
                   <button
-                    className={`${styles.deckActionButton} ${styles.deckActionPrimary}`.trim()}
+                    className={styles.deckActionButton}
                     type="button"
                     onClick={() => void handleSaveDeck()}
                     disabled={isSaving || !session?.token}
                     aria-label={saveDeckLabel}
                     title={saveDeckLabel}
                   >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>⟳</span>
+                    <span aria-hidden="true" className={styles.deckActionIcon}>
+                      <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
+                        <path
+                          d="M6.5 4.5h9l2 2v11a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M8 4.5v5h6v-5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M8.5 15.5h5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </span>
                   </button>
                   <button
                     className={styles.deckActionButton}
@@ -704,7 +728,28 @@ export const DeckPage = () => {
                     aria-label={createDeckCopyLabel}
                     title={createDeckCopyLabel}
                   >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>⧉</span>
+                    <span aria-hidden="true" className={styles.deckActionIcon}>
+                      <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
+                        <rect
+                          x="9"
+                          y="9"
+                          width="9"
+                          height="9"
+                          rx="1.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                        />
+                        <path
+                          d="M6.5 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
                   </button>
                   <button
                     className={styles.deckActionButton}
@@ -714,7 +759,17 @@ export const DeckPage = () => {
                     aria-label={createDraftLabel}
                     title={createDraftLabel}
                   >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>+</span>
+                    <span aria-hidden="true" className={styles.deckActionIcon}>
+                      <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
+                        <path
+                          d="M12 6v12M6 12h12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </span>
                   </button>
                   <button
                     className={`${styles.deckActionButton} ${styles.deckActionDanger}`.trim()}
@@ -724,7 +779,17 @@ export const DeckPage = () => {
                     aria-label={deleteDeckLabel}
                     title={deleteDeckLabel}
                   >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>×</span>
+                    <span aria-hidden="true" className={styles.deckActionIcon}>
+                      <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
+                        <path
+                          d="M7 7l10 10M17 7 7 17"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </span>
                   </button>
                 </div>
 

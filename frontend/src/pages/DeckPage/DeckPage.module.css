@@ -312,9 +312,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--theme-line);
-  background: rgba(255, 248, 236, 0.04);
+  background: rgba(255, 248, 236, 0.03);
   color: var(--theme-text-strong);
   font-size: 13px;
   font-weight: 700;
@@ -347,15 +347,27 @@
 }
 
 .smallButton {
-  border: 1px solid rgba(196, 154, 90, 0.3);
-  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
-  color: #120f0d;
+  border: 1px solid var(--theme-line);
+  background: rgba(255, 248, 236, 0.04);
+  color: var(--theme-text-strong);
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+.smallButton:hover:not(:disabled) {
+  border-color: rgba(196, 154, 90, 0.34);
+  background: rgba(196, 154, 90, 0.12);
+  transform: translateY(-1px);
+}
+
+.smallButton:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
 }
 
 .deckSummary {
@@ -449,27 +461,21 @@
   cursor: not-allowed;
 }
 
-.deckActionPrimary {
-  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
-  color: #120f0d;
-  border-color: rgba(196, 154, 90, 0.42);
-}
-
 .deckActionDanger {
-  border-color: rgba(196, 154, 90, 0.16);
   color: #d8b48f;
 }
 
 .deckActionIcon {
-  font-size: 18px;
-  line-height: 1;
-  font-weight: 500;
-  font-family: var(--theme-font-ui);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1em;
-  height: 1em;
+  width: 18px;
+  height: 18px;
+}
+
+.deckActionGlyph {
+  width: 18px;
+  height: 18px;
 }
 
 .deckStatusError {
@@ -577,9 +583,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--theme-line);
-  background: rgba(255, 248, 236, 0.04);
+  background: rgba(255, 248, 236, 0.03);
   color: var(--theme-text-strong);
 }
 
