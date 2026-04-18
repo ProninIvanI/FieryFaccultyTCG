@@ -558,41 +558,71 @@ export const DeckPage = () => {
               </div>
             </div>
             <div className={styles.cardList}>
-              {filteredCards.map((card) => (
-                <div key={card.id} className={styles.cardRow}>
-                  <div className={styles.cardRowBody}>
-                    <div className={styles.cardHeaderRow}>
-                      <div className={styles.cardName}>{card.name}</div>
-                      <div className={styles.cardActionCluster}>
-                        <span className={styles.cardMana}>{card.mana} mana</span>
+              {filteredCards.map((card) => {
+                const quantity = deck[card.id] ?? 0;
+                return (
+                  <div key={card.id} className={styles.poolCard}>
+                    <div className={styles.poolCardHeader}>
+                      <div className={styles.poolCardIdentity}>
+                        <div className={styles.poolCardName}>{card.name}</div>
+                        <div className={styles.poolCardMana}>{card.mana} mana</div>
+                      </div>
+                      <div className={styles.poolCardControls}>
+                        <button
+                          className={styles.smallButton}
+                          type="button"
+                          onClick={() => updateDeck(card.id, -1)}
+                          disabled={quantity === 0}
+                          aria-label={`Убрать ${card.name} из колоды`}
+                          title={`Убрать ${card.name} из колоды`}
+                        >
+                          -
+                        </button>
+                        <span
+                          className={styles.poolCardCount}
+                          aria-label={`В колоде: ${quantity}`}
+                        >
+                          {quantity}
+                        </span>
                         <button
                           className={styles.smallButton}
                           type="button"
                           onClick={() => updateDeck(card.id, 1)}
                           aria-label={`Добавить ${card.name} в колоду`}
+                          title={`Добавить ${card.name} в колоду`}
                         >
                           +
                         </button>
                       </div>
                     </div>
-                    <div className={styles.cardMeta}>
-                      {getCatalogCardTypeLabel(card.type)}
-                      {card.school ? ` · ${getCatalogSchoolLabel(card.school)}` : ""}
-                      {card.speed ? ` · speed ${card.speed}` : ""}
+                    <div className={styles.poolCardMeta}>
+                      <span className={styles.poolCardTag}>
+                        {getCatalogCardTypeLabel(card.type)}
+                      </span>
+                      {card.school ? (
+                        <span className={styles.poolCardTag}>
+                          {getCatalogSchoolLabel(card.school)}
+                        </span>
+                      ) : null}
+                      {card.speed ? (
+                        <span className={styles.poolCardTag}>
+                          speed {card.speed}
+                        </span>
+                      ) : null}
+                      {card.type === "summon" && (card.hp || card.attack) ? (
+                        <span className={styles.poolCardTag}>
+                          {card.hp ? `HP ${card.hp}` : ""}
+                          {card.hp && card.attack ? " · " : ""}
+                          {card.attack ? `ATK ${card.attack}` : ""}
+                        </span>
+                      ) : null}
                     </div>
-                    {card.type === "summon" && (card.hp || card.attack) ? (
-                      <div className={styles.cardStats}>
-                        {card.hp ? `HP ${card.hp}` : ""}
-                        {card.hp && card.attack ? " · " : ""}
-                        {card.attack ? `ATK ${card.attack}` : ""}
-                      </div>
-                    ) : null}
                     {card.effect ? (
-                      <div className={styles.cardEffect}>{card.effect}</div>
+                      <div className={styles.poolCardEffect}>{card.effect}</div>
                     ) : null}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         </section>
