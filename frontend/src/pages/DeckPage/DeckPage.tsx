@@ -664,7 +664,7 @@ export const DeckPage = () => {
                     aria-label={saveDeckLabel}
                     title={saveDeckLabel}
                   >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>↺</span>
+                    <span aria-hidden="true" className={styles.deckActionIcon}>⟳</span>
                   </button>
                   <button
                     className={styles.deckActionButton}
@@ -674,7 +674,7 @@ export const DeckPage = () => {
                     aria-label={createDeckCopyLabel}
                     title={createDeckCopyLabel}
                   >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>⎘</span>
+                    <span aria-hidden="true" className={styles.deckActionIcon}>⧉</span>
                   </button>
                   <button
                     className={styles.deckActionButton}
@@ -684,7 +684,7 @@ export const DeckPage = () => {
                     aria-label={createDraftLabel}
                     title={createDraftLabel}
                   >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>＋</span>
+                    <span aria-hidden="true" className={styles.deckActionIcon}>+</span>
                   </button>
                   <button
                     className={`${styles.deckActionButton} ${styles.deckActionDanger}`.trim()}
@@ -694,7 +694,7 @@ export const DeckPage = () => {
                     aria-label={deleteDeckLabel}
                     title={deleteDeckLabel}
                   >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>✕</span>
+                    <span aria-hidden="true" className={styles.deckActionIcon}>×</span>
                   </button>
                 </div>
 
@@ -740,10 +740,14 @@ export const DeckPage = () => {
                   ) : (
                     deckCards.map((card) => (
                       <div key={card.id} className={styles.deckRow}>
-                        <div>
-                          <div className={styles.cardName}>{card.name}</div>
-                          <div className={styles.cardMeta}>
-                            {getCatalogCardTypeLabel(card.type)} · {card.mana} mana
+                        <div className={styles.deckRowInfo}>
+                          <div className={styles.deckRowHeader}>
+                            <div className={styles.deckRowName}>{card.name}</div>
+                            <span className={styles.deckRowMana}>{card.mana} mana</span>
+                          </div>
+                          <div className={styles.deckRowMeta}>
+                            {getCatalogCardTypeLabel(card.type)}
+                            {card.school ? ` · ${getCatalogSchoolLabel(card.school)}` : ""}
                           </div>
                         </div>
                         <div className={styles.deckControls}>
@@ -754,7 +758,7 @@ export const DeckPage = () => {
                           >
                             -
                           </button>
-                          <span className={styles.deckCount}>
+                          <span className={`${styles.deckCount} ${styles.deckCountBadge}`.trim()}>
                             {deck[card.id]}
                           </span>
                           <button

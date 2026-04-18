@@ -448,8 +448,15 @@
 }
 
 .deckActionIcon {
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1;
+  font-weight: 500;
+  font-family: var(--theme-font-ui);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
 }
 
 .deckStatusError {
@@ -477,7 +484,7 @@
 
 .deckList {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   min-height: 0;
   height: 100%;
   overflow-y: auto;
@@ -485,26 +492,82 @@
 }
 
 .deckRow {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  padding: 10px 12px;
+  padding: 9px 10px;
   border-radius: 12px;
   background: rgba(255, 248, 236, 0.04);
   border: 1px solid var(--theme-line);
   color: var(--theme-text-strong);
+  gap: 10px;
+  min-width: 0;
+}
+
+.deckRowInfo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.deckRowHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.deckRowName {
+  font-weight: 700;
+  color: var(--theme-text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.deckRowMana {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--theme-text-dim);
+  border: 1px solid var(--theme-line);
+  background: rgba(255, 248, 236, 0.04);
+  border-radius: 999px;
+  padding: 4px 7px;
+}
+
+.deckRowMeta {
+  font-size: 11px;
+  color: var(--theme-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .deckControls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .deckCount {
   min-width: 22px;
   text-align: center;
   font-weight: 600;
+}
+
+.deckCountBadge {
+  min-width: 28px;
+  padding: 0 6px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--theme-line);
+  background: rgba(255, 248, 236, 0.04);
+  color: var(--theme-text-strong);
 }
 
 .emptyState {
@@ -543,6 +606,39 @@
 @media (max-width: 1400px) {
   .layout {
     grid-template-columns: minmax(0, 1fr) minmax(320px, 388px);
+  }
+
+  .deckRow {
+    padding: 8px 9px;
+    gap: 8px;
+  }
+
+  .deckRowHeader {
+    gap: 6px;
+  }
+
+  .deckRowName {
+    font-size: 15px;
+  }
+
+  .deckRowMeta {
+    font-size: 10px;
+  }
+
+  .deckControls {
+    gap: 4px;
+  }
+
+  .deckControls .smallButton {
+    width: 26px;
+    height: 26px;
+    font-size: 14px;
+  }
+
+  .deckCountBadge {
+    min-width: 24px;
+    height: 26px;
+    font-size: 13px;
   }
 }
 
