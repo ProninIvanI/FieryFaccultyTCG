@@ -22,6 +22,7 @@
 - Deck actions were reduced into a compact icon toolbar with hover hints via `title` and proper `aria-label` values.
 - Deck list in the right column was tightened for smaller desktop sizes: name, mana, meta, counter, and controls now live in a denser summary row.
 - The card pool on the left was rebuilt into a more catalog-like interactive grid, closer to `CardsPage`.
+- Pool-card heights were normalized so short and long card descriptions no longer create abrupt height jumps between neighbors in the catalog grid.
 - Each pool card now keeps its key information together:
   - card name
   - mana cost

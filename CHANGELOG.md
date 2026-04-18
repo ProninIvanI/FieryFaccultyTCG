@@ -1,5 +1,7 @@
 ﻿# Changelog
 
+> 2026-04-18 update: normalized deck-builder pool card heights so short and long card descriptions no longer create a jagged mosaic in the left catalog. Pool cards now stretch to a shared row height and reserve stable space for the clamped effect summary, which keeps controls aligned and the catalog easier to scan.
+
 > 2026-04-18 update: `DeckPage` was reworked from a long utility list into a denser deck-building workspace. The right column now behaves as a real sticky workspace with a compact deck-action toolbar, the deck summary list was tightened for smaller desktop viewports, and the left-side card pool now acts as the primary interactive catalog with inline `- count +` controls so cards can be added or removed without bouncing between columns.
 
 > 2026-04-18 update: the PvP replay and round-history surfaces were moved closer to the live battlefield language. `PlayPvpPage` now renders replay cards in the same dark scene palette, uses `solo / sparse / dense` track states for different round sizes, keeps round-history scrolling local to the sidebar card, removes engine-facing replay text, shows human-readable targets and effect outcomes, and no longer leaves the final replay step stuck in the active `Сейчас` state after a full loop completes.
