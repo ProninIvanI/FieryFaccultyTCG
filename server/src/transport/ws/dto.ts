@@ -19,6 +19,7 @@ export type ServerMessageDto =
       code:
         | 'unauthorized'
         | 'deck_unavailable'
+        | 'deck_invalid'
         | 'session_full'
         | 'duplicate_character'
         | 'seed_mismatch'

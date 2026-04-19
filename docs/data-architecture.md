@@ -142,6 +142,12 @@ Frontend хранит:
 - frontend deckbuilder уже работает через backend API;
 - PvP bootstrap уже использует `deckId`, а сервер сам резолвит реальный состав колоды перед созданием матчевой loadout.
 
+Deck flow note:
+- deck legality is centralized in `game-core`;
+- `backend` validates decks on save/update;
+- `server` revalidates them before PvP join;
+- `frontend` shows the same legality in Deck Builder, but is not the source of truth.
+
 ### 6. Content / Admin
 
 Что входит:

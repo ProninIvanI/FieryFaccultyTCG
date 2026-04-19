@@ -288,6 +288,8 @@ components/      (рендеринг компонентов)
 
 ### Shared Catalog Flow
 
+- The same shared layer now includes `DECK_RULES_V1` and `validateDeckLegality(...)`, so `DeckPage`, `backend`, and `server` enforce one deck-legality contract.
+
 - Нормализация карточного каталога вынесена в `game-core/src/cards/catalog.ts` и используется как единый источник данных для frontend и server.
 - `PlayPvpPage`, `CardsPage` и `DeckPage` больше не парсят `cards.json` каждая по-своему: они получают либо `normalizeCatalog(...)`, либо уже готовые summary-builder’ы из `game-core`.
 - Для каталога централизованы:

@@ -9,6 +9,8 @@ import {
   type CatalogCharacterSummary,
   type CatalogSchool,
 } from "@game-core/cards/catalog";
+import { DECK_RULES_V1 } from "@game-core/decks/rules";
+import { validateDeckLegality } from "@game-core/decks/validateDeckLegality";
 import { Card, HomeLinkButton, PageShell } from "@/components";
 import rawCardData from "@/data/cardCatalog";
 import { authService, deckService } from "@/services";
@@ -21,6 +23,14 @@ type School = CatalogSchool;
 type CardSummary = CatalogCardSummary;
 
 type CharacterSummary = CatalogCharacterSummary;
+
+type DeckPreset = {
+  id: string;
+  name: string;
+  blurb: string;
+  characterId: string;
+  cards: DeckCardItem[];
+};
 
 const CARD_POOL: CardSummary[] = buildCatalogCardSummaries(rawCardData);
 const CHARACTERS: CharacterSummary[] = buildCatalogCharacterSummaries(rawCardData);
@@ -46,6 +56,101 @@ const TYPE_FILTERS: Array<{ id: "all" | CardType; label: string }> = [
   { id: "summon", label: getCatalogCardTypeLabel("summon", "plural") },
   { id: "art", label: getCatalogCardTypeLabel("art", "plural") },
   { id: "modifier", label: getCatalogCardTypeLabel("modifier", "plural") },
+];
+
+const DECK_PRESETS: DeckPreset[] = [
+  {
+    id: "aggro-fire",
+    name: "Aggro Fire",
+    blurb: "Быстрый урон и темп через огненные спеллы и баффы.",
+    characterId: "1",
+    cards: [
+      { cardId: "1", quantity: 2 },
+      { cardId: "2", quantity: 2 },
+      { cardId: "3", quantity: 2 },
+      { cardId: "4", quantity: 2 },
+      { cardId: "5", quantity: 2 },
+      { cardId: "6", quantity: 2 },
+      { cardId: "8", quantity: 2 },
+      { cardId: "9", quantity: 2 },
+      { cardId: "41", quantity: 2 },
+      { cardId: "43", quantity: 2 },
+      { cardId: "46", quantity: 2 },
+      { cardId: "53", quantity: 2 },
+      { cardId: "61", quantity: 2 },
+      { cardId: "69", quantity: 2 },
+      { cardId: "85", quantity: 2 },
+    ],
+  },
+  {
+    id: "control-water",
+    name: "Control Water",
+    blurb: "Замедление, щиты и затяжной розыгрыш через контроль стола.",
+    characterId: "7",
+    cards: [
+      { cardId: "11", quantity: 2 },
+      { cardId: "12", quantity: 2 },
+      { cardId: "13", quantity: 2 },
+      { cardId: "14", quantity: 2 },
+      { cardId: "16", quantity: 2 },
+      { cardId: "17", quantity: 2 },
+      { cardId: "18", quantity: 2 },
+      { cardId: "19", quantity: 2 },
+      { cardId: "20", quantity: 2 },
+      { cardId: "41", quantity: 2 },
+      { cardId: "42", quantity: 2 },
+      { cardId: "45", quantity: 2 },
+      { cardId: "61", quantity: 2 },
+      { cardId: "67", quantity: 2 },
+      { cardId: "87", quantity: 2 },
+    ],
+  },
+  {
+    id: "earth-shield",
+    name: "Earth Shield",
+    blurb: "Плотная защита, дебаффы и тяжёлые добивающие ходы.",
+    characterId: "13",
+    cards: [
+      { cardId: "21", quantity: 2 },
+      { cardId: "22", quantity: 2 },
+      { cardId: "23", quantity: 2 },
+      { cardId: "25", quantity: 2 },
+      { cardId: "26", quantity: 2 },
+      { cardId: "27", quantity: 2 },
+      { cardId: "29", quantity: 2 },
+      { cardId: "30", quantity: 2 },
+      { cardId: "42", quantity: 2 },
+      { cardId: "49", quantity: 2 },
+      { cardId: "55", quantity: 2 },
+      { cardId: "61", quantity: 2 },
+      { cardId: "67", quantity: 2 },
+      { cardId: "72", quantity: 2 },
+      { cardId: "91", quantity: 2 },
+    ],
+  },
+  {
+    id: "air-tempo",
+    name: "Air Tempo",
+    blurb: "Скорость, прерывания и давление через темповый размен.",
+    characterId: "20",
+    cards: [
+      { cardId: "31", quantity: 2 },
+      { cardId: "32", quantity: 2 },
+      { cardId: "33", quantity: 2 },
+      { cardId: "34", quantity: 2 },
+      { cardId: "35", quantity: 2 },
+      { cardId: "36", quantity: 2 },
+      { cardId: "37", quantity: 2 },
+      { cardId: "39", quantity: 2 },
+      { cardId: "40", quantity: 2 },
+      { cardId: "42", quantity: 2 },
+      { cardId: "47", quantity: 2 },
+      { cardId: "56", quantity: 2 },
+      { cardId: "61", quantity: 2 },
+      { cardId: "68", quantity: 2 },
+      { cardId: "97", quantity: 2 },
+    ],
+  },
 ];
 
 export const DeckPage = () => {
@@ -282,6 +387,81 @@ export const DeckPage = () => {
     [deck],
   );
 
+  const deckValidation = useMemo(
+    () =>
+      validateDeckLegality(rawCardData, {
+        characterId: selectedCharacter?.id ?? "",
+        cards: serializedDeckCards,
+      }),
+    [selectedCharacter?.id, serializedDeckCards],
+  );
+
+  const deckRuleChecklist = useMemo(() => {
+    const issueCodes = new Set(deckValidation.issues.map((issue) => issue.code));
+
+    return [
+      {
+        id: "deck-size",
+        ok: !issueCodes.has("deck_size_invalid"),
+        label: `Ровно ${DECK_RULES_V1.deckSize} карт`,
+      },
+      {
+        id: "copies",
+        ok: !issueCodes.has("deck_card_copies_exceeded"),
+        label: `Не больше ${DECK_RULES_V1.maxCopiesPerCard} копий одной карты`,
+      },
+      {
+        id: "school",
+        ok: !issueCodes.has("deck_card_school_mismatch"),
+        label: "Карты подходят факультету выбранного персонажа",
+      },
+      {
+        id: "art-limit",
+        ok: !issueCodes.has("deck_art_limit_exceeded"),
+        label: `art не больше ${DECK_RULES_V1.maxArtCards}`,
+      },
+      {
+        id: "modifier-limit",
+        ok: !issueCodes.has("deck_modifier_limit_exceeded"),
+        label: `modifier не больше ${DECK_RULES_V1.maxModifierCards}`,
+      },
+    ];
+  }, [deckValidation.issues]);
+
+  const deckRuleDetails = useMemo(() => {
+    const schoolIssue = deckValidation.issues.find(
+      (issue) => issue.code === "deck_card_school_mismatch",
+    );
+    const copiesIssue = deckValidation.issues.find(
+      (issue) => issue.code === "deck_card_copies_exceeded",
+    );
+    const unknownCardIssue = deckValidation.issues.find(
+      (issue) => issue.code === "deck_card_unknown",
+    );
+
+    return [schoolIssue, copiesIssue, unknownCardIssue].filter(
+      (issue): issue is NonNullable<typeof issue> => issue !== undefined,
+    );
+  }, [deckValidation.issues]);
+
+  const canAddCard = useCallback(
+    (cardId: string) => {
+      const nextCards = serializedDeckCards.some((card) => card.cardId === cardId)
+        ? serializedDeckCards.map((card) =>
+            card.cardId === cardId
+              ? { ...card, quantity: card.quantity + 1 }
+              : card,
+          )
+        : [...serializedDeckCards, { cardId, quantity: 1 }];
+
+      return validateDeckLegality(rawCardData, {
+        characterId: selectedCharacter?.id ?? "",
+        cards: nextCards,
+      }).ok;
+    },
+    [selectedCharacter?.id, serializedDeckCards],
+  );
+
   const applySavedDeck = useCallback((savedDeck: UserDeck) => {
     setDeckId(savedDeck.id);
     setDeckName(savedDeck.name);
@@ -363,6 +543,20 @@ export const DeckPage = () => {
     applySavedDeck(savedDeck);
   };
 
+  const applyPresetDeck = (preset: DeckPreset) => {
+    setDeckId(null);
+    setDeckName(preset.name);
+    setSelectedCharacterId(preset.characterId);
+    setDeck(
+      preset.cards.reduce<Record<string, number>>((acc, card) => {
+        acc[card.cardId] = card.quantity;
+        return acc;
+      }, {}),
+    );
+    setDeckRequestError(null);
+    setDeckRequestInfo(`Пресет ${preset.name} загружен в черновик.`);
+  };
+
   const handleSaveDeck = async (mode: "default" | "create-new" = "default") => {
     if (!session?.token) {
       setDeckRequestError("Для сохранения колод нужно войти в аккаунт.");
@@ -371,6 +565,11 @@ export const DeckPage = () => {
 
     if (!selectedCharacter?.id) {
       setDeckRequestError("Для сохранения колоды нужно выбрать персонажа.");
+      return;
+    }
+
+    if (!deckValidation.ok) {
+      setDeckRequestError(deckValidation.issues[0]?.message ?? "Колода не прошла проверку.");
       return;
     }
 
@@ -588,6 +787,7 @@ export const DeckPage = () => {
                           className={styles.smallButton}
                           type="button"
                           onClick={() => updateDeck(card.id, 1)}
+                          disabled={!canAddCard(card.id)}
                           aria-label={`Добавить ${card.name} в колоду`}
                           title={`Добавить ${card.name} в колоду`}
                         >
@@ -645,7 +845,7 @@ export const DeckPage = () => {
                     </p>
                   </div>
                   <div className={styles.deckBadge}>
-                    {deckId ? "Сохранена" : "Черновик"}
+                    {deckValidation.ok ? (deckId ? "Сохранена" : "Черновик") : "Нелегальна"}
                   </div>
                 </div>
 
@@ -690,7 +890,7 @@ export const DeckPage = () => {
                     className={styles.deckActionButton}
                     type="button"
                     onClick={() => void handleSaveDeck()}
-                    disabled={isSaving || !session?.token}
+                    disabled={isSaving || !session?.token || !deckValidation.ok}
                     aria-label={saveDeckLabel}
                     title={saveDeckLabel}
                   >
@@ -724,7 +924,7 @@ export const DeckPage = () => {
                     className={styles.deckActionButton}
                     type="button"
                     onClick={() => void handleSaveDeck("create-new")}
-                    disabled={isSaving || !session?.token}
+                    disabled={isSaving || !session?.token || !deckValidation.ok}
                     aria-label={createDeckCopyLabel}
                     title={createDeckCopyLabel}
                   >
@@ -807,11 +1007,52 @@ export const DeckPage = () => {
                 {deckRequestInfo ? (
                   <p className={styles.deckStatusInfo}>{deckRequestInfo}</p>
                 ) : null}
+                <div className={styles.deckRulesSummary}>
+                  <span className={styles.deckRulePill}>
+                    {deckValidation.summary.totalCards}/{DECK_RULES_V1.deckSize} карт
+                  </span>
+                  <span className={styles.deckRulePill}>
+                    art {deckValidation.summary.artCards}/{DECK_RULES_V1.maxArtCards}
+                  </span>
+                  <span className={styles.deckRulePill}>
+                    modifier {deckValidation.summary.modifierCards}/{DECK_RULES_V1.maxModifierCards}
+                  </span>
+                </div>
+                <div className={styles.deckRulesChecklist}>
+                  {deckRuleChecklist.map((rule) => (
+                    <div
+                      key={rule.id}
+                      className={rule.ok ? styles.deckRuleItemOk : styles.deckRuleItemFail}
+                    >
+                      <span className={styles.deckRuleMark} aria-hidden="true">
+                        {rule.ok ? "OK" : "!"}
+                      </span>
+                      <span>{rule.label}</span>
+                    </div>
+                  ))}
+                </div>
+                {!deckValidation.ok && deckRuleDetails.length > 0 ? (
+                  <div className={styles.deckRulesList}>
+                    {deckRuleDetails.map((issue, index) => (
+                      <p
+                        key={`${issue.code}-${issue.cardId ?? "deck"}-${index}`}
+                        className={styles.deckRulesError}
+                      >
+                        {issue.message}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+                {deckValidation.ok ? (
+                  <p className={styles.deckRulesOk}>Колода проходит правила PvP.</p>
+                ) : null}
               </div>
               <div className={styles.deckWorkspaceBody}>
                 <div className={styles.deckSummary}>
                   <div>
-                    <div className={styles.summaryValue}>{totalCards}</div>
+                    <div className={styles.summaryValue}>
+                      {totalCards}/{DECK_RULES_V1.deckSize}
+                    </div>
                     <div className={styles.summaryLabel}>карт всего</div>
                   </div>
                   <div>
@@ -860,6 +1101,7 @@ export const DeckPage = () => {
                             className={styles.smallButton}
                             type="button"
                             onClick={() => updateDeck(card.id, 1)}
+                            disabled={!canAddCard(card.id)}
                           >
                             +
                           </button>
@@ -873,22 +1115,21 @@ export const DeckPage = () => {
 
             <Card title="Пресеты для тестов" className={styles.presetWorkspaceCard}>
               <div className={styles.presetGrid}>
-                <button className={styles.presetButton} type="button">
-                  Aggro Fire
-                </button>
-                <button className={styles.presetButton} type="button">
-                  Control Water
-                </button>
-                <button className={styles.presetButton} type="button">
-                  Earth Shield
-                </button>
-                <button className={styles.presetButton} type="button">
-                  Air Tempo
-                </button>
+                {DECK_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    className={styles.presetButton}
+                    type="button"
+                    onClick={() => applyPresetDeck(preset)}
+                    title={preset.blurb}
+                  >
+                    <span className={styles.presetButtonTitle}>{preset.name}</span>
+                    <span className={styles.presetButtonBlurb}>{preset.blurb}</span>
+                  </button>
+                ))}
               </div>
               <p className={styles.presetHint}>
-                Пресеты пока статичны. Здесь будут кнопки загрузки тестовых
-                наборов.
+                Пресет загружается как локальный черновик и сразу проходит PvP-правила.
               </p>
             </Card>
           </div>

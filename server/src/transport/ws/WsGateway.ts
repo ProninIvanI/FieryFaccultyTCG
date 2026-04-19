@@ -83,22 +83,26 @@ export class WsGateway {
       }
 
       const deck = await resolvePlayerDeck(message.token, message.deckId);
-      if (!deck) {
+      if (deck.status === 'unavailable') {
         this.send(socket, this.toJoinRejected(message.sessionId, 'deck_unavailable', 'Deck not found or unavailable'));
+        return;
+      }
+      if (deck.status === 'invalid') {
+        this.send(socket, this.toJoinRejected(message.sessionId, 'deck_invalid', deck.error));
         return;
       }
 
       const result = this.gameService.join(message.sessionId, {
         playerId: identity.userId,
-        characterId: deck.characterId,
-        deck: deck.cards,
+        characterId: deck.deck.characterId,
+        deck: deck.deck.cards,
       }, message.seed);
       if (!result.ok) {
         this.send(socket, this.toJoinRejected(message.sessionId, this.toJoinRejectCode(result.error), result.error));
         return;
       }
 
-      this.trackSessionJoin(message.sessionId, identity, deck.deckId, result.session.getSeed());
+      this.trackSessionJoin(message.sessionId, identity, deck.deck.deckId, result.session.getSeed());
       await this.persistMatchIfReady(message.sessionId, result.session.getState());
 
       this.attachSocket(message.sessionId, identity.userId, socket);

@@ -493,6 +493,79 @@
   color: var(--theme-accent-secondary);
 }
 
+.deckRulesSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.deckRulePill {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--theme-text-strong);
+  border: 1px solid var(--theme-line);
+  background: rgba(255, 248, 236, 0.04);
+  border-radius: 999px;
+  padding: 6px 8px;
+}
+
+.deckRulesList {
+  display: grid;
+  gap: 6px;
+}
+
+.deckRulesChecklist {
+  display: grid;
+  gap: 6px;
+}
+
+.deckRuleItemOk,
+.deckRuleItemFail {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.deckRuleItemOk {
+  color: var(--theme-text-strong);
+  background: rgba(102, 160, 120, 0.12);
+  border: 1px solid rgba(102, 160, 120, 0.24);
+}
+
+.deckRuleItemFail {
+  color: #f0c3c3;
+  background: rgba(138, 68, 68, 0.16);
+  border: 1px solid rgba(138, 68, 68, 0.3);
+}
+
+.deckRuleMark {
+  min-width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.deckRulesError {
+  margin: 0;
+  font-size: 12px;
+  color: #e4a2a2;
+}
+
+.deckRulesOk {
+  margin: 0;
+  font-size: 12px;
+  color: var(--theme-accent-secondary);
+}
+
 .summaryValue {
   font-size: 20px;
   font-weight: 700;
@@ -614,9 +687,21 @@
   background: var(--theme-surface-panel-soft);
   border-radius: 10px;
   padding: 10px 12px;
-  font-weight: 600;
   cursor: pointer;
   color: var(--theme-text-strong);
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.presetButtonTitle {
+  font-weight: 700;
+}
+
+.presetButtonBlurb {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--theme-text-dim);
 }
 
 .presetHint {

@@ -5,6 +5,60 @@ import { GameService } from '../src/application/GameService';
 import { SessionRegistry } from '../src/domain/game/SessionRegistry';
 import { WsGateway } from '../src/transport/ws/WsGateway';
 
+const CHARACTER_ONE = '1';
+const CHARACTER_TWO = '7';
+
+const LEGAL_DECK_ONE = [
+  { cardId: '1', quantity: 2 },
+  { cardId: '2', quantity: 2 },
+  { cardId: '3', quantity: 2 },
+  { cardId: '4', quantity: 2 },
+  { cardId: '5', quantity: 2 },
+  { cardId: '6', quantity: 2 },
+  { cardId: '7', quantity: 2 },
+  { cardId: '8', quantity: 2 },
+  { cardId: '9', quantity: 2 },
+  { cardId: '10', quantity: 2 },
+  { cardId: '41', quantity: 2 },
+  { cardId: '42', quantity: 2 },
+  { cardId: '61', quantity: 2 },
+  { cardId: '62', quantity: 2 },
+  { cardId: '81', quantity: 2 },
+];
+
+const LEGAL_DECK_TWO = [
+  { cardId: '11', quantity: 2 },
+  { cardId: '12', quantity: 2 },
+  { cardId: '13', quantity: 2 },
+  { cardId: '14', quantity: 2 },
+  { cardId: '15', quantity: 2 },
+  { cardId: '16', quantity: 2 },
+  { cardId: '17', quantity: 2 },
+  { cardId: '18', quantity: 2 },
+  { cardId: '19', quantity: 2 },
+  { cardId: '20', quantity: 2 },
+  { cardId: '41', quantity: 2 },
+  { cardId: '42', quantity: 2 },
+  { cardId: '61', quantity: 2 },
+  { cardId: '62', quantity: 2 },
+  { cardId: '86', quantity: 2 },
+];
+
+const buildResolvedDeckPayload = (
+  deckId: string,
+  characterId: string,
+  cards: Array<{ cardId: string; quantity: number }>,
+) => ({
+  success: true,
+  data: {
+    deck: {
+      id: deckId,
+      characterId,
+      cards,
+    },
+  },
+});
+
 const waitForOpen = (socket: WebSocket): Promise<void> =>
   new Promise((resolve, reject) => {
     socket.once('open', () => resolve());
@@ -84,20 +138,15 @@ describe('ws gateway integration', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       const deckId = url.endsWith('/deck_1') ? 'deck_1' : 'deck_2';
-      const characterId = deckId === 'deck_1' ? 'char_1' : 'char_2';
 
       return {
         ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            deck: {
-              id: deckId,
-              characterId,
-              cards: [{ cardId: '1', quantity: 2 }],
-            },
-          },
-        }),
+        json: async () =>
+          buildResolvedDeckPayload(
+            deckId,
+            deckId === 'deck_1' ? CHARACTER_ONE : CHARACTER_TWO,
+            deckId === 'deck_1' ? LEGAL_DECK_ONE : LEGAL_DECK_TWO,
+          ),
       } as Response;
     }));
 
@@ -166,16 +215,12 @@ describe('ws gateway integration', () => {
 
       return {
         ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            deck: {
-              id: deckId,
-              characterId: deckId === 'deck_1' ? 'char_1' : 'char_2',
-              cards: [{ cardId: '1', quantity: 1 }],
-            },
-          },
-        }),
+        json: async () =>
+          buildResolvedDeckPayload(
+            deckId,
+            deckId === 'deck_1' ? CHARACTER_ONE : CHARACTER_TWO,
+            deckId === 'deck_1' ? LEGAL_DECK_ONE : LEGAL_DECK_TWO,
+          ),
       } as Response;
     }));
 
@@ -227,12 +272,12 @@ describe('ws gateway integration', () => {
         intentId: 'draft_fireball',
         roundNumber: 1,
         playerId: 'player_2',
-        actorId: 'char_2',
+        actorId: CHARACTER_TWO,
         queueIndex: 0,
         kind: 'CastSpell',
         cardInstanceId: 'card_player_2_1',
         target: {
-          targetId: 'char_1',
+          targetId: CHARACTER_ONE,
           targetType: 'enemyCharacter',
         },
       }],
@@ -365,14 +410,14 @@ describe('ws gateway integration', () => {
         intentId: 'draft_fireball',
         orderIndex: 0,
         kind: 'CastSpell',
-        actorId: 'char_2',
+        actorId: CHARACTER_TWO,
         queueIndex: 0,
         source: expect.objectContaining({
           type: 'card',
           cardInstanceId: 'card_player_2_1',
         }),
         target: expect.objectContaining({
-          targetId: 'char_1',
+          targetId: CHARACTER_ONE,
           targetType: 'enemyCharacter',
         }),
       }),
@@ -448,16 +493,12 @@ describe('ws gateway integration', () => {
 
       return {
         ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            deck: {
-              id: deckId,
-              characterId: deckId === 'deck_1' ? 'char_1' : 'char_2',
-              cards: [{ cardId: deckId === 'deck_1' ? '4' : '2', quantity: 1 }],
-            },
-          },
-        }),
+        json: async () =>
+          buildResolvedDeckPayload(
+            deckId,
+            deckId === 'deck_1' ? CHARACTER_ONE : CHARACTER_TWO,
+            deckId === 'deck_1' ? LEGAL_DECK_ONE : LEGAL_DECK_TWO,
+          ),
       } as Response;
     }));
 
@@ -491,12 +532,12 @@ describe('ws gateway integration', () => {
         intentId: 'draft_ray',
         roundNumber: 1,
         playerId: 'player_2',
-        actorId: 'char_2',
+        actorId: CHARACTER_TWO,
         queueIndex: 0,
         kind: 'CastSpell',
         cardInstanceId: 'card_player_2_1',
         target: {
-          targetId: 'char_1',
+          targetId: CHARACTER_ONE,
           targetType: 'enemyCharacter',
         },
       }],
@@ -526,10 +567,10 @@ describe('ws gateway integration', () => {
         typeof message.state === 'object' &&
         message.state !== null &&
         (message.state as { round?: { number?: unknown } }).round?.number === 2 &&
-        typeof (message.state as { characters?: Record<string, { hp?: unknown }> }).characters?.char_1?.hp === 'number',
+        typeof (message.state as { characters?: Record<string, { hp?: unknown }> }).characters?.[CHARACTER_ONE]?.hp === 'number',
     );
 
-    expect(postRoundState.state.characters.char_1.hp).toBe(18);
+    expect(postRoundState.state.characters[CHARACTER_ONE].hp).toBe(18);
 
     playerOne.close();
     playerTwo.close();
@@ -552,20 +593,15 @@ describe('ws gateway integration', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       const deckId = url.endsWith('/deck_1') ? 'deck_1' : 'deck_2';
-      const characterId = deckId === 'deck_1' ? 'char_1' : 'char_2';
 
       return {
         ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            deck: {
-              id: deckId,
-              characterId,
-              cards: [{ cardId: '1', quantity: 2 }],
-            },
-          },
-        }),
+        json: async () =>
+          buildResolvedDeckPayload(
+            deckId,
+            deckId === 'deck_1' ? CHARACTER_ONE : CHARACTER_TWO,
+            deckId === 'deck_1' ? LEGAL_DECK_ONE : LEGAL_DECK_TWO,
+          ),
       } as Response;
     }));
 
@@ -593,13 +629,13 @@ describe('ws gateway integration', () => {
           intentId: 'invalid_attack',
           roundNumber: 1,
           playerId: 'player_1',
-          actorId: 'char_1',
+          actorId: CHARACTER_ONE,
           queueIndex: 0,
           kind: 'Attack',
           sourceCreatureId: 'missing_creature',
           target: {
             targetType: 'enemyCharacter',
-            targetId: 'char_2',
+            targetId: CHARACTER_TWO,
           },
         },
       ],
@@ -735,6 +771,65 @@ describe('ws gateway integration', () => {
     socket.close();
   });
 
+  it('sends structured join.rejected when resolved deck is illegal', async () => {
+    const port = 47410 + Math.floor(Math.random() * 1000);
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
+    const service = new GameService(registry);
+    const gateway = new WsGateway(service, async (token) => {
+      if (token === 'token_1') {
+        return { userId: 'player_1' };
+      }
+      return null;
+    });
+
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          deck: {
+            id: 'deck_invalid',
+            characterId: '1',
+            cards: [{ cardId: '11', quantity: 30 }],
+          },
+        },
+      }),
+    } as Response)));
+
+    gateway.start(port);
+    gateways.push(gateway);
+
+    const socket = new WebSocket(`ws://127.0.0.1:${port}`);
+    const messages = createMessageCollector(socket);
+    await waitForOpen(socket);
+
+    socket.send(JSON.stringify({ type: 'join', sessionId: 'match-invalid-deck', token: 'token_1', deckId: 'deck_invalid' }));
+
+    const rejected = await messages.waitFor<{
+      type: 'join.rejected';
+      sessionId: string;
+      code: string;
+      error: string;
+    }>(
+      (message): message is {
+        type: 'join.rejected';
+        sessionId: string;
+        code: string;
+        error: string;
+      } =>
+        message.type === 'join.rejected' &&
+        typeof message.sessionId === 'string' &&
+        typeof message.code === 'string' &&
+        typeof message.error === 'string',
+    );
+
+    expect(rejected.sessionId).toBe('match-invalid-deck');
+    expect(rejected.code).toBe('deck_invalid');
+    expect(rejected.error).toBe('Нельзя добавлять больше 2 копий карты Водяная стрела.');
+
+    socket.close();
+  });
+
   it('rejects second player with the same character in one session', async () => {
     const port = 47420 + Math.floor(Math.random() * 1000);
     const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
@@ -751,16 +846,7 @@ describe('ws gateway integration', () => {
 
     vi.stubGlobal('fetch', vi.fn(async () => ({
       ok: true,
-      json: async () => ({
-        success: true,
-        data: {
-          deck: {
-            id: 'deck_same_char',
-            characterId: 'char_1',
-            cards: [{ cardId: '1', quantity: 2 }],
-          },
-        },
-      }),
+      json: async () => buildResolvedDeckPayload('deck_same_char', CHARACTER_ONE, LEGAL_DECK_ONE),
     } as Response)));
 
     gateway.start(port);
@@ -918,16 +1004,12 @@ describe('ws gateway integration', () => {
 
       return {
         ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            deck: {
-              id: deckId,
-              characterId: deckId === 'deck_1' ? 'char_1' : 'char_2',
-              cards: [{ cardId: '1', quantity: 1 }],
-            },
-          },
-        }),
+        json: async () =>
+          buildResolvedDeckPayload(
+            deckId,
+            deckId === 'deck_1' ? CHARACTER_ONE : CHARACTER_TWO,
+            deckId === 'deck_1' ? LEGAL_DECK_ONE : LEGAL_DECK_TWO,
+          ),
       } as Response;
     }));
 
@@ -951,12 +1033,12 @@ describe('ws gateway integration', () => {
         intentId: 'draft_fireball',
         roundNumber: 1,
         playerId: 'player_1',
-        actorId: 'char_1',
+        actorId: CHARACTER_ONE,
         queueIndex: 0,
         kind: 'CastSpell',
         cardInstanceId: 'card_player_1_1',
         target: {
-          targetId: 'char_2',
+          targetId: CHARACTER_TWO,
           targetType: 'enemyCharacter',
         },
       }],

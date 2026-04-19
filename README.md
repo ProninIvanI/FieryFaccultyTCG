@@ -336,6 +336,18 @@ POST /api/internal/matches/:matchId/replay
 
 Эти ручки не для frontend. Они защищены `x-internal-token` и используются только контуром `server -> backend`.
 
+## Deck Rules `v1`
+
+- Каноническая спецификация легальности колод: [docs/deck-rules.md](docs/deck-rules.md)
+- Источник истины в коде: `game-core/src/decks/rules.ts` и `game-core/src/decks/validateDeckLegality.ts`
+- Правила сейчас общие для `backend`, `server` и `frontend`, поэтому сохранение колоды, PvP-join и Deck Builder используют одну и ту же валидацию.
+- Коротко:
+  - ровно `30` карт;
+  - не больше `2` копий одной карты;
+  - `spell/summon` только факультета выбранного персонажа;
+  - `art` и `modifier` нейтральные;
+  - не больше `8` `art` и `8` `modifier`.
+
 ## PvP Bootstrap `v0`
 
 На текущем этапе для первого живого PvP используется временный bootstrap без отдельной HTTP-ручки матчмейкинга.

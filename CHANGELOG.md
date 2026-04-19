@@ -1,5 +1,7 @@
 ﻿# Changelog
 
+> 2026-04-19 update: fixed and documented `Deck Rules v1` as a shared legality contract. `game-core` now owns `validateDeckLegality(...)` plus explicit deck-rule constants and validation codes, `backend` rejects illegal deck saves through the shared validator, `server` revalidates saved decks before PvP join and can reject with `deck_invalid`, and `DeckPage` now shows live legality summary/checklist, blocks illegal save or add actions, and ships working legal starter presets with short archetype blurbs.
+
 > 2026-04-18 update: normalized deck-builder pool card heights so short and long card descriptions no longer create a jagged mosaic in the left catalog. Pool cards now stretch to a shared row height and reserve stable space for the clamped effect summary, which keeps controls aligned and the catalog easier to scan.
 
 > 2026-04-18 update: `DeckPage` was reworked from a long utility list into a denser deck-building workspace. The right column now behaves as a real sticky workspace with a compact deck-action toolbar, the deck summary list was tightened for smaller desktop viewports, and the left-side card pool now acts as the primary interactive catalog with inline `- count +` controls so cards can be added or removed without bouncing between columns.

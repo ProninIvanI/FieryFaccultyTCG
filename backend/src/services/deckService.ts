@@ -1,20 +1,8 @@
 import { randomUUID } from 'crypto';
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
+import { validateDeckLegality } from '../../../game-core/src';
 import { DeckCardRecord, DeckRecord, deckModel } from '../models/deckModel';
-
-type RawCatalogCard = {
-  id?: unknown;
-};
-
-type RawCatalogCharacter = {
-  id?: unknown;
-};
-
-type RawCatalog = {
-  cards?: unknown;
-  characters?: unknown;
-};
 
 type DeckPayload = {
   name: string;
@@ -27,27 +15,17 @@ type DeckMutationResult =
   | { ok: false; error: string };
 
 const DECK_NAME_LIMIT = 128;
-const MAX_CARD_QUANTITY = 99;
 const cardCatalogCandidates = [
   path.resolve(__dirname, '..', '..', '..', 'game-core', 'data', 'cards.json'),
   path.resolve(process.cwd(), '..', 'game-core', 'data', 'cards.json'),
   path.resolve(process.cwd(), 'game-core', 'data', 'cards.json'),
 ];
 
-let deckCatalogCache: { cardIds: Set<string>; characterIds: Set<string> } | null = null;
+let deckCatalogCache: unknown | null = null;
 let skipCatalogValidation = false;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
-
-const isRawCatalogCard = (value: unknown): value is RawCatalogCard =>
-  isRecord(value) && value.id !== undefined;
-
-const isRawCatalogCharacter = (value: unknown): value is RawCatalogCharacter =>
-  isRecord(value) && value.id !== undefined;
-
-const isRawCatalog = (value: unknown): value is RawCatalog =>
-  isRecord(value);
 
 const stripUtf8Bom = (value: string): string => value.replace(/^\uFEFF/, '');
 
@@ -61,7 +39,7 @@ const resolveDeckCatalogPath = (): string | null => {
   return null;
 };
 
-const getDeckCatalog = (): { cardIds: Set<string>; characterIds: Set<string> } | null => {
+const getDeckCatalog = (): unknown | null => {
   if (deckCatalogCache) {
     return deckCatalogCache;
   }
@@ -78,20 +56,11 @@ const getDeckCatalog = (): { cardIds: Set<string>; characterIds: Set<string> } |
 
   const rawCatalog = stripUtf8Bom(readFileSync(catalogPath, 'utf-8'));
   const raw = JSON.parse(rawCatalog) as unknown;
-  if (!isRawCatalog(raw)) {
+  if (!isRecord(raw)) {
     throw new Error('Invalid card catalog');
   }
 
-  const cards = Array.isArray(raw.cards) ? raw.cards.filter(isRawCatalogCard) : [];
-  const characters = Array.isArray(raw.characters)
-    ? raw.characters.filter(isRawCatalogCharacter)
-    : [];
-
-  deckCatalogCache = {
-    cardIds: new Set(cards.map((card) => String(card.id))),
-    characterIds: new Set(characters.map((character) => String(character.id))),
-  };
-
+  deckCatalogCache = raw;
   return deckCatalogCache;
 };
 
@@ -124,19 +93,21 @@ const validateDeckPayload = (
   }
 
   const normalizedCards = normalizeCards(payload.cards);
-  const catalog = getDeckCatalog();
-
-  if (catalog && !catalog.characterIds.has(payload.characterId)) {
-    return { ok: false, error: 'Неизвестный персонаж для колоды' };
+  for (const card of normalizedCards) {
+    if (!Number.isInteger(card.quantity) || card.quantity <= 0) {
+      return { ok: false, error: `Некорректное количество для карты ${card.cardId}` };
+    }
   }
 
-  for (const card of normalizedCards) {
-    if (catalog && !catalog.cardIds.has(card.cardId)) {
-      return { ok: false, error: `Неизвестная карта: ${card.cardId}` };
-    }
+  const catalog = getDeckCatalog();
+  if (catalog) {
+    const validation = validateDeckLegality(catalog, {
+      characterId: payload.characterId,
+      cards: normalizedCards,
+    });
 
-    if (!Number.isInteger(card.quantity) || card.quantity <= 0 || card.quantity > MAX_CARD_QUANTITY) {
-      return { ok: false, error: `Некорректное количество для карты ${card.cardId}` };
+    if (!validation.ok) {
+      return { ok: false, error: validation.issues[0]?.message ?? 'Колода не прошла валидацию' };
     }
   }
 

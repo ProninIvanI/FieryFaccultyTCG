@@ -23,6 +23,10 @@
 - Deck list in the right column was tightened for smaller desktop sizes: name, mana, meta, counter, and controls now live in a denser summary row.
 - The card pool on the left was rebuilt into a more catalog-like interactive grid, closer to `CardsPage`.
 - Pool-card heights were normalized so short and long card descriptions no longer create abrupt height jumps between neighbors in the catalog grid.
+- Deck Builder now uses the shared PvP legality contract from `game-core` instead of local UI-only assumptions.
+- The workspace shows live legality summary for `cards / art / modifier`, a compact rule checklist, and short detail errors for real violations.
+- `Save` and incremental `+` actions are blocked when the next state would break deck rules.
+- Test presets are now real legal draft starters rather than static placeholder buttons, and each preset shows a short archetype blurb.
 - Each pool card now keeps its key information together:
   - card name
   - mana cost
