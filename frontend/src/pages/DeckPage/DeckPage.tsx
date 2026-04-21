@@ -233,11 +233,13 @@ export const DeckPage = () => {
   const [deckName, setDeckName] = useState("Новая колода");
   const [deck, setDeck] = useState<Record<string, number>>(DEFAULT_DECK);
   const [savedDecks, setSavedDecks] = useState<UserDeck[]>([]);
+  const [isSavedDeckMenuOpen, setIsSavedDeckMenuOpen] = useState(false);
   const [isDecksLoading, setIsDecksLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [deckRequestError, setDeckRequestError] = useState<string | null>(null);
   const [deckRequestInfo, setDeckRequestInfo] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const savedDeckMenuRef = useRef<HTMLDivElement | null>(null);
   const carouselSetWidthRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
@@ -415,6 +417,14 @@ export const DeckPage = () => {
       return matchesSchool && matchesType;
     });
   }, [schoolFilter, typeFilter]);
+
+  const selectedSavedDeckLabel = useMemo(() => {
+    if (!deckId) {
+      return "Черновик";
+    }
+
+    return savedDecks.find((savedDeck) => savedDeck.id === deckId)?.name ?? "Черновик";
+  }, [deckId, savedDecks]);
 
   const deckCards = useMemo(() => {
     return CARD_POOL.filter((card) => deck[card.id]);
@@ -641,6 +651,32 @@ export const DeckPage = () => {
     };
   }, [applySavedDeck, session?.token]);
 
+  useEffect(() => {
+    if (!isSavedDeckMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!savedDeckMenuRef.current?.contains(event.target as Node)) {
+        setIsSavedDeckMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsSavedDeckMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isSavedDeckMenuOpen]);
+
   const updateDeck = (cardId: string, delta: number) => {
     setDeck((prev) => {
       const nextCount = Math.max((prev[cardId] ?? 0) + delta, 0);
@@ -664,6 +700,8 @@ export const DeckPage = () => {
   };
 
   const handleDeckSelection = (nextDeckId: string) => {
+    setIsSavedDeckMenuOpen(false);
+
     if (!nextDeckId) {
       handleCreateDraft();
       return;
@@ -1006,20 +1044,57 @@ export const DeckPage = () => {
                     <label className={styles.filterLabel} htmlFor="saved-deck">
                       Сохранённые колоды
                     </label>
-                    <select
-                      id="saved-deck"
-                      className={styles.deckSelect}
-                      value={deckId ?? ""}
-                      disabled={isDecksLoading || savedDecks.length === 0}
-                      onChange={(event) => handleDeckSelection(event.target.value)}
-                    >
-                      <option value="">Черновик</option>
-                      {savedDecks.map((savedDeck) => (
-                        <option key={savedDeck.id} value={savedDeck.id}>
-                          {savedDeck.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className={styles.deckSelectWrap} ref={savedDeckMenuRef}>
+                      <button
+                        id="saved-deck"
+                        className={styles.deckSelectButton}
+                        type="button"
+                        disabled={isDecksLoading || savedDecks.length === 0}
+                        aria-haspopup="listbox"
+                        aria-expanded={isSavedDeckMenuOpen}
+                        aria-label="Сохранённые колоды"
+                        onClick={() => setIsSavedDeckMenuOpen((value) => !value)}
+                      >
+                        <span className={styles.deckSelectValue}>{selectedSavedDeckLabel}</span>
+                        <span className={styles.deckSelectChevron} aria-hidden="true">
+                          <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
+                            <path
+                              d="m7 10 5 5 5-5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                      </button>
+                      {isSavedDeckMenuOpen ? (
+                        <div className={styles.deckSelectMenu} role="listbox" aria-labelledby="saved-deck">
+                          <button
+                            className={`${styles.deckSelectOption} ${!deckId ? styles.deckSelectOptionActive : ""}`.trim()}
+                            type="button"
+                            role="option"
+                            aria-selected={!deckId}
+                            onClick={() => handleDeckSelection("")}
+                          >
+                            Черновик
+                          </button>
+                          {savedDecks.map((savedDeck) => (
+                            <button
+                              key={savedDeck.id}
+                              className={`${styles.deckSelectOption} ${deckId === savedDeck.id ? styles.deckSelectOptionActive : ""}`.trim()}
+                              type="button"
+                              role="option"
+                              aria-selected={deckId === savedDeck.id}
+                              onClick={() => handleDeckSelection(savedDeck.id)}
+                            >
+                              {savedDeck.name}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div>

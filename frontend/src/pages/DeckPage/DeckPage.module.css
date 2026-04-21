@@ -468,6 +468,89 @@
   color: var(--theme-text-strong);
 }
 
+.deckSelectWrap {
+  position: relative;
+}
+
+.deckSelectButton {
+  width: 100%;
+  border: 1px solid var(--theme-line);
+  background: rgba(255, 248, 236, 0.04);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--theme-text-strong);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.deckSelectButton:hover:not(:disabled) {
+  border-color: var(--theme-line-strong);
+  box-shadow: var(--theme-shadow-float);
+}
+
+.deckSelectButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deckSelectValue {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deckSelectChevron {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--theme-text-dim);
+}
+
+.deckSelectMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--theme-line-strong);
+  background: linear-gradient(180deg, rgba(28, 24, 22, 0.98), rgba(20, 17, 15, 0.98));
+  box-shadow: var(--theme-shadow-float);
+}
+
+.deckSelectOption {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font: inherit;
+  color: var(--theme-text-strong);
+  text-align: left;
+  cursor: pointer;
+}
+
+.deckSelectOption:hover {
+  background: rgba(255, 248, 236, 0.05);
+  border-color: var(--theme-line);
+}
+
+.deckSelectOptionActive {
+  background: rgba(196, 154, 90, 0.16);
+  border-color: rgba(196, 154, 90, 0.3);
+  color: #f6e5c6;
+}
+
 .deckManagerActions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -490,12 +573,11 @@
   justify-content: center;
   color: var(--theme-text-strong);
   cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .deckActionButton:hover:not(:disabled) {
   border-color: var(--theme-line-strong);
-  transform: translateY(-1px);
   box-shadow: var(--theme-shadow-float);
 }
 
@@ -857,6 +939,54 @@
   .deckList {
     height: auto;
     max-height: clamp(220px, 36vh, 360px);
+  }
+}
+
+@media (max-height: 920px) and (min-width: 1025px) {
+  .stickyStack {
+    gap: 14px;
+    min-height: calc(100vh - 16px);
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+  }
+
+  .deckWorkspaceCardContent {
+    gap: 12px;
+  }
+
+  .deckManager {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .deckSummary {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .summaryValue {
+    font-size: 18px;
+  }
+
+  .deckList {
+    min-height: 180px;
+  }
+
+  .presetWorkspaceCard {
+    max-height: 170px;
+    overflow-y: auto;
+  }
+
+  .presetGrid {
+    gap: 8px;
+    margin-bottom: 0;
+  }
+
+  .presetButton {
+    min-height: 38px;
+    padding: 8px 10px;
   }
 }
 

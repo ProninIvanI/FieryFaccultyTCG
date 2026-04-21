@@ -88,10 +88,12 @@ describe("DeckPage", () => {
     });
 
     const deckNameInput = await screen.findByLabelText("Название колоды");
-    const savedDeckSelect = await screen.findByLabelText("Сохранённые колоды");
+    const savedDeckTrigger = await screen.findByRole("button", {
+      name: "Сохранённые колоды",
+    });
 
     expect(deckNameInput).toHaveValue("Aggro Fire");
-    expect(savedDeckSelect).toHaveValue("deck_1");
+    expect(savedDeckTrigger).toHaveTextContent("Aggro Fire");
 
     fireEvent.change(deckNameInput, {
       target: { value: "Aggro Fire Updated" },
