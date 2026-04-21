@@ -615,8 +615,111 @@
   min-height: 18px;
 }
 
+.deckValidationPopover {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .deckValidationBadge {
   width: fit-content;
+}
+
+.deckValidationTooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 8;
+  width: min(360px, calc(100vw - 48px));
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(196, 154, 90, 0.24);
+  background:
+    linear-gradient(180deg, rgba(30, 25, 23, 0.98), rgba(18, 15, 14, 0.98));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.deckValidationPopover:hover .deckValidationTooltip,
+.deckValidationPopover:focus-within .deckValidationTooltip {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.deckValidationTooltipTitle {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--theme-accent-primary);
+}
+
+.deckValidationTooltipList {
+  display: grid;
+  gap: 8px;
+}
+
+.deckValidationTooltipItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 8px 9px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+.deckValidationTooltipItemOk {
+  background: rgba(92, 128, 88, 0.1);
+  border-color: rgba(92, 128, 88, 0.18);
+}
+
+.deckValidationTooltipItemWarning {
+  background: rgba(138, 68, 68, 0.14);
+  border-color: rgba(138, 68, 68, 0.24);
+}
+
+.deckValidationTooltipItemInfo {
+  background: rgba(74, 94, 128, 0.16);
+  border-color: rgba(110, 143, 181, 0.2);
+}
+
+.deckValidationTooltipMark {
+  min-width: 20px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--theme-text-strong);
+}
+
+.deckValidationTooltipBody {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.deckValidationTooltipLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--theme-text-strong);
+}
+
+.deckValidationTooltipText {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--theme-text-dim);
 }
 
 .summaryValue {

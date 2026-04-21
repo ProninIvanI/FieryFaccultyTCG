@@ -533,12 +533,10 @@ export const DeckPage = () => {
 
   const deckRulesTooltip = useMemo(
     () =>
-      deckRulePills
-        .map((rule) => {
-          const mark = rule.tone === "warning" ? "!" : "OK";
-          return `${mark} ${rule.label}: ${rule.value}. ${rule.title}`;
-        })
-        .join("\n"),
+      deckRulePills.map((rule) => ({
+        ...rule,
+        mark: rule.tone === "warning" ? "!" : "OK",
+      })),
     [deckRulePills],
   );
 
@@ -549,7 +547,9 @@ export const DeckPage = () => {
         : "Колода легальна. Можно сохранить её в backend.";
     }
 
-    return deckRulesTooltip;
+    return deckRulesTooltip
+      .map((rule) => `${rule.mark} ${rule.label}: ${rule.value}. ${rule.title}`)
+      .join("\n");
   }, [deckId, deckRulesTooltip, deckValidation.ok]);
 
   const getAddCardAvailability = useCallback(
@@ -1219,16 +1219,47 @@ export const DeckPage = () => {
                 ) : null}
                 {!deckValidation.ok ? (
                   <div className={styles.deckValidationInline}>
-                    <span
-                      className={`${styles.deckBadge} ${styles.deckBadgeWarning} ${styles.deckValidationBadge}`.trim()}
-                      title={deckStatusTooltip}
-                      aria-label="Показать ошибки колоды"
-                    >
-                      <span className={styles.deckBadgeMark} aria-hidden="true">
-                        !
+                    <div className={styles.deckValidationPopover}>
+                      <span
+                        className={`${styles.deckBadge} ${styles.deckBadgeWarning} ${styles.deckValidationBadge}`.trim()}
+                        aria-label="Показать ошибки колоды"
+                        tabIndex={0}
+                      >
+                        <span className={styles.deckBadgeMark} aria-hidden="true">
+                          !
+                        </span>
+                        <span>Сохранить нельзя</span>
                       </span>
-                      <span>Сохранить нельзя</span>
-                    </span>
+                      <div className={styles.deckValidationTooltip} role="tooltip">
+                        <div className={styles.deckValidationTooltipTitle}>Проверка колоды</div>
+                        <div className={styles.deckValidationTooltipList}>
+                          {deckRulesTooltip.map((rule) => (
+                            <div
+                              key={rule.id}
+                              className={`${styles.deckValidationTooltipItem} ${
+                                rule.tone === "warning"
+                                  ? styles.deckValidationTooltipItemWarning
+                                  : rule.tone === "info"
+                                    ? styles.deckValidationTooltipItemInfo
+                                    : styles.deckValidationTooltipItemOk
+                              }`.trim()}
+                            >
+                              <span className={styles.deckValidationTooltipMark} aria-hidden="true">
+                                {rule.mark}
+                              </span>
+                              <span className={styles.deckValidationTooltipBody}>
+                                <span className={styles.deckValidationTooltipLabel}>
+                                  {rule.label}: {rule.value}
+                                </span>
+                                <span className={styles.deckValidationTooltipText}>
+                                  {rule.title}
+                                </span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : null}
               </div>
