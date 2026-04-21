@@ -1272,6 +1272,7 @@ export const DeckPage = () => {
                       bubbleClassName={styles.deckValidationTooltipBubble}
                       side="bottom"
                       align="start"
+                      fullWidth
                     >
                       <span
                         className={`${styles.deckBadge} ${styles.deckBadgeWarning} ${styles.deckValidationBadge}`.trim()}
