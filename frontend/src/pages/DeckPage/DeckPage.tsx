@@ -531,24 +531,16 @@ export const DeckPage = () => {
     [deckValidation.summary.artCards, deckValidation.summary.modifierCards, deckValidation.summary.totalCards, issueCodes],
   );
 
-  const deckRuleDetails = useMemo(
+  const deckRulesTooltip = useMemo(
     () =>
-      deckValidation.issues.filter(
-        (issue, index, issues) =>
-          issues.findIndex(
-            (candidate) => candidate.code === issue.code && candidate.cardId === issue.cardId,
-          ) === index,
-      ),
-    [deckValidation.issues],
+      deckRulePills
+        .map((rule) => {
+          const mark = rule.tone === "warning" ? "!" : "OK";
+          return `${mark} ${rule.label}: ${rule.value}. ${rule.title}`;
+        })
+        .join("\n"),
+    [deckRulePills],
   );
-
-  const deckIssuesTooltip = useMemo(() => {
-    if (deckRuleDetails.length === 0) {
-      return "";
-    }
-
-    return deckRuleDetails.map((issue) => `• ${issue.message}`).join("\n");
-  }, [deckRuleDetails]);
 
   const getDeckStatusTooltip = useCallback(() => {
     if (deckValidation.ok) {
@@ -557,8 +549,8 @@ export const DeckPage = () => {
         : "Колода легальна. Можно сохранить её в backend.";
     }
 
-    return deckIssuesTooltip || "Колода пока не готова к сохранению.";
-  }, [deckId, deckIssuesTooltip, deckValidation.ok]);
+    return deckRulesTooltip;
+  }, [deckId, deckRulesTooltip, deckValidation.ok]);
 
   const getAddCardAvailability = useCallback(
     (cardId: string) => {
@@ -1026,17 +1018,6 @@ export const DeckPage = () => {
                       Выберите сохранённую колоду или соберите новую и сохраните её здесь же.
                     </p>
                   </div>
-                  <div
-                    className={`${styles.deckBadge} ${deckValidation.ok ? styles.deckBadgeOk : styles.deckBadgeWarning}`.trim()}
-                    title={deckStatusTooltip}
-                  >
-                    {!deckValidation.ok ? (
-                      <span className={styles.deckBadgeMark} aria-hidden="true">
-                        !
-                      </span>
-                    ) : null}
-                    <span>{deckValidation.ok ? "Можно сохранить" : "Сохранить нельзя"}</span>
-                  </div>
                 </div>
 
                 <div className={styles.deckManagerGrid}>
@@ -1236,38 +1217,20 @@ export const DeckPage = () => {
                 {deckRequestInfo ? (
                   <p className={styles.deckStatusInfo}>{deckRequestInfo}</p>
                 ) : null}
-                <div className={styles.deckRulesSummary}>
-                  {deckRulePills.map((rule) => (
+                {!deckValidation.ok ? (
+                  <div className={styles.deckValidationInline}>
                     <span
-                      key={rule.id}
-                      className={`${styles.deckRulePill} ${
-                        rule.tone === "ok"
-                          ? styles.deckRulePillOk
-                          : rule.tone === "warning"
-                            ? styles.deckRulePillWarning
-                            : styles.deckRulePillInfo
-                      }`.trim()}
-                      title={rule.title}
-                    >
-                      <span className={styles.deckRulePillLabel}>{rule.label}</span>
-                      <span className={styles.deckRulePillValue}>{rule.value}</span>
-                    </span>
-                  ))}
-                </div>
-                <div className={styles.deckValidationInline}>
-                  <span className={styles.deckValidationText}>
-                    {deckValidation.ok ? "Колода готова к сохранению." : "Колода пока не готова к сохранению."}
-                  </span>
-                  {!deckValidation.ok ? (
-                    <span
-                      className={styles.deckValidationAlert}
-                      title={deckIssuesTooltip}
+                      className={`${styles.deckBadge} ${styles.deckBadgeWarning} ${styles.deckValidationBadge}`.trim()}
+                      title={deckStatusTooltip}
                       aria-label="Показать ошибки колоды"
                     >
-                      !
+                      <span className={styles.deckBadgeMark} aria-hidden="true">
+                        !
+                      </span>
+                      <span>Сохранить нельзя</span>
                     </span>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </div>
               <div className={styles.deckWorkspaceBody}>
                 <div className={styles.deckSummary}>
