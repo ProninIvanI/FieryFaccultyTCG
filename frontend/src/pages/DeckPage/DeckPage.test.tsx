@@ -143,6 +143,6 @@ describe("DeckPage", () => {
     expect(screen.getByLabelText("Название колоды")).toHaveValue("Aggro Fire");
     expect(screen.getByText("Пресет Aggro Fire загружен в черновик.")).toBeInTheDocument();
     expect(screen.getAllByText("30/30").length).toBeGreaterThan(0);
-    expect(screen.getByText("Колода готова к сохранению. Наведите на плашки, чтобы увидеть детали правил.")).toBeInTheDocument();
+    expect(screen.getByText("Колода готова к сохранению.")).toBeInTheDocument();
   });
 });

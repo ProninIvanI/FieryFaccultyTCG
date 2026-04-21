@@ -532,6 +532,14 @@ export const DeckPage = () => {
     [deckValidation.issues],
   );
 
+  const deckIssuesTooltip = useMemo(() => {
+    if (deckRuleDetails.length === 0) {
+      return "";
+    }
+
+    return deckRuleDetails.map((issue) => `• ${issue.message}`).join("\n");
+  }, [deckRuleDetails]);
+
   const getDeckStatusTooltip = useCallback(() => {
     if (deckValidation.ok) {
       return deckId
@@ -539,9 +547,8 @@ export const DeckPage = () => {
         : "Колода легальна. Можно сохранить её в backend.";
     }
 
-    const primaryIssue = deckRuleDetails[0]?.message ?? "Колода пока не готова к сохранению.";
-    return `Сохранение недоступно: ${primaryIssue}`;
-  }, [deckId, deckRuleDetails, deckValidation.ok]);
+    return deckIssuesTooltip || "Колода пока не готова к сохранению.";
+  }, [deckId, deckIssuesTooltip, deckValidation.ok]);
 
   const getAddCardAvailability = useCallback(
     (cardId: string) => {
@@ -985,9 +992,11 @@ export const DeckPage = () => {
                     className={`${styles.deckBadge} ${deckValidation.ok ? styles.deckBadgeOk : styles.deckBadgeWarning}`.trim()}
                     title={deckStatusTooltip}
                   >
-                    <span className={styles.deckBadgeMark} aria-hidden="true">
-                      {deckValidation.ok ? "OK" : "!"}
-                    </span>
+                    {!deckValidation.ok ? (
+                      <span className={styles.deckBadgeMark} aria-hidden="true">
+                        !
+                      </span>
+                    ) : null}
                     <span>{deckValidation.ok ? "Можно сохранить" : "Сохранить нельзя"}</span>
                   </div>
                 </div>
@@ -1170,23 +1179,20 @@ export const DeckPage = () => {
                     </span>
                   ))}
                 </div>
-                {!deckValidation.ok && deckRuleDetails.length > 0 ? (
-                  <div className={styles.deckRulesList}>
-                    {deckRuleDetails.map((issue, index) => (
-                      <p
-                        key={`${issue.code}-${issue.cardId ?? "deck"}-${index}`}
-                        className={styles.deckRulesError}
-                      >
-                        {issue.message}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-                <p className={deckValidation.ok ? styles.deckRulesOk : styles.deckStatusHint}>
-                  {deckValidation.ok
-                    ? "Колода готова к сохранению. Наведите на плашки, чтобы увидеть детали правил."
-                    : "Колода пока не сохраняется. Наведите на плашки или значок !, чтобы увидеть, что осталось поправить."}
-                </p>
+                <div className={styles.deckValidationInline}>
+                  <span className={styles.deckValidationText}>
+                    {deckValidation.ok ? "Колода готова к сохранению." : "Колода пока не готова к сохранению."}
+                  </span>
+                  {!deckValidation.ok ? (
+                    <span
+                      className={styles.deckValidationAlert}
+                      title={deckIssuesTooltip}
+                      aria-label="Показать ошибки колоды"
+                    >
+                      !
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <div className={styles.deckWorkspaceBody}>
                 <div className={styles.deckSummary}>
@@ -1271,13 +1277,9 @@ export const DeckPage = () => {
                     title={preset.blurb}
                   >
                     <span className={styles.presetButtonTitle}>{preset.name}</span>
-                    <span className={styles.presetButtonBlurb}>{preset.blurb}</span>
                   </button>
                 ))}
               </div>
-              <p className={styles.presetHint}>
-                Пресет загружается как локальный черновик и сразу проходит PvP-правила.
-              </p>
             </Card>
           </div>
         </section>
