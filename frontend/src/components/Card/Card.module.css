@@ -13,6 +13,10 @@
   backdrop-filter: blur(14px);
 }
 
+.cardAllowOverflow {
+  overflow: visible;
+}
+
 .card:hover {
   transform: translateY(-2px);
   border-color: var(--theme-line-strong);

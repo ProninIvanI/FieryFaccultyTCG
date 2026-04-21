@@ -1005,6 +1005,7 @@ export const DeckPage = () => {
               title="Конструктор колоды"
               className={styles.deckWorkspaceCard}
               contentClassName={styles.deckWorkspaceCardContent}
+              allowOverflow
             >
               <div className={styles.deckManager}>
                 <div className={styles.deckManagerHeader}>
@@ -1361,7 +1362,11 @@ export const DeckPage = () => {
               </div>
             </Card>
 
-            <Card title="Пресеты для тестов" className={styles.presetWorkspaceCard}>
+            <Card
+              title="Пресеты для тестов"
+              className={styles.presetWorkspaceCard}
+              allowOverflow
+            >
               <div className={styles.presetGrid}>
                 {DECK_PRESETS.map((preset) => (
                   <Tooltip
