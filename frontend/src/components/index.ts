@@ -6,6 +6,7 @@ export * from './PageShell';
 export * from './SiteHeader';
 export * from './HomeLinkButton';
 export * from "./FriendListItem";
+export * from "./Tooltip";
 
 
 

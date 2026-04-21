@@ -1,0 +1,107 @@
+.root {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.fullWidth {
+  display: flex;
+  width: 100%;
+}
+
+.trigger {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.fullWidth .trigger {
+  display: flex;
+  width: 100%;
+}
+
+.bubble {
+  position: absolute;
+  z-index: 12;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 48px));
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(196, 154, 90, 0.24);
+  background:
+    linear-gradient(180deg, rgba(30, 25, 23, 0.98), rgba(18, 15, 14, 0.98));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  color: var(--theme-text);
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.bubble::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: rgba(18, 15, 14, 0.98);
+  transform: rotate(45deg);
+}
+
+.sideTop .bubble {
+  bottom: calc(100% + 12px);
+  --tooltip-shift-y: 8px;
+}
+
+.sideTop .bubble::after {
+  top: 100%;
+  transform: translateY(-6px) rotate(45deg);
+  border-right: 1px solid rgba(196, 154, 90, 0.24);
+  border-bottom: 1px solid rgba(196, 154, 90, 0.24);
+}
+
+.sideBottom .bubble {
+  top: calc(100% + 12px);
+  --tooltip-shift-y: -8px;
+}
+
+.sideBottom .bubble::after {
+  bottom: 100%;
+  transform: translateY(6px) rotate(45deg);
+  border-top: 1px solid rgba(196, 154, 90, 0.24);
+  border-left: 1px solid rgba(196, 154, 90, 0.24);
+}
+
+.alignStart .bubble {
+  left: 0;
+  --tooltip-shift-x: 0px;
+  --tooltip-arrow-x: 18px;
+}
+
+.alignCenter .bubble {
+  left: 50%;
+  --tooltip-shift-x: -50%;
+  --tooltip-arrow-x: 50%;
+}
+
+.alignEnd .bubble {
+  right: 0;
+  --tooltip-shift-x: 0px;
+  --tooltip-arrow-x: calc(100% - 18px);
+}
+
+.alignStart .bubble::after,
+.alignCenter .bubble::after,
+.alignEnd .bubble::after {
+  left: var(--tooltip-arrow-x);
+}
+
+.bubble {
+  transform: translate(var(--tooltip-shift-x, 0px), var(--tooltip-shift-y, 0px));
+}
+
+.root:hover .bubble,
+.root:focus-within .bubble {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(var(--tooltip-shift-x, 0px), 0);
+}

@@ -467,25 +467,17 @@
 }
 
 .deckSelectButton {
+  composes: controlSurface controlSurfaceHover from "@/components/SurfaceTokens.module.css";
   width: 100%;
-  border: 1px solid var(--theme-line);
-  background: rgba(255, 248, 236, 0.04);
   border-radius: 10px;
   padding: 10px 12px;
   font: inherit;
-  color: var(--theme-text-strong);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.deckSelectButton:hover:not(:disabled) {
-  border-color: var(--theme-line-strong);
-  box-shadow: var(--theme-shadow-float);
 }
 
 .deckSelectButton:disabled {
@@ -513,25 +505,25 @@
   left: 0;
   right: 0;
   z-index: 5;
+  composes: floatingSurface from "@/components/SurfaceTokens.module.css";
   display: grid;
   gap: 4px;
   padding: 6px;
-  border-radius: 12px;
-  border: 1px solid var(--theme-line-strong);
-  background: linear-gradient(180deg, rgba(28, 24, 22, 0.98), rgba(20, 17, 15, 0.98));
-  box-shadow: var(--theme-shadow-float);
+  border-radius: 16px;
 }
 
 .deckSelectOption {
   width: 100%;
+  min-height: 38px;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 9px 10px;
   font: inherit;
   color: var(--theme-text-strong);
   text-align: left;
   cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .deckSelectOption:hover {
@@ -557,22 +549,14 @@
 }
 
 .deckActionButton {
-  border: 1px solid var(--theme-line);
-  background: var(--theme-surface-panel-soft);
+  composes: controlSurface controlSurfaceHover from "@/components/SurfaceTokens.module.css";
   border-radius: 12px;
   min-height: 40px;
   width: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--theme-text-strong);
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.deckActionButton:hover:not(:disabled) {
-  border-color: var(--theme-line-strong);
-  box-shadow: var(--theme-shadow-float);
 }
 
 .deckActionButton:disabled {
@@ -616,7 +600,6 @@
 }
 
 .deckValidationPopover {
-  position: relative;
   display: inline-flex;
   align-items: center;
 }
@@ -625,31 +608,14 @@
   width: fit-content;
 }
 
+.deckValidationTooltipBubble {
+  width: min(360px, calc(100vw - 48px));
+}
+
 .deckValidationTooltip {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  z-index: 8;
   width: min(360px, calc(100vw - 48px));
   display: grid;
   gap: 10px;
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(196, 154, 90, 0.24);
-  background:
-    linear-gradient(180deg, rgba(30, 25, 23, 0.98), rgba(18, 15, 14, 0.98));
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(4px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-.deckValidationPopover:hover .deckValidationTooltip,
-.deckValidationPopover:focus-within .deckValidationTooltip {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
 }
 
 .deckValidationTooltipTitle {
@@ -838,18 +804,21 @@
   margin-bottom: 12px;
 }
 
+.presetTooltip {
+  width: 100%;
+}
+
 .presetButton {
-  border: 1px solid var(--theme-line);
-  background: var(--theme-surface-panel-soft);
+  composes: controlSurface controlSurfaceHover from "@/components/SurfaceTokens.module.css";
   border-radius: 10px;
   min-height: 44px;
   padding: 10px 12px;
   cursor: pointer;
-  color: var(--theme-text-strong);
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
   text-align: left;
+  width: 100%;
 }
 
 .presetButtonTitle {

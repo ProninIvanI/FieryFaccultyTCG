@@ -213,15 +213,12 @@
 }
 
 .friendsPanel {
-  background: var(--theme-surface-panel);
+  composes: panelSurface from "@/components/SurfaceTokens.module.css";
   color: var(--theme-text);
-  border: 1px solid var(--theme-line);
-  border-radius: 20px;
-  padding: 16px;
+  border-radius: 18px;
+  padding: 18px;
   display: grid;
-  gap: 16px;
-  box-shadow: var(--theme-shadow-panel);
-  backdrop-filter: blur(14px);
+  gap: 18px;
 }
 
 .friendsHeader {
@@ -278,11 +275,10 @@
 }
 
 .iconButton {
-  border: 1px solid var(--theme-line);
-  background: rgba(255, 248, 236, 0.04);
-  color: var(--theme-text-strong);
-  border-radius: 10px;
-  padding: 6px 10px;
+  composes: controlSurface controlSurfaceHover from "@/components/SurfaceTokens.module.css";
+  border-radius: 12px;
+  min-height: 38px;
+  padding: 8px 12px;
   font-size: 12px;
   cursor: pointer;
 }
@@ -292,20 +288,19 @@
   top: 48px;
   left: 0;
   min-width: 220px;
-  background: var(--theme-surface-2);
-  border: 1px solid var(--theme-line);
-  border-radius: 14px;
-  padding: 12px;
+  composes: floatingSurface from "@/components/SurfaceTokens.module.css";
+  padding: 6px;
+  border-radius: 16px;
   display: grid;
-  gap: 10px;
+  gap: 4px;
   z-index: 10;
-  box-shadow: var(--theme-shadow-float);
 }
 
 .userMenuHeader {
   display: grid;
   gap: 4px;
   font-size: 12px;
+  padding: 8px 10px 10px;
 }
 
 .userMenuTitle {
@@ -320,32 +315,53 @@
 
 .userMenuSection {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .menuButton {
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid transparent;
   background: transparent;
-  border: none;
-  color: var(--theme-text);
+  color: var(--theme-text-strong);
   text-align: left;
-  padding: 4px 0;
+  padding: 8px 10px;
   cursor: pointer;
   font-size: 13px;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.menuButton:hover,
+.menuButton:focus-visible {
+  background: rgba(255, 248, 236, 0.05);
+  border-color: var(--theme-line);
+  color: #f6e5c6;
 }
 
 .userMenuFooter {
-  border-top: 1px solid var(--theme-line);
-  padding-top: 8px;
+  border-top: 1px solid rgba(196, 154, 90, 0.14);
+  margin-top: 4px;
+  padding: 8px 10px 2px;
 }
 
 .menuLogout {
+  min-height: 36px;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid transparent;
   background: transparent;
-  border: none;
   color: #e4a2a2;
   cursor: pointer;
   font-size: 13px;
   text-align: left;
-  padding: 0;
+  padding: 8px 10px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.menuLogout:hover,
+.menuLogout:focus-visible {
+  background: rgba(138, 68, 68, 0.14);
+  border-color: rgba(138, 68, 68, 0.26);
 }
 
 .friendsTools {
@@ -355,21 +371,19 @@
 
 .toolButton {
   flex: 1;
-  border: 1px solid var(--theme-line);
-  background: rgba(255, 248, 236, 0.04);
-  color: var(--theme-text-strong);
-  border-radius: 10px;
-  padding: 6px 10px;
+  composes: controlSurface controlSurfaceHover from "@/components/SurfaceTokens.module.css";
+  border-radius: 12px;
+  min-height: 40px;
+  padding: 8px 12px;
   font-size: 12px;
   cursor: pointer;
 }
 
 .addFriendPanel {
+  composes: insetSurface from "@/components/SurfaceTokens.module.css";
   display: grid;
   gap: 10px;
-  background: rgba(255, 248, 236, 0.03);
-  border: 1px solid var(--theme-line);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px;
 }
 
@@ -411,10 +425,8 @@
 
 .addFriendGhost {
   flex: 1;
-  border: 1px solid var(--theme-line);
+  composes: controlSurface controlSurfaceHover from "@/components/SurfaceTokens.module.css";
   border-radius: 10px;
-  background: transparent;
-  color: var(--theme-text-strong);
   padding: 8px 12px;
   cursor: pointer;
   font-size: 12px;
@@ -483,12 +495,8 @@
 
 .settingsModal {
   width: min(720px, 100%);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%),
-    var(--theme-surface-1);
-  border: 1px solid var(--theme-line);
+  composes: floatingSurface from "@/components/SurfaceTokens.module.css";
   border-radius: 24px;
-  box-shadow: var(--theme-shadow-float);
   padding: 24px;
   display: grid;
   gap: 24px;
@@ -524,12 +532,10 @@
 }
 
 .settingsClose {
+  composes: controlSurface controlSurfaceHover from "@/components/SurfaceTokens.module.css";
   width: 40px;
   height: 40px;
   border-radius: 999px;
-  border: 1px solid var(--theme-line);
-  background: rgba(255, 248, 236, 0.04);
-  color: var(--theme-text-strong);
   font-size: 28px;
   line-height: 1;
   cursor: pointer;
@@ -608,49 +614,16 @@
   color: var(--theme-text-strong);
 }
 
-.themeOptionTooltip {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 12px);
+.themeOptionTooltipWrap {
+  display: block;
+  width: 100%;
+}
+
+.themeOptionTooltipBubble {
   width: min(240px, calc(100vw - 48px));
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--theme-line-strong);
-  background: linear-gradient(
-    180deg,
-    rgba(48, 38, 30, 0.98),
-    rgba(29, 24, 19, 0.98)
-  );
-  box-shadow: var(--theme-shadow-float);
   font-size: 13px;
   color: var(--theme-text);
   line-height: 1.5;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, 8px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  z-index: 2;
-}
-
-.themeOptionTooltip::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 100%;
-  width: 12px;
-  height: 12px;
-  background: rgba(29, 24, 19, 0.98);
-  border-right: 1px solid var(--theme-line-strong);
-  border-bottom: 1px solid var(--theme-line-strong);
-  transform: translate(-50%, -6px) rotate(45deg);
-}
-
-.themeOption:hover .themeOptionTooltip,
-.themeOption:focus-visible .themeOptionTooltip,
-.themeOptionActive:hover .themeOptionTooltip,
-.themeOptionActive:focus-visible .themeOptionTooltip {
-  opacity: 1;
-  transform: translate(-50%, 0);
 }
 
 .settingsFooter {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, FriendListItem, SiteHeader } from "@/components";
+import { Card, FriendListItem, SiteHeader, Tooltip } from "@/components";
 import { ROUTES, UI_THEMES, type UiTheme } from "@/constants";
 import { useUiTheme } from "@/hooks/useUiTheme";
 import { authService } from "@/services";
@@ -429,8 +429,14 @@ const ThemeSettingsModal = ({ onClose }: { onClose: () => void }) => {
             const isActive = themeOption === theme;
 
             return (
-              <button
+              <Tooltip
                 key={themeOption}
+                content={presentation.subtitle}
+                bubbleClassName={styles.themeOptionTooltipBubble}
+                className={styles.themeOptionTooltipWrap}
+                fullWidth
+              >
+                <button
                 type="button"
                 className={isActive ? styles.themeOptionActive : styles.themeOption}
                 onClick={() => setTheme(themeOption)}
@@ -447,10 +453,8 @@ const ThemeSettingsModal = ({ onClose }: { onClose: () => void }) => {
                     </span>
                   ) : null}
                 </span>
-                <span className={styles.themeOptionTooltip} role="tooltip">
-                  {presentation.subtitle}
-                </span>
-              </button>
+                </button>
+              </Tooltip>
             );
           })}
         </div>

@@ -11,7 +11,7 @@ import {
 } from "@game-core/cards/catalog";
 import { DECK_RULES_V1 } from "@game-core/decks/rules";
 import { validateDeckLegality } from "@game-core/decks/validateDeckLegality";
-import { Card, HomeLinkButton, PageShell } from "@/components";
+import { Card, HomeLinkButton, PageShell, Tooltip } from "@/components";
 import rawCardData from "@/data/cardCatalog";
 import { authService, deckService } from "@/services";
 import { DeckCardItem, UserDeck } from "@/types";
@@ -540,18 +540,6 @@ export const DeckPage = () => {
     [deckRulePills],
   );
 
-  const getDeckStatusTooltip = useCallback(() => {
-    if (deckValidation.ok) {
-      return deckId
-        ? "Колода легальна. Можно сохранять изменения."
-        : "Колода легальна. Можно сохранить её в backend.";
-    }
-
-    return deckRulesTooltip
-      .map((rule) => `${rule.mark} ${rule.label}: ${rule.value}. ${rule.title}`)
-      .join("\n");
-  }, [deckId, deckRulesTooltip, deckValidation.ok]);
-
   const getAddCardAvailability = useCallback(
     (cardId: string) => {
       const currentQuantity = deck[cardId] ?? 0;
@@ -802,11 +790,14 @@ export const DeckPage = () => {
     setDeckRequestInfo("Колода удалена.");
   };
 
-  const deckStatusTooltip = getDeckStatusTooltip();
   const saveDisabled = isSaving || !session?.token || !deckValidation.ok;
-  const saveDisabledTitle = !session?.token
+  const saveActionTooltip = !session?.token
     ? "Войдите в аккаунт, чтобы сохранять колоды."
-    : deckStatusTooltip;
+    : deckValidation.ok
+      ? deckId
+        ? "Колода готова. Можно сохранять изменения."
+        : "Колода готова. Можно сохранить её в backend."
+      : "Колода пока не готова. Проверьте знак ! рядом со статусом.";
 
   return (
     <PageShell
@@ -940,23 +931,30 @@ export const DeckPage = () => {
                         <div className={styles.poolCardMana}>{card.mana} mana</div>
                       </div>
                       <div className={styles.poolCardControls}>
-                        <button
-                          className={styles.smallButton}
-                          type="button"
-                          onClick={() => updateDeck(card.id, -1)}
+                        <Tooltip
+                          content={`Убрать ${card.name} из колоды`}
                           disabled={quantity === 0}
-                          aria-label={`Убрать ${card.name} из колоды`}
-                          title={`Убрать ${card.name} из колоды`}
                         >
-                          -
-                        </button>
+                          <button
+                            className={styles.smallButton}
+                            type="button"
+                            onClick={() => updateDeck(card.id, -1)}
+                            disabled={quantity === 0}
+                            aria-label={`Убрать ${card.name} из колоды`}
+                          >
+                            -
+                          </button>
+                        </Tooltip>
                         <span
                           className={styles.poolCardCount}
                           aria-label={`В колоде: ${quantity}`}
                         >
                           {quantity}
                         </span>
-                        <span className={styles.smallButtonWrap} title={addCardState.title}>
+                        <Tooltip
+                          content={addCardState.title}
+                          className={styles.smallButtonWrap}
+                        >
                           <button
                             className={`${styles.smallButton} ${!addCardState.allowed ? styles.smallButtonBlocked : ""}`.trim()}
                             type="button"
@@ -966,7 +964,7 @@ export const DeckPage = () => {
                           >
                             +
                           </button>
-                        </span>
+                        </Tooltip>
                       </div>
                     </div>
                     <div className={styles.poolCardMeta}>
@@ -1094,7 +1092,11 @@ export const DeckPage = () => {
                 </div>
 
                 <div className={styles.deckManagerActions}>
-                  <span className={styles.deckActionTooltip} title={saveDisabled ? saveDisabledTitle : saveDeckLabel}>
+                  <Tooltip
+                    content={saveDisabled ? saveActionTooltip : saveDeckLabel}
+                    className={styles.deckActionTooltip}
+                    fullWidth
+                  >
                     <button
                       className={styles.deckActionButton}
                       type="button"
@@ -1128,8 +1130,12 @@ export const DeckPage = () => {
                         </svg>
                       </span>
                     </button>
-                  </span>
-                  <span className={styles.deckActionTooltip} title={saveDisabled ? saveDisabledTitle : createDeckCopyLabel}>
+                  </Tooltip>
+                  <Tooltip
+                    content={saveDisabled ? saveActionTooltip : createDeckCopyLabel}
+                    className={styles.deckActionTooltip}
+                    fullWidth
+                  >
                     <button
                       className={styles.deckActionButton}
                       type="button"
@@ -1160,47 +1166,57 @@ export const DeckPage = () => {
                         </svg>
                       </span>
                     </button>
-                  </span>
-                  <button
-                    className={styles.deckActionButton}
-                    type="button"
-                    onClick={handleCreateDraft}
-                    disabled={isSaving}
-                    aria-label={createDraftLabel}
-                    title={createDraftLabel}
+                  </Tooltip>
+                  <Tooltip
+                    content={createDraftLabel}
+                    className={styles.deckActionTooltip}
+                    fullWidth
                   >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>
-                      <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
-                        <path
-                          d="M12 6v12M6 12h12"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </span>
-                  </button>
-                  <button
-                    className={`${styles.deckActionButton} ${styles.deckActionDanger}`.trim()}
-                    type="button"
-                    onClick={handleDeleteDeck}
-                    disabled={isSaving}
-                    aria-label={deleteDeckLabel}
-                    title={deleteDeckLabel}
+                    <button
+                      className={styles.deckActionButton}
+                      type="button"
+                      onClick={handleCreateDraft}
+                      disabled={isSaving}
+                      aria-label={createDraftLabel}
+                    >
+                      <span aria-hidden="true" className={styles.deckActionIcon}>
+                        <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
+                          <path
+                            d="M12 6v12M6 12h12"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </span>
+                    </button>
+                  </Tooltip>
+                  <Tooltip
+                    content={deleteDeckLabel}
+                    className={styles.deckActionTooltip}
+                    fullWidth
                   >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>
-                      <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
-                        <path
-                          d="M7 7l10 10M17 7 7 17"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </span>
-                  </button>
+                    <button
+                      className={`${styles.deckActionButton} ${styles.deckActionDanger}`.trim()}
+                      type="button"
+                      onClick={handleDeleteDeck}
+                      disabled={isSaving}
+                      aria-label={deleteDeckLabel}
+                    >
+                      <span aria-hidden="true" className={styles.deckActionIcon}>
+                        <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
+                          <path
+                            d="M7 7l10 10M17 7 7 17"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </span>
+                    </button>
+                  </Tooltip>
                 </div>
 
                 {!session?.token ? (
@@ -1219,7 +1235,43 @@ export const DeckPage = () => {
                 ) : null}
                 {!deckValidation.ok ? (
                   <div className={styles.deckValidationInline}>
-                    <div className={styles.deckValidationPopover}>
+                    <Tooltip
+                      content={(
+                        <div className={styles.deckValidationTooltip}>
+                          <div className={styles.deckValidationTooltipTitle}>Проверка колоды</div>
+                          <div className={styles.deckValidationTooltipList}>
+                            {deckRulesTooltip.map((rule) => (
+                              <div
+                                key={rule.id}
+                                className={`${styles.deckValidationTooltipItem} ${
+                                  rule.tone === "warning"
+                                    ? styles.deckValidationTooltipItemWarning
+                                    : rule.tone === "info"
+                                      ? styles.deckValidationTooltipItemInfo
+                                      : styles.deckValidationTooltipItemOk
+                                }`.trim()}
+                              >
+                                <span className={styles.deckValidationTooltipMark} aria-hidden="true">
+                                  {rule.mark}
+                                </span>
+                                <span className={styles.deckValidationTooltipBody}>
+                                  <span className={styles.deckValidationTooltipLabel}>
+                                    {rule.label}: {rule.value}
+                                  </span>
+                                  <span className={styles.deckValidationTooltipText}>
+                                    {rule.title}
+                                  </span>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      className={styles.deckValidationPopover}
+                      bubbleClassName={styles.deckValidationTooltipBubble}
+                      side="bottom"
+                      align="start"
+                    >
                       <span
                         className={`${styles.deckBadge} ${styles.deckBadgeWarning} ${styles.deckValidationBadge}`.trim()}
                         aria-label="Показать ошибки колоды"
@@ -1230,36 +1282,7 @@ export const DeckPage = () => {
                         </span>
                         <span>Сохранить нельзя</span>
                       </span>
-                      <div className={styles.deckValidationTooltip} role="tooltip">
-                        <div className={styles.deckValidationTooltipTitle}>Проверка колоды</div>
-                        <div className={styles.deckValidationTooltipList}>
-                          {deckRulesTooltip.map((rule) => (
-                            <div
-                              key={rule.id}
-                              className={`${styles.deckValidationTooltipItem} ${
-                                rule.tone === "warning"
-                                  ? styles.deckValidationTooltipItemWarning
-                                  : rule.tone === "info"
-                                    ? styles.deckValidationTooltipItemInfo
-                                    : styles.deckValidationTooltipItemOk
-                              }`.trim()}
-                            >
-                              <span className={styles.deckValidationTooltipMark} aria-hidden="true">
-                                {rule.mark}
-                              </span>
-                              <span className={styles.deckValidationTooltipBody}>
-                                <span className={styles.deckValidationTooltipLabel}>
-                                  {rule.label}: {rule.value}
-                                </span>
-                                <span className={styles.deckValidationTooltipText}>
-                                  {rule.title}
-                                </span>
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                    </Tooltip>
                   </div>
                 ) : null}
               </div>
@@ -1316,7 +1339,10 @@ export const DeckPage = () => {
                             <span className={`${styles.deckCount} ${styles.deckCountBadge}`.trim()}>
                               {deck[card.id]}
                             </span>
-                            <span className={styles.smallButtonWrap} title={addCardState.title}>
+                            <Tooltip
+                              content={addCardState.title}
+                              className={styles.smallButtonWrap}
+                            >
                               <button
                                 className={`${styles.smallButton} ${!addCardState.allowed ? styles.smallButtonBlocked : ""}`.trim()}
                                 type="button"
@@ -1325,7 +1351,7 @@ export const DeckPage = () => {
                               >
                                 +
                               </button>
-                            </span>
+                            </Tooltip>
                           </div>
                         </div>
                       );
@@ -1338,15 +1364,20 @@ export const DeckPage = () => {
             <Card title="Пресеты для тестов" className={styles.presetWorkspaceCard}>
               <div className={styles.presetGrid}>
                 {DECK_PRESETS.map((preset) => (
-                  <button
+                  <Tooltip
                     key={preset.id}
-                    className={styles.presetButton}
-                    type="button"
-                    onClick={() => applyPresetDeck(preset)}
-                    title={preset.blurb}
+                    content={preset.blurb}
+                    className={styles.presetTooltip}
+                    fullWidth
                   >
-                    <span className={styles.presetButtonTitle}>{preset.name}</span>
-                  </button>
+                    <button
+                      className={styles.presetButton}
+                      type="button"
+                      onClick={() => applyPresetDeck(preset)}
+                    >
+                      <span className={styles.presetButtonTitle}>{preset.name}</span>
+                    </button>
+                  </Tooltip>
                 ))}
               </div>
             </Card>
