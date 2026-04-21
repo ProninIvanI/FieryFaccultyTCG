@@ -604,18 +604,21 @@
 .deckValidationPopover {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
 }
 
 .deckValidationBadge {
   width: fit-content;
+  max-width: 100%;
 }
 
 .deckValidationTooltipBubble {
-  width: min(360px, calc(100vw - 48px));
+  width: min(100%, 360px);
+  max-width: min(360px, calc(100vw - 64px));
 }
 
 .deckValidationTooltip {
-  width: min(360px, calc(100vw - 48px));
+  width: 100%;
   display: grid;
   gap: 10px;
 }
@@ -682,12 +685,14 @@
   font-size: 12px;
   font-weight: 700;
   color: var(--theme-text-strong);
+  min-width: 0;
 }
 
 .deckValidationTooltipText {
   font-size: 12px;
   line-height: 1.4;
   color: var(--theme-text-dim);
+  min-width: 0;
 }
 
 .summaryValue {
