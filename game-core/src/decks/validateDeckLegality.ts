@@ -1,9 +1,4 @@
-import {
-  CatalogCardMetadata,
-  CatalogCharacterMetadata,
-  normalizeCatalog,
-  toCatalogCardUiType,
-} from '../cards/catalog';
+import { CatalogCardMetadata, normalizeCatalog, toCatalogCardUiType } from '../cards/catalog';
 import { DECK_RULES_V1 } from './rules';
 import {
   DeckCardInput,
@@ -96,21 +91,6 @@ const getCopiesExceededIssue = (
   },
 });
 
-const getSchoolMismatchIssue = (
-  card: CatalogCardMetadata,
-  character: CatalogCharacterMetadata,
-): DeckValidationIssue => ({
-  code: 'deck_card_school_mismatch',
-  message: `Карта ${card.name} не подходит факультету выбранного персонажа.`,
-  cardId: card.id,
-  characterId: character.id,
-  meta: {
-    cardName: card.name,
-    faculty: character.faculty,
-    cardSchool: card.school,
-  },
-});
-
 const getArtLimitIssue = (actual: number): DeckValidationIssue => ({
   code: 'deck_art_limit_exceeded',
   message: `В колоде может быть не больше ${DECK_RULES_V1.maxArtCards} art-карт.`,
@@ -162,15 +142,6 @@ export const validateDeckLegality = (
 
     if (cardEntry.quantity > DECK_RULES_V1.maxCopiesPerCard) {
       issues.push(getCopiesExceededIssue(cardEntry.cardId, cardEntry.quantity, card.name));
-    }
-
-    if (!character) {
-      return;
-    }
-
-    const cardType = toCatalogCardUiType(card.catalogType);
-    if ((cardType === 'spell' || cardType === 'summon') && card.school !== character.faculty) {
-      issues.push(getSchoolMismatchIssue(card, character));
     }
   });
 

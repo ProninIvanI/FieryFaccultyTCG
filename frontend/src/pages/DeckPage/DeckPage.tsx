@@ -151,6 +151,75 @@ const DECK_PRESETS: DeckPreset[] = [
       { cardId: "97", quantity: 2 },
     ],
   },
+  {
+    id: "summon-lab",
+    name: "Summon Lab",
+    blurb: "Много призывов для теста выбора существ, размена и заполнения стола.",
+    characterId: "16",
+    cards: [
+      { cardId: "41", quantity: 2 },
+      { cardId: "42", quantity: 2 },
+      { cardId: "49", quantity: 2 },
+      { cardId: "61", quantity: 2 },
+      { cardId: "63", quantity: 2 },
+      { cardId: "69", quantity: 2 },
+      { cardId: "74", quantity: 2 },
+      { cardId: "81", quantity: 2 },
+      { cardId: "82", quantity: 2 },
+      { cardId: "84", quantity: 2 },
+      { cardId: "85", quantity: 2 },
+      { cardId: "86", quantity: 2 },
+      { cardId: "88", quantity: 2 },
+      { cardId: "91", quantity: 2 },
+      { cardId: "95", quantity: 2 },
+    ],
+  },
+  {
+    id: "target-lab",
+    name: "Target Lab",
+    blurb: "Проверка таргетов по себе, врагу и существам в одной тестовой колоде.",
+    characterId: "24",
+    cards: [
+      { cardId: "1", quantity: 2 },
+      { cardId: "6", quantity: 2 },
+      { cardId: "7", quantity: 2 },
+      { cardId: "9", quantity: 2 },
+      { cardId: "11", quantity: 2 },
+      { cardId: "13", quantity: 2 },
+      { cardId: "14", quantity: 2 },
+      { cardId: "19", quantity: 2 },
+      { cardId: "23", quantity: 2 },
+      { cardId: "30", quantity: 2 },
+      { cardId: "32", quantity: 2 },
+      { cardId: "34", quantity: 2 },
+      { cardId: "37", quantity: 2 },
+      { cardId: "40", quantity: 2 },
+      { cardId: "55", quantity: 2 },
+    ],
+  },
+  {
+    id: "modifier-lab",
+    name: "Modifier Lab",
+    blurb: "Тест модификаторов, артов и цепочек усилений на одном пресете.",
+    characterId: "4",
+    cards: [
+      { cardId: "1", quantity: 2 },
+      { cardId: "11", quantity: 2 },
+      { cardId: "21", quantity: 2 },
+      { cardId: "31", quantity: 2 },
+      { cardId: "41", quantity: 2 },
+      { cardId: "42", quantity: 2 },
+      { cardId: "43", quantity: 2 },
+      { cardId: "45", quantity: 2 },
+      { cardId: "46", quantity: 2 },
+      { cardId: "47", quantity: 2 },
+      { cardId: "48", quantity: 2 },
+      { cardId: "49", quantity: 2 },
+      { cardId: "50", quantity: 2 },
+      { cardId: "51", quantity: 2 },
+      { cardId: "61", quantity: 2 },
+    ],
+  },
 ];
 
 export const DeckPage = () => {
@@ -396,56 +465,101 @@ export const DeckPage = () => {
     [selectedCharacter?.id, serializedDeckCards],
   );
 
-  const deckRuleChecklist = useMemo(() => {
-    const issueCodes = new Set(deckValidation.issues.map((issue) => issue.code));
+  const issueCodes = useMemo(
+    () => new Set(deckValidation.issues.map((issue) => issue.code)),
+    [deckValidation.issues],
+  );
 
-    return [
+  const deckRulePills = useMemo(
+    () => [
       {
         id: "deck-size",
-        ok: !issueCodes.has("deck_size_invalid"),
-        label: `Ровно ${DECK_RULES_V1.deckSize} карт`,
+        tone: issueCodes.has("deck_size_invalid") ? "warning" : "ok",
+        label: "Карты",
+        value: `${deckValidation.summary.totalCards}/${DECK_RULES_V1.deckSize}`,
+        title:
+          deckValidation.summary.totalCards === DECK_RULES_V1.deckSize
+            ? "Размер колоды готов к сохранению."
+            : `Нужно собрать ровно ${DECK_RULES_V1.deckSize} карт.`,
       },
       {
         id: "copies",
-        ok: !issueCodes.has("deck_card_copies_exceeded"),
-        label: `Не больше ${DECK_RULES_V1.maxCopiesPerCard} копий одной карты`,
-      },
-      {
-        id: "school",
-        ok: !issueCodes.has("deck_card_school_mismatch"),
-        label: "Карты подходят факультету выбранного персонажа",
+        tone: issueCodes.has("deck_card_copies_exceeded") ? "warning" : "ok",
+        label: "Копии",
+        value: `до ${DECK_RULES_V1.maxCopiesPerCard}`,
+        title: issueCodes.has("deck_card_copies_exceeded")
+          ? "У одной из карт слишком много копий. Уменьшите количество до лимита."
+          : "Лимит копий соблюдён.",
       },
       {
         id: "art-limit",
-        ok: !issueCodes.has("deck_art_limit_exceeded"),
-        label: `art не больше ${DECK_RULES_V1.maxArtCards}`,
+        tone: issueCodes.has("deck_art_limit_exceeded") ? "warning" : "ok",
+        label: "Art",
+        value: `${deckValidation.summary.artCards}/${DECK_RULES_V1.maxArtCards}`,
+        title: issueCodes.has("deck_art_limit_exceeded")
+          ? `Art-карт слишком много. Оставьте не больше ${DECK_RULES_V1.maxArtCards}.`
+          : "Лимит art-карт соблюдён.",
       },
       {
         id: "modifier-limit",
-        ok: !issueCodes.has("deck_modifier_limit_exceeded"),
-        label: `modifier не больше ${DECK_RULES_V1.maxModifierCards}`,
+        tone: issueCodes.has("deck_modifier_limit_exceeded") ? "warning" : "ok",
+        label: "Modifier",
+        value: `${deckValidation.summary.modifierCards}/${DECK_RULES_V1.maxModifierCards}`,
+        title: issueCodes.has("deck_modifier_limit_exceeded")
+          ? `Modifier-карт слишком много. Оставьте не больше ${DECK_RULES_V1.maxModifierCards}.`
+          : "Лимит modifier-карт соблюдён.",
       },
-    ];
-  }, [deckValidation.issues]);
+      {
+        id: "school-rule",
+        tone: "info" as const,
+        label: "Школы",
+        value: "свободно",
+        title:
+          "Сейчас маг может собирать колоду из любых школ. Позже можно добавить бонусы за родную школу вместо жёсткого запрета.",
+      },
+    ],
+    [deckValidation.summary.artCards, deckValidation.summary.modifierCards, deckValidation.summary.totalCards, issueCodes],
+  );
 
-  const deckRuleDetails = useMemo(() => {
-    const schoolIssue = deckValidation.issues.find(
-      (issue) => issue.code === "deck_card_school_mismatch",
-    );
-    const copiesIssue = deckValidation.issues.find(
-      (issue) => issue.code === "deck_card_copies_exceeded",
-    );
-    const unknownCardIssue = deckValidation.issues.find(
-      (issue) => issue.code === "deck_card_unknown",
-    );
+  const deckRuleDetails = useMemo(
+    () =>
+      deckValidation.issues.filter(
+        (issue, index, issues) =>
+          issues.findIndex(
+            (candidate) => candidate.code === issue.code && candidate.cardId === issue.cardId,
+          ) === index,
+      ),
+    [deckValidation.issues],
+  );
 
-    return [schoolIssue, copiesIssue, unknownCardIssue].filter(
-      (issue): issue is NonNullable<typeof issue> => issue !== undefined,
-    );
-  }, [deckValidation.issues]);
+  const getDeckStatusTooltip = useCallback(() => {
+    if (deckValidation.ok) {
+      return deckId
+        ? "Колода легальна. Можно сохранять изменения."
+        : "Колода легальна. Можно сохранить её в backend.";
+    }
 
-  const canAddCard = useCallback(
+    const primaryIssue = deckRuleDetails[0]?.message ?? "Колода пока не готова к сохранению.";
+    return `Сохранение недоступно: ${primaryIssue}`;
+  }, [deckId, deckRuleDetails, deckValidation.ok]);
+
+  const getAddCardAvailability = useCallback(
     (cardId: string) => {
+      const currentQuantity = deck[cardId] ?? 0;
+      if (currentQuantity >= DECK_RULES_V1.maxCopiesPerCard) {
+        return {
+          allowed: false,
+          title: `У карты уже максимум ${DECK_RULES_V1.maxCopiesPerCard} копии.`,
+        };
+      }
+
+      if (deckValidation.summary.totalCards >= DECK_RULES_V1.deckSize) {
+        return {
+          allowed: false,
+          title: `Колода уже заполнена. Лимит: ${DECK_RULES_V1.deckSize} карт.`,
+        };
+      }
+
       const nextCards = serializedDeckCards.some((card) => card.cardId === cardId)
         ? serializedDeckCards.map((card) =>
             card.cardId === cardId
@@ -454,12 +568,27 @@ export const DeckPage = () => {
           )
         : [...serializedDeckCards, { cardId, quantity: 1 }];
 
-      return validateDeckLegality(rawCardData, {
+      const nextValidation = validateDeckLegality(rawCardData, {
         characterId: selectedCharacter?.id ?? "",
         cards: nextCards,
-      }).ok;
+      });
+
+      const blockingIssue = nextValidation.issues.find(
+        (issue) => issue.code !== "deck_size_invalid",
+      );
+      if (blockingIssue) {
+        return {
+          allowed: false,
+          title: blockingIssue.message,
+        };
+      }
+
+      return {
+        allowed: true,
+        title: `Добавить ${CARD_POOL.find((card) => card.id === cardId)?.name ?? "карту"} в колоду`,
+      };
     },
-    [selectedCharacter?.id, serializedDeckCards],
+    [deck, deckValidation.summary.totalCards, selectedCharacter?.id, serializedDeckCards],
   );
 
   const applySavedDeck = useCallback((savedDeck: UserDeck) => {
@@ -636,6 +765,12 @@ export const DeckPage = () => {
     setDeckRequestInfo("Колода удалена.");
   };
 
+  const deckStatusTooltip = getDeckStatusTooltip();
+  const saveDisabled = isSaving || !session?.token || !deckValidation.ok;
+  const saveDisabledTitle = !session?.token
+    ? "Войдите в аккаунт, чтобы сохранять колоды."
+    : deckStatusTooltip;
+
   return (
     <PageShell
       title="Мастерская колод"
@@ -759,6 +894,7 @@ export const DeckPage = () => {
             <div className={styles.cardList}>
               {filteredCards.map((card) => {
                 const quantity = deck[card.id] ?? 0;
+                const addCardState = getAddCardAvailability(card.id);
                 return (
                   <div key={card.id} className={styles.poolCard}>
                     <div className={styles.poolCardHeader}>
@@ -783,16 +919,17 @@ export const DeckPage = () => {
                         >
                           {quantity}
                         </span>
-                        <button
-                          className={styles.smallButton}
-                          type="button"
-                          onClick={() => updateDeck(card.id, 1)}
-                          disabled={!canAddCard(card.id)}
-                          aria-label={`Добавить ${card.name} в колоду`}
-                          title={`Добавить ${card.name} в колоду`}
-                        >
-                          +
-                        </button>
+                        <span className={styles.smallButtonWrap} title={addCardState.title}>
+                          <button
+                            className={`${styles.smallButton} ${!addCardState.allowed ? styles.smallButtonBlocked : ""}`.trim()}
+                            type="button"
+                            onClick={() => updateDeck(card.id, 1)}
+                            disabled={!addCardState.allowed}
+                            aria-label={`Добавить ${card.name} в колоду`}
+                          >
+                            +
+                          </button>
+                        </span>
                       </div>
                     </div>
                     <div className={styles.poolCardMeta}>
@@ -844,8 +981,14 @@ export const DeckPage = () => {
                       Выберите сохранённую колоду или соберите новую и сохраните её здесь же.
                     </p>
                   </div>
-                  <div className={styles.deckBadge}>
-                    {deckValidation.ok ? (deckId ? "Сохранена" : "Черновик") : "Нелегальна"}
+                  <div
+                    className={`${styles.deckBadge} ${deckValidation.ok ? styles.deckBadgeOk : styles.deckBadgeWarning}`.trim()}
+                    title={deckStatusTooltip}
+                  >
+                    <span className={styles.deckBadgeMark} aria-hidden="true">
+                      {deckValidation.ok ? "OK" : "!"}
+                    </span>
+                    <span>{deckValidation.ok ? "Можно сохранить" : "Сохранить нельзя"}</span>
                   </div>
                 </div>
 
@@ -886,71 +1029,73 @@ export const DeckPage = () => {
                 </div>
 
                 <div className={styles.deckManagerActions}>
-                  <button
-                    className={styles.deckActionButton}
-                    type="button"
-                    onClick={() => void handleSaveDeck()}
-                    disabled={isSaving || !session?.token || !deckValidation.ok}
-                    aria-label={saveDeckLabel}
-                    title={saveDeckLabel}
-                  >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>
-                      <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
-                        <path
-                          d="M6.5 4.5h9l2 2v11a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M8 4.5v5h6v-5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M8.5 15.5h5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </span>
-                  </button>
-                  <button
-                    className={styles.deckActionButton}
-                    type="button"
-                    onClick={() => void handleSaveDeck("create-new")}
-                    disabled={isSaving || !session?.token || !deckValidation.ok}
-                    aria-label={createDeckCopyLabel}
-                    title={createDeckCopyLabel}
-                  >
-                    <span aria-hidden="true" className={styles.deckActionIcon}>
-                      <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
-                        <rect
-                          x="9"
-                          y="9"
-                          width="9"
-                          height="9"
-                          rx="1.5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                        />
-                        <path
-                          d="M6.5 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v.5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </span>
-                  </button>
+                  <span className={styles.deckActionTooltip} title={saveDisabled ? saveDisabledTitle : saveDeckLabel}>
+                    <button
+                      className={styles.deckActionButton}
+                      type="button"
+                      onClick={() => void handleSaveDeck()}
+                      disabled={saveDisabled}
+                      aria-label={saveDeckLabel}
+                    >
+                      <span aria-hidden="true" className={styles.deckActionIcon}>
+                        <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
+                          <path
+                            d="M6.5 4.5h9l2 2v11a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M8 4.5v5h6v-5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M8.5 15.5h5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </span>
+                    </button>
+                  </span>
+                  <span className={styles.deckActionTooltip} title={saveDisabled ? saveDisabledTitle : createDeckCopyLabel}>
+                    <button
+                      className={styles.deckActionButton}
+                      type="button"
+                      onClick={() => void handleSaveDeck("create-new")}
+                      disabled={saveDisabled}
+                      aria-label={createDeckCopyLabel}
+                    >
+                      <span aria-hidden="true" className={styles.deckActionIcon}>
+                        <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
+                          <rect
+                            x="9"
+                            y="9"
+                            width="9"
+                            height="9"
+                            rx="1.5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                          />
+                          <path
+                            d="M6.5 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v.5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </span>
+                    </button>
+                  </span>
                   <button
                     className={styles.deckActionButton}
                     type="button"
@@ -1008,27 +1153,21 @@ export const DeckPage = () => {
                   <p className={styles.deckStatusInfo}>{deckRequestInfo}</p>
                 ) : null}
                 <div className={styles.deckRulesSummary}>
-                  <span className={styles.deckRulePill}>
-                    {deckValidation.summary.totalCards}/{DECK_RULES_V1.deckSize} карт
-                  </span>
-                  <span className={styles.deckRulePill}>
-                    art {deckValidation.summary.artCards}/{DECK_RULES_V1.maxArtCards}
-                  </span>
-                  <span className={styles.deckRulePill}>
-                    modifier {deckValidation.summary.modifierCards}/{DECK_RULES_V1.maxModifierCards}
-                  </span>
-                </div>
-                <div className={styles.deckRulesChecklist}>
-                  {deckRuleChecklist.map((rule) => (
-                    <div
+                  {deckRulePills.map((rule) => (
+                    <span
                       key={rule.id}
-                      className={rule.ok ? styles.deckRuleItemOk : styles.deckRuleItemFail}
+                      className={`${styles.deckRulePill} ${
+                        rule.tone === "ok"
+                          ? styles.deckRulePillOk
+                          : rule.tone === "warning"
+                            ? styles.deckRulePillWarning
+                            : styles.deckRulePillInfo
+                      }`.trim()}
+                      title={rule.title}
                     >
-                      <span className={styles.deckRuleMark} aria-hidden="true">
-                        {rule.ok ? "OK" : "!"}
-                      </span>
-                      <span>{rule.label}</span>
-                    </div>
+                      <span className={styles.deckRulePillLabel}>{rule.label}</span>
+                      <span className={styles.deckRulePillValue}>{rule.value}</span>
+                    </span>
                   ))}
                 </div>
                 {!deckValidation.ok && deckRuleDetails.length > 0 ? (
@@ -1043,9 +1182,11 @@ export const DeckPage = () => {
                     ))}
                   </div>
                 ) : null}
-                {deckValidation.ok ? (
-                  <p className={styles.deckRulesOk}>Колода проходит правила PvP.</p>
-                ) : null}
+                <p className={deckValidation.ok ? styles.deckRulesOk : styles.deckStatusHint}>
+                  {deckValidation.ok
+                    ? "Колода готова к сохранению. Наведите на плашки, чтобы увидеть детали правил."
+                    : "Колода пока не сохраняется. Наведите на плашки или значок !, чтобы увидеть, что осталось поправить."}
+                </p>
               </div>
               <div className={styles.deckWorkspaceBody}>
                 <div className={styles.deckSummary}>
@@ -1074,40 +1215,46 @@ export const DeckPage = () => {
                       Добавьте карты из пула слева
                     </div>
                   ) : (
-                    deckCards.map((card) => (
-                      <div key={card.id} className={styles.deckRow}>
-                        <div className={styles.deckRowInfo}>
-                          <div className={styles.deckRowHeader}>
-                            <div className={styles.deckRowName}>{card.name}</div>
-                            <span className={styles.deckRowMana}>{card.mana} mana</span>
+                    deckCards.map((card) => {
+                      const addCardState = getAddCardAvailability(card.id);
+
+                      return (
+                        <div key={card.id} className={styles.deckRow}>
+                          <div className={styles.deckRowInfo}>
+                            <div className={styles.deckRowHeader}>
+                              <div className={styles.deckRowName}>{card.name}</div>
+                              <span className={styles.deckRowMana}>{card.mana} mana</span>
+                            </div>
+                            <div className={styles.deckRowMeta}>
+                              {getCatalogCardTypeLabel(card.type)}
+                              {card.school ? ` · ${getCatalogSchoolLabel(card.school)}` : ""}
+                            </div>
                           </div>
-                          <div className={styles.deckRowMeta}>
-                            {getCatalogCardTypeLabel(card.type)}
-                            {card.school ? ` · ${getCatalogSchoolLabel(card.school)}` : ""}
+                          <div className={styles.deckControls}>
+                            <button
+                              className={styles.smallButton}
+                              type="button"
+                              onClick={() => updateDeck(card.id, -1)}
+                            >
+                              -
+                            </button>
+                            <span className={`${styles.deckCount} ${styles.deckCountBadge}`.trim()}>
+                              {deck[card.id]}
+                            </span>
+                            <span className={styles.smallButtonWrap} title={addCardState.title}>
+                              <button
+                                className={`${styles.smallButton} ${!addCardState.allowed ? styles.smallButtonBlocked : ""}`.trim()}
+                                type="button"
+                                onClick={() => updateDeck(card.id, 1)}
+                                disabled={!addCardState.allowed}
+                              >
+                                +
+                              </button>
+                            </span>
                           </div>
                         </div>
-                        <div className={styles.deckControls}>
-                          <button
-                            className={styles.smallButton}
-                            type="button"
-                            onClick={() => updateDeck(card.id, -1)}
-                          >
-                            -
-                          </button>
-                          <span className={`${styles.deckCount} ${styles.deckCountBadge}`.trim()}>
-                            {deck[card.id]}
-                          </span>
-                          <button
-                            className={styles.smallButton}
-                            type="button"
-                            onClick={() => updateDeck(card.id, 1)}
-                            disabled={!canAddCard(card.id)}
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
