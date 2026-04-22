@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { FriendListItem } from "@/components";
+import { FriendListItem, Tooltip } from "@/components";
 import { ROUTES } from "@/constants";
 import { friendService, socialWsService } from "@/services";
 import { Friend, FriendRequest, MatchInvite, PresenceState } from "@/types";
@@ -8,6 +8,17 @@ import styles from "./HomePage.module.css";
 
 const FRIEND_PAGE_LIMIT = 50;
 const MATCH_CONFIRM_STORAGE_PREFIX = "fftcg_match_confirm";
+
+type FriendsPanelProps = {
+  currentUserId: string;
+  displayName: string;
+  logoutError: string | null;
+  onLogout: () => Promise<void>;
+  onOpenThemeSettings: () => void;
+  sessionToken: string;
+};
+
+type SocialTabId = "friends" | "incoming" | "outgoing" | "matches";
 
 const toFriendSubtitle = (createdAt: string): string => {
   const date = new Date(createdAt);
@@ -91,19 +102,7 @@ const loadSocialSnapshot = async (): Promise<{
   };
 };
 
-type FriendsPanelProps = {
-  currentUserId: string;
-  displayName: string;
-  logoutError: string | null;
-  onLogout: () => Promise<void>;
-  onOpenThemeSettings: () => void;
-  sessionToken: string;
-};
-
-const upsertInvite = (
-  current: MatchInvite[],
-  invite: MatchInvite,
-): MatchInvite[] => {
+const upsertInvite = (current: MatchInvite[], invite: MatchInvite): MatchInvite[] => {
   const next = current.filter((item) => item.id !== invite.id);
   return [invite, ...next];
 };
@@ -119,10 +118,7 @@ const resolveInvitePeerLabel = (
   friends: Friend[],
 ): string => {
   if (invite.inviterUserId === currentUserId) {
-    return (
-      friends.find((friend) => friend.userId === invite.targetUserId)?.username ??
-      invite.targetUserId
-    );
+    return friends.find((friend) => friend.userId === invite.targetUserId)?.username ?? invite.targetUserId;
   }
 
   return invite.inviterUsername ?? invite.inviterUserId;
@@ -135,6 +131,50 @@ const isConfirmedInviteReady = (
 
 const getMatchConfirmStorageKey = (currentUserId: string): string =>
   `${MATCH_CONFIRM_STORAGE_PREFIX}:${currentUserId}`;
+
+const FriendsIcon = () => (
+  <svg viewBox="0 0 20 20" aria-hidden="true" className={styles.socialTabIconSvg}>
+    <path
+      d="M6.2 10.1a3.1 3.1 0 1 1 0-6.2 3.1 3.1 0 0 1 0 6.2Zm7.2-.8a2.4 2.4 0 1 1 0-4.8 2.4 2.4 0 0 1 0 4.8ZM2.8 15.8c0-2 2-3.6 4.5-3.6s4.5 1.6 4.5 3.6v.3H2.8v-.3Zm10.1.3c0-1.1-.4-2.1-1.1-2.9 1.8.1 3.2 1.1 3.2 2.6v.3h-2.1v-.1Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+const IncomingIcon = () => (
+  <svg viewBox="0 0 20 20" aria-hidden="true" className={styles.socialTabIconSvg}>
+    <path
+      d="M10 3.2a.8.8 0 0 1 .8.8v7.1l2.5-2.5a.8.8 0 1 1 1.1 1.1l-3.9 3.9a.8.8 0 0 1-1.1 0L5.5 9.7a.8.8 0 0 1 1.1-1.1l2.6 2.5V4a.8.8 0 0 1 .8-.8Zm-5 11.2h10a.8.8 0 1 1 0 1.6H5a.8.8 0 0 1 0-1.6Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+const OutgoingIcon = () => (
+  <svg viewBox="0 0 20 20" aria-hidden="true" className={styles.socialTabIconSvg}>
+    <path
+      d="M10 16.8a.8.8 0 0 1-.8-.8V8.9L6.6 11.4a.8.8 0 0 1-1.1-1.1l3.9-3.9a.8.8 0 0 1 1.1 0l3.9 3.9a.8.8 0 0 1-1.1 1.1l-2.5-2.5V16a.8.8 0 0 1-.8.8Zm-5-12.8h10a.8.8 0 1 1 0 1.6H5A.8.8 0 0 1 5 4Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+const MatchInviteIcon = () => (
+  <svg viewBox="0 0 20 20" aria-hidden="true" className={styles.socialTabIconSvg}>
+    <path
+      d="M6 3.1 9 6.2 7.7 7.5 6.8 6.6 4.3 9l1.9 1.9-1.3 1.3L3 10.3a1 1 0 0 1 0-1.4L6 5.9 4.7 4.6 6 3.1Zm8 0 1.3 1.5L14 5.9l3 3a1 1 0 0 1 0 1.4l-1.9 1.9-1.3-1.3L15.7 9l-2.5-2.4-.9.9L11 6.2l3-3.1ZM9.2 8.6l2.2 2.2-4.9 4.9a1.6 1.6 0 0 1-2.2 0 1.6 1.6 0 0 1 0-2.2l4.9-4.9Zm1.6 2.2L13 8.6l4.9 4.9a1.6 1.6 0 0 1-2.2 2.2l-4.9-4.9Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+type SocialTabConfig = {
+  id: SocialTabId;
+  label: string;
+  count: number;
+  needsAttention: boolean;
+  icon: ReactNode;
+};
 
 export function FriendsPanel({
   currentUserId,
@@ -152,17 +192,15 @@ export function FriendsPanel({
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
   const [liveInvites, setLiveInvites] = useState<MatchInvite[]>([]);
-  const [presenceByUserId, setPresenceByUserId] = useState<
-    Record<string, PresenceState>
-  >({});
+  const [presenceByUserId, setPresenceByUserId] = useState<Record<string, PresenceState>>({});
   const [isFriendsLoading, setIsFriendsLoading] = useState(true);
   const [friendsError, setFriendsError] = useState<string | null>(null);
   const [friendActionError, setFriendActionError] = useState<string | null>(null);
   const [isSubmittingFriendRequest, setIsSubmittingFriendRequest] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [activeFriendUserId, setActiveFriendUserId] = useState<string | null>(null);
-  const [pendingMatchConfirmation, setPendingMatchConfirmation] =
-    useState<MatchInvite | null>(null);
+  const [pendingMatchConfirmation, setPendingMatchConfirmation] = useState<MatchInvite | null>(null);
+  const [activeTab, setActiveTab] = useState<SocialTabId>("friends");
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const handledInviteRedirectIdsRef = useRef(new Set<string>());
@@ -173,9 +211,7 @@ export function FriendsPanel({
       return;
     }
 
-    const rawValue = window.sessionStorage.getItem(
-      getMatchConfirmStorageKey(currentUserId),
-    );
+    const rawValue = window.sessionStorage.getItem(getMatchConfirmStorageKey(currentUserId));
     if (!rawValue) {
       return;
     }
@@ -201,10 +237,7 @@ export function FriendsPanel({
 
     const storageKey = getMatchConfirmStorageKey(currentUserId);
     if (isConfirmedInviteReady(pendingMatchConfirmation)) {
-      window.sessionStorage.setItem(
-        storageKey,
-        JSON.stringify(pendingMatchConfirmation),
-      );
+      window.sessionStorage.setItem(storageKey, JSON.stringify(pendingMatchConfirmation));
       return;
     }
 
@@ -232,10 +265,7 @@ export function FriendsPanel({
         return;
       }
 
-      if (
-        menuRef.current?.contains(target) ||
-        menuButtonRef.current?.contains(target)
-      ) {
+      if (menuRef.current?.contains(target) || menuButtonRef.current?.contains(target)) {
         return;
       }
 
@@ -286,9 +316,7 @@ export function FriendsPanel({
         if (
           pendingMatchConfirmation &&
           !event.invites.some(
-            (invite) =>
-              invite.id === pendingMatchConfirmation.id &&
-              invite.status === "accepted",
+            (invite) => invite.id === pendingMatchConfirmation.id && invite.status === "accepted",
           )
         ) {
           setPendingMatchConfirmation(null);
@@ -335,29 +363,346 @@ export function FriendsPanel({
       unsubscribe();
       socialWsService.disconnect();
     };
-  }, [navigate, pendingMatchConfirmation?.id, sessionToken]);
+  }, [pendingMatchConfirmation, sessionToken]);
 
   useEffect(() => {
     if (friends.length === 0) {
       return;
     }
 
-    void socialWsService
-      .queryPresence(friends.map((friend) => friend.userId))
-      .catch(() => {
-        setFriendActionError("Не удалось обновить статусы друзей");
-      });
+    void socialWsService.queryPresence(friends.map((friend) => friend.userId)).catch(() => {
+      setFriendActionError("Не удалось обновить статусы друзей");
+    });
   }, [friends]);
 
-  const pendingLiveInvites = liveInvites.filter(
-    (invite) => invite.status === "pending",
-  );
-  const incomingLiveInvites = pendingLiveInvites.filter(
-    (invite) => invite.targetUserId === currentUserId,
-  );
-  const outgoingLiveInvites = pendingLiveInvites.filter(
-    (invite) => invite.inviterUserId === currentUserId,
-  );
+  const pendingLiveInvites = liveInvites.filter((invite) => invite.status === "pending");
+  const incomingLiveInvites = pendingLiveInvites.filter((invite) => invite.targetUserId === currentUserId);
+  const outgoingLiveInvites = pendingLiveInvites.filter((invite) => invite.inviterUserId === currentUserId);
+
+  const socialTabs: SocialTabConfig[] = [
+    {
+      id: "friends",
+      label: "Друзья",
+      count: friends.length,
+      needsAttention: false,
+      icon: <FriendsIcon />,
+    },
+    {
+      id: "incoming",
+      label: "Входящие заявки",
+      count: incomingRequests.length,
+      needsAttention: incomingRequests.length > 0,
+      icon: <IncomingIcon />,
+    },
+    {
+      id: "outgoing",
+      label: "Исходящие заявки",
+      count: outgoingRequests.length,
+      needsAttention: false,
+      icon: <OutgoingIcon />,
+    },
+    {
+      id: "matches",
+      label: "Приглашения в матч",
+      count: incomingLiveInvites.length + outgoingLiveInvites.length,
+      needsAttention:
+        incomingLiveInvites.length > 0 || isConfirmedInviteReady(pendingMatchConfirmation),
+      icon: <MatchInviteIcon />,
+    },
+  ];
+
+  const renderMatchesTab = () => {
+    if (incomingLiveInvites.length === 0 && outgoingLiveInvites.length === 0) {
+      return <div className={styles.friendsEmpty}>Активных приглашений в матч нет.</div>;
+    }
+
+    return (
+      <div className={styles.matchTabLayout}>
+        {incomingLiveInvites.length > 0 ? (
+          <div className={`${styles.friendsSectionGroup} ${styles.matchTabGroup}`.trim()}>
+            <div className={styles.friendsSectionLabel}>Входящие</div>
+            {incomingLiveInvites.map((invite) => (
+              <FriendListItem
+                key={invite.id}
+                friend={{
+                  id: invite.id,
+                  name: invite.inviterUsername ?? invite.inviterUserId,
+                  status: "Приглашает в матч",
+                  subtitle: "Live invite",
+                }}
+                actions={
+                  <>
+                    <button
+                      className={styles.friendActionPrimary}
+                      type="button"
+                      disabled={activeRequestId === invite.id}
+                      onClick={async () => {
+                        setFriendActionError(null);
+                        setActiveRequestId(invite.id);
+                        try {
+                          await socialWsService.respondToInvite(invite.id, "accept");
+                        } catch {
+                          setFriendActionError("Не удалось принять приглашение");
+                        } finally {
+                          setActiveRequestId(null);
+                        }
+                      }}
+                    >
+                      Принять
+                    </button>
+                    <button
+                      className={styles.friendActionGhost}
+                      type="button"
+                      disabled={activeRequestId === invite.id}
+                      onClick={async () => {
+                        setFriendActionError(null);
+                        setActiveRequestId(invite.id);
+                        try {
+                          await socialWsService.respondToInvite(invite.id, "decline");
+                        } catch {
+                          setFriendActionError("Не удалось отклонить приглашение");
+                        } finally {
+                          setActiveRequestId(null);
+                        }
+                      }}
+                    >
+                      Отклонить
+                    </button>
+                  </>
+                }
+              />
+            ))}
+          </div>
+        ) : null}
+        {outgoingLiveInvites.length > 0 ? (
+          <div className={`${styles.friendsSectionGroup} ${styles.matchTabGroup}`.trim()}>
+            <div className={styles.friendsSectionLabel}>Исходящие</div>
+            {outgoingLiveInvites.map((invite) => (
+              <FriendListItem
+                key={invite.id}
+                friend={{
+                  id: invite.id,
+                  name: resolveInvitePeerLabel(invite, currentUserId, friends),
+                  status: "Ждёт ответа на приглашение",
+                  subtitle: "Live invite",
+                }}
+                actions={
+                  <button
+                    className={styles.friendActionGhost}
+                    type="button"
+                    disabled={activeRequestId === invite.id}
+                    onClick={async () => {
+                      setFriendActionError(null);
+                      setActiveRequestId(invite.id);
+                      try {
+                        await socialWsService.cancelInvite(invite.id);
+                      } catch {
+                        setFriendActionError("Не удалось отменить приглашение");
+                      } finally {
+                        setActiveRequestId(null);
+                      }
+                    }}
+                  >
+                    Отменить
+                  </button>
+                }
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderIncomingTab = () => {
+    if (incomingRequests.length === 0) {
+      return <div className={styles.friendsEmpty}>Новых заявок пока нет.</div>;
+    }
+
+    return incomingRequests.map((request) => (
+      <FriendListItem
+        key={request.id}
+        friend={{
+          id: request.id,
+          name: request.senderUsername,
+          status: "Хочет в друзья",
+          subtitle: "Входящая заявка",
+        }}
+        actions={
+          <>
+            <button
+              className={styles.friendActionPrimary}
+              type="button"
+              disabled={activeRequestId === request.id}
+              onClick={async () => {
+                setFriendActionError(null);
+                setActiveRequestId(request.id);
+                const result = await friendService.acceptRequest(request.id);
+                setActiveRequestId(null);
+
+                if (!result.ok) {
+                  setFriendActionError(result.error);
+                  return;
+                }
+
+                await refreshSocialData();
+              }}
+            >
+              Принять
+            </button>
+            <button
+              className={styles.friendActionGhost}
+              type="button"
+              disabled={activeRequestId === request.id}
+              onClick={async () => {
+                setFriendActionError(null);
+                setActiveRequestId(request.id);
+                const result = await friendService.declineRequest(request.id);
+                setActiveRequestId(null);
+
+                if (!result.ok) {
+                  setFriendActionError(result.error);
+                  return;
+                }
+
+                await refreshSocialData();
+              }}
+            >
+              Отклонить
+            </button>
+          </>
+        }
+      />
+    ));
+  };
+
+  const renderFriendsTab = () => {
+    if (friends.length === 0) {
+      return <div className={styles.friendsEmpty}>Друзья пока не добавлены.</div>;
+    }
+
+    return friends.map((friend) => {
+      const friendPresence = presenceByUserId[friend.userId];
+      const isInviteDisabled =
+        activeFriendUserId === friend.userId ||
+        friendPresence === "offline" ||
+        friendPresence === "in_match";
+
+      return (
+        <FriendListItem
+          key={friend.userId}
+          friend={{
+            id: friend.userId,
+            name: friend.username,
+            status: toPresenceLabel(friendPresence),
+            subtitle: toFriendSubtitle(friend.createdAt),
+          }}
+          actions={
+            <>
+              <button
+                className={styles.friendActionPrimary}
+                type="button"
+                disabled={isInviteDisabled}
+                onClick={async () => {
+                  setFriendActionError(null);
+                  setActiveFriendUserId(friend.userId);
+                  try {
+                    await socialWsService.sendMatchInvite(friend.userId);
+                  } catch {
+                    setFriendActionError("Не удалось отправить приглашение в матч");
+                  } finally {
+                    setActiveFriendUserId(null);
+                  }
+                }}
+              >
+                {friendPresence === "in_match"
+                  ? "В матче"
+                  : friendPresence === "offline"
+                    ? "Не в сети"
+                    : "Пригласить"}
+              </button>
+              <button
+                className={styles.friendActionGhost}
+                type="button"
+                disabled={activeFriendUserId === friend.userId}
+                onClick={async () => {
+                  setFriendActionError(null);
+                  setActiveFriendUserId(friend.userId);
+                  const result = await friendService.deleteFriend(friend.userId);
+                  setActiveFriendUserId(null);
+
+                  if (!result.ok) {
+                    setFriendActionError(result.error);
+                    return;
+                  }
+
+                  await refreshSocialData();
+                }}
+              >
+                Удалить
+              </button>
+            </>
+          }
+        />
+      );
+    });
+  };
+
+  const renderOutgoingTab = () => {
+    if (outgoingRequests.length === 0) {
+      return <div className={styles.friendsEmpty}>Активных исходящих заявок нет.</div>;
+    }
+
+    return outgoingRequests.map((request) => (
+      <FriendListItem
+        key={request.id}
+        friend={{
+          id: request.id,
+          name: request.receiverUsername,
+          status: "Ожидает ответа",
+          subtitle: "Исходящая заявка",
+        }}
+        actions={
+          <button
+            className={styles.friendActionGhost}
+            type="button"
+            disabled={activeRequestId === request.id}
+            onClick={async () => {
+              setFriendActionError(null);
+              setActiveRequestId(request.id);
+              const result = await friendService.cancelRequest(request.id);
+              setActiveRequestId(null);
+
+              if (!result.ok) {
+                setFriendActionError(result.error);
+                return;
+              }
+
+              await refreshSocialData();
+            }}
+          >
+            Отменить
+          </button>
+        }
+      />
+    ));
+  };
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case "incoming":
+        return renderIncomingTab();
+      case "outgoing":
+        return renderOutgoingTab();
+      case "matches":
+        return renderMatchesTab();
+      case "friends":
+      default:
+        return renderFriendsTab();
+    }
+  };
+
+  const activeTabLabel = socialTabs.find((tab) => tab.id === activeTab)?.label ?? "Друзья";
 
   return (
     <div className={styles.friendsPanel}>
@@ -375,7 +720,7 @@ export function FriendsPanel({
             <span className={styles.userMeta}>
               <span className={styles.userName}>{displayName}</span>
             </span>
-            <span className={styles.userCaret}>▾</span>
+            <span className={styles.userCaret}>▼</span>
           </button>
 
           {isMenuOpen ? (
@@ -402,15 +747,9 @@ export function FriendsPanel({
                   Список друзей
                 </button>
               </div>
-              {logoutError ? (
-                <div className={styles.userMenuSection}>{logoutError}</div>
-              ) : null}
+              {logoutError ? <div className={styles.userMenuSection}>{logoutError}</div> : null}
               <div className={styles.userMenuFooter}>
-                <button
-                  className={styles.menuLogout}
-                  type="button"
-                  onClick={onLogout}
-                >
+                <button className={styles.menuLogout} type="button" onClick={onLogout}>
                   Выйти
                 </button>
               </div>
@@ -446,9 +785,7 @@ export function FriendsPanel({
             value={friendNickname}
             onChange={(event) => setFriendNickname(event.target.value)}
           />
-          {friendActionError ? (
-            <div className={styles.friendError}>{friendActionError}</div>
-          ) : null}
+          {friendActionError ? <div className={styles.friendError}>{friendActionError}</div> : null}
           <div className={styles.addFriendActions}>
             <button
               className={styles.addFriendButton}
@@ -495,10 +832,7 @@ export function FriendsPanel({
           <div className={styles.matchConfirmPanel} data-testid="match-confirm-panel">
             <div className={styles.matchConfirmMeta}>Матч готов</div>
             <strong className={styles.matchConfirmTitle}>
-              {`Сессия с ${getInvitePeerLabel(
-                pendingMatchConfirmation,
-                currentUserId,
-              )} уже подготовлена.`}
+              {`Сессия с ${getInvitePeerLabel(pendingMatchConfirmation, currentUserId)} уже подготовлена.`}
             </strong>
             <div className={styles.matchConfirmText}>
               Перейти на PvP-экран сейчас или вернуться к этому позже.
@@ -514,11 +848,7 @@ export function FriendsPanel({
                     )}&seed=${encodeURIComponent(
                       String(pendingMatchConfirmation.seed),
                     )}&autojoin=1&peer=${encodeURIComponent(
-                      resolveInvitePeerLabel(
-                        pendingMatchConfirmation,
-                        currentUserId,
-                        friends,
-                      ),
+                      resolveInvitePeerLabel(pendingMatchConfirmation, currentUserId, friends),
                     )}`,
                   );
                   setPendingMatchConfirmation(null);
@@ -538,312 +868,58 @@ export function FriendsPanel({
             </div>
           </div>
         ) : null}
-        {friendsError ? (
-          <div className={styles.friendError}>{friendsError}</div>
-        ) : null}
+
+        <div className={styles.socialTabs} role="tablist" aria-label="Социальная навигация">
+          {socialTabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+
+            return (
+              <Tooltip
+                key={tab.id}
+                content={tab.label}
+                bubbleClassName={styles.socialTabTooltip}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-label={tab.label}
+                  title={tab.label}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={[
+                    styles.socialTabButton,
+                    isActive ? styles.socialTabButtonActive : "",
+                    tab.needsAttention ? styles.socialTabButtonAttention : "",
+                  ].join(" ").trim()}
+                >
+                  <span className={styles.socialTabIcon}>{tab.icon}</span>
+                  {tab.count > 0 ? (
+                    <span
+                      className={[
+                        styles.socialTabBadge,
+                        tab.needsAttention ? styles.socialTabBadgeAttention : "",
+                      ].join(" ").trim()}
+                    >
+                      {tab.count > 9 ? "9+" : tab.count}
+                    </span>
+                  ) : null}
+                  {isActive ? <span className={styles.socialTabLabel}>{tab.label}</span> : null}
+                </button>
+              </Tooltip>
+            );
+          })}
+        </div>
+
+        {friendsError ? <div className={styles.friendError}>{friendsError}</div> : null}
         {isFriendsLoading ? (
           <div className={styles.friendsEmpty}>Загружаем социальный профиль...</div>
         ) : (
-          <>
+          <div className={styles.socialContentPanel}>
             <div className={styles.friendsSection}>
-              <div className={styles.friendsSectionTitle}>Приглашения в матч</div>
-              {incomingLiveInvites.length === 0 && outgoingLiveInvites.length === 0 ? (
-                <div className={styles.friendsEmpty}>
-                  Активных приглашений в матч нет.
-                </div>
-              ) : (
-                <>
-                  {incomingLiveInvites.map((invite) => (
-                    <FriendListItem
-                      key={invite.id}
-                      friend={{
-                        id: invite.id,
-                        name: invite.inviterUsername ?? invite.inviterUserId,
-                        status: "Приглашает в матч",
-                        subtitle: "Live invite",
-                      }}
-                      actions={
-                        <>
-                          <button
-                            className={styles.friendActionPrimary}
-                            type="button"
-                            disabled={activeRequestId === invite.id}
-                            onClick={async () => {
-                              setFriendActionError(null);
-                              setActiveRequestId(invite.id);
-                              try {
-                                await socialWsService.respondToInvite(
-                                  invite.id,
-                                  "accept",
-                                );
-                              } catch {
-                                setFriendActionError(
-                                  "Не удалось принять приглашение",
-                                );
-                              } finally {
-                                setActiveRequestId(null);
-                              }
-                            }}
-                          >
-                            Принять
-                          </button>
-                          <button
-                            className={styles.friendActionGhost}
-                            type="button"
-                            disabled={activeRequestId === invite.id}
-                            onClick={async () => {
-                              setFriendActionError(null);
-                              setActiveRequestId(invite.id);
-                              try {
-                                await socialWsService.respondToInvite(
-                                  invite.id,
-                                  "decline",
-                                );
-                              } catch {
-                                setFriendActionError(
-                                  "Не удалось отклонить приглашение",
-                                );
-                              } finally {
-                                setActiveRequestId(null);
-                              }
-                            }}
-                          >
-                            Отклонить
-                          </button>
-                        </>
-                      }
-                    />
-                  ))}
-                  {outgoingLiveInvites.map((invite) => (
-                    <FriendListItem
-                      key={invite.id}
-                      friend={{
-                        id: invite.id,
-                        name: invite.targetUserId,
-                        status: "Ждет ответа на приглашение",
-                        subtitle: "Live invite",
-                      }}
-                      actions={
-                        <button
-                          className={styles.friendActionGhost}
-                          type="button"
-                          disabled={activeRequestId === invite.id}
-                          onClick={async () => {
-                            setFriendActionError(null);
-                            setActiveRequestId(invite.id);
-                            try {
-                              await socialWsService.cancelInvite(invite.id);
-                            } catch {
-                              setFriendActionError(
-                                "Не удалось отменить приглашение",
-                              );
-                            } finally {
-                              setActiveRequestId(null);
-                            }
-                          }}
-                        >
-                          Отменить
-                        </button>
-                      }
-                    />
-                  ))}
-                </>
-              )}
+              <div className={styles.friendsSectionTitle}>{activeTabLabel}</div>
+              {renderActiveTab()}
             </div>
-
-            <div className={styles.friendsSection}>
-              <div className={styles.friendsSectionTitle}>Входящие заявки</div>
-              {incomingRequests.length === 0 ? (
-                <div className={styles.friendsEmpty}>Новых заявок пока нет.</div>
-              ) : (
-                incomingRequests.map((request) => (
-                  <FriendListItem
-                    key={request.id}
-                    friend={{
-                      id: request.id,
-                      name: request.senderUsername,
-                      status: "Хочет в друзья",
-                      subtitle: "Входящая заявка",
-                    }}
-                    actions={
-                      <>
-                        <button
-                          className={styles.friendActionPrimary}
-                          type="button"
-                          disabled={activeRequestId === request.id}
-                          onClick={async () => {
-                            setFriendActionError(null);
-                            setActiveRequestId(request.id);
-                            const result = await friendService.acceptRequest(
-                              request.id,
-                            );
-                            setActiveRequestId(null);
-
-                            if (!result.ok) {
-                              setFriendActionError(result.error);
-                              return;
-                            }
-
-                            await refreshSocialData();
-                          }}
-                        >
-                          Принять
-                        </button>
-                        <button
-                          className={styles.friendActionGhost}
-                          type="button"
-                          disabled={activeRequestId === request.id}
-                          onClick={async () => {
-                            setFriendActionError(null);
-                            setActiveRequestId(request.id);
-                            const result = await friendService.declineRequest(
-                              request.id,
-                            );
-                            setActiveRequestId(null);
-
-                            if (!result.ok) {
-                              setFriendActionError(result.error);
-                              return;
-                            }
-
-                            await refreshSocialData();
-                          }}
-                        >
-                          Отклонить
-                        </button>
-                      </>
-                    }
-                  />
-                ))
-              )}
-            </div>
-
-            <div className={styles.friendsSection}>
-              <div className={styles.friendsSectionTitle}>Друзья</div>
-              {friends.length === 0 ? (
-                <div className={styles.friendsEmpty}>Друзья пока не добавлены.</div>
-              ) : (
-                friends.map((friend) => (
-                  (() => {
-                    const friendPresence = presenceByUserId[friend.userId];
-                    const isInviteDisabled =
-                      activeFriendUserId === friend.userId ||
-                      friendPresence === "offline" ||
-                      friendPresence === "in_match";
-
-                    return (
-                  <FriendListItem
-                    key={friend.userId}
-                    friend={{
-                      id: friend.userId,
-                      name: friend.username,
-                      status: toPresenceLabel(friendPresence),
-                      subtitle: toFriendSubtitle(friend.createdAt),
-                    }}
-                    actions={
-                      <>
-                        <button
-                          className={styles.friendActionPrimary}
-                          type="button"
-                          disabled={isInviteDisabled}
-                          onClick={async () => {
-                            setFriendActionError(null);
-                            setActiveFriendUserId(friend.userId);
-                            try {
-                              await socialWsService.sendMatchInvite(
-                                friend.userId,
-                              );
-                            } catch {
-                              setFriendActionError(
-                                "Не удалось отправить приглашение в матч",
-                              );
-                            } finally {
-                              setActiveFriendUserId(null);
-                            }
-                          }}
-                        >
-                          {friendPresence === "in_match"
-                            ? "В матче"
-                            : friendPresence === "offline"
-                              ? "Не в сети"
-                              : "Пригласить"}
-                        </button>
-                        <button
-                          className={styles.friendActionGhost}
-                          type="button"
-                          disabled={activeFriendUserId === friend.userId}
-                          onClick={async () => {
-                            setFriendActionError(null);
-                            setActiveFriendUserId(friend.userId);
-                            const result = await friendService.deleteFriend(
-                              friend.userId,
-                            );
-                            setActiveFriendUserId(null);
-
-                            if (!result.ok) {
-                              setFriendActionError(result.error);
-                              return;
-                            }
-
-                            await refreshSocialData();
-                          }}
-                        >
-                          Удалить
-                        </button>
-                      </>
-                    }
-                  />
-                    );
-                  })()
-                ))
-              )}
-            </div>
-
-            <div className={styles.friendsSection}>
-              <div className={styles.friendsSectionTitle}>Исходящие</div>
-              {outgoingRequests.length === 0 ? (
-                <div className={styles.friendsEmpty}>
-                  Активных исходящих заявок нет.
-                </div>
-              ) : (
-                outgoingRequests.map((request) => (
-                  <FriendListItem
-                    key={request.id}
-                    friend={{
-                      id: request.id,
-                      name: request.receiverUsername,
-                      status: "Ожидает ответа",
-                      subtitle: "Исходящая заявка",
-                    }}
-                    actions={
-                      <button
-                        className={styles.friendActionGhost}
-                        type="button"
-                        disabled={activeRequestId === request.id}
-                        onClick={async () => {
-                          setFriendActionError(null);
-                          setActiveRequestId(request.id);
-                          const result = await friendService.cancelRequest(
-                            request.id,
-                          );
-                          setActiveRequestId(null);
-
-                          if (!result.ok) {
-                            setFriendActionError(result.error);
-                            return;
-                          }
-
-                          await refreshSocialData();
-                        }}
-                      >
-                        Отменить
-                      </button>
-                    }
-                  />
-                ))
-              )}
-            </div>
-          </>
+          </div>
         )}
       </div>
     </div>

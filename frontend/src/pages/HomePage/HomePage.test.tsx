@@ -279,6 +279,8 @@ describe('HomePage', () => {
       }, undefined);
     });
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Исходящие заявки' }));
+
     expect(await screen.findByText('Bravo')).toBeInTheDocument();
     expect(screen.getByText('Ожидает ответа')).toBeInTheDocument();
   });
@@ -306,6 +308,7 @@ describe('HomePage', () => {
       </BrowserRouter>,
     );
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Входящие заявки' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Принять' }));
 
     await waitFor(() => {
@@ -315,6 +318,8 @@ describe('HomePage', () => {
         undefined,
       );
     });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Друзья' }));
 
     expect(await screen.findByText('Не в сети')).toBeInTheDocument();
     expect(screen.getByText('Bravo')).toBeInTheDocument();
