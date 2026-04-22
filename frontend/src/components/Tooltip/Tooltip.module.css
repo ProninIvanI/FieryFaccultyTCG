@@ -25,15 +25,19 @@
   display: none;
   width: max-content;
   max-width: min(320px, calc(100vw - 48px));
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(196, 154, 90, 0.24);
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--theme-line-strong);
   background:
-    linear-gradient(180deg, rgba(30, 25, 23, 0.98), rgba(18, 15, 14, 0.98));
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-  color: var(--theme-text);
+    linear-gradient(180deg, rgba(44, 36, 31, 0.98), rgba(22, 18, 16, 0.98));
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(196, 154, 90, 0.08);
+  backdrop-filter: blur(10px);
+  color: var(--theme-text-strong);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
   pointer-events: none;
 }
 
@@ -42,7 +46,7 @@
   position: absolute;
   width: 12px;
   height: 12px;
-  background: rgba(18, 15, 14, 0.98);
+  background: rgba(22, 18, 16, 0.98);
   transform: rotate(45deg);
 }
 
@@ -54,8 +58,8 @@
 .sideTop .bubble::after {
   top: 100%;
   transform: translateY(-6px) rotate(45deg);
-  border-right: 1px solid rgba(196, 154, 90, 0.24);
-  border-bottom: 1px solid rgba(196, 154, 90, 0.24);
+  border-right: 1px solid var(--theme-line-strong);
+  border-bottom: 1px solid var(--theme-line-strong);
 }
 
 .sideBottom .bubble {
@@ -66,8 +70,8 @@
 .sideBottom .bubble::after {
   bottom: 100%;
   transform: translateY(6px) rotate(45deg);
-  border-top: 1px solid rgba(196, 154, 90, 0.24);
-  border-left: 1px solid rgba(196, 154, 90, 0.24);
+  border-top: 1px solid var(--theme-line-strong);
+  border-left: 1px solid var(--theme-line-strong);
 }
 
 .alignStart .bubble {

@@ -111,7 +111,7 @@ const PublicHome = () => {
         }
       />
 
-      <main className={styles.layout}>
+      <main className={styles.pageMain}>
         <section className={styles.grid}>
           <Card title="Новости и баланс">
             <ul className={styles.list}>
@@ -122,8 +122,8 @@ const PublicHome = () => {
           </Card>
           <Card title="Почему стоит войти">
             <p className={styles.paragraph}>
-              После авторизации откроются дуэли, мастерская колод, личный
-              кабинет и доступ к основным залам академии.
+              После авторизации откроются дуэли, мастерская колод, личный кабинет
+              и доступ к основным залам академии.
             </p>
           </Card>
         </section>
@@ -155,72 +155,74 @@ const AuthHome = ({
     <div className={styles.page}>
       <SiteHeader title="Академия Ремесла" />
 
-      <main className={styles.layout}>
-        <div className={styles.mainColumn}>
-          <section className={styles.sectionsBar}>
-            <Link className={styles.sectionChip} to={ROUTES.NEWS}>
-              Летопись академии
-            </Link>
-            <Link className={styles.sectionChip} to={ROUTES.CARDS}>
-              Карточный архив
-            </Link>
-            <Link className={styles.sectionChip} to={ROUTES.DEMO}>
-              Путеводитель
-            </Link>
-          </section>
+      <main className={styles.pageMain}>
+        <section className={styles.sectionsBar}>
+          <Link className={styles.sectionChip} to={ROUTES.NEWS}>
+            Летопись академии
+          </Link>
+          <Link className={styles.sectionChip} to={ROUTES.CARDS}>
+            Карточный архив
+          </Link>
+          <Link className={styles.sectionChip} to={ROUTES.DEMO}>
+            Путеводитель
+          </Link>
+        </section>
 
-          <section className={styles.hero}>
-            <div className={styles.heroInfo}>
-              <div className={styles.heroIntro}>
-                <p className={styles.heroEyebrow}>Главный зал академии</p>
-                <div className={styles.heroMarks} aria-hidden="true">
-                  <span className={styles.heroMark}>Колоды</span>
-                  <span className={styles.heroMark}>Архив</span>
-                  <span className={styles.heroMark}>Дуэли</span>
+        <div className={styles.layout}>
+          <div className={styles.mainColumn}>
+            <section className={styles.hero}>
+              <div className={styles.heroInfo}>
+                <div className={styles.heroIntro}>
+                  <p className={styles.heroEyebrow}>Главный зал академии</p>
+                  <div className={styles.heroMarks} aria-hidden="true">
+                    <span className={styles.heroMark}>Колоды</span>
+                    <span className={styles.heroMark}>Архив</span>
+                    <span className={styles.heroMark}>Дуэли</span>
+                  </div>
+                </div>
+                <h2 className={styles.heroTitle}>Ваш путь к следующей дуэли</h2>
+                <p className={styles.heroText}>
+                  Собирайте колоды, изучайте архив карт и выходите на арену, когда
+                  всё будет готово к бою.
+                </p>
+                <div className={styles.heroButtons}>
+                  <Link className={styles.ctaPrimary} to={ROUTES.PLAY_PVP}>
+                    Начать игру (PvP)
+                  </Link>
+                  <Link className={styles.ctaOutline} to={ROUTES.PLAY_PVE}>
+                    Начать игру (PvE)
+                  </Link>
+                  <Link className={styles.ctaGhost} to={ROUTES.PLAY_SIM}>
+                    Архив матчей
+                  </Link>
+                </div>
+                <div className={styles.secondaryActions}>
+                  <Link className={styles.secondaryButton} to={ROUTES.DECKS}>
+                    Мастерская колод
+                  </Link>
+                  <Link className={styles.secondaryButton} to={ROUTES.RULES}>
+                    Правила академии
+                  </Link>
+                  <Link className={styles.secondaryButton} to={ROUTES.PROFILE}>
+                    Кабинет мага
+                  </Link>
                 </div>
               </div>
-              <h2 className={styles.heroTitle}>Ваш путь к следующей дуэли</h2>
-              <p className={styles.heroText}>
-                Собирайте колоды, изучайте архив карт и выходите на арену, когда
-                всё будет готово к бою.
-              </p>
-              <div className={styles.heroButtons}>
-                <Link className={styles.ctaPrimary} to={ROUTES.PLAY_PVP}>
-                  Начать игру (PvP)
-                </Link>
-                <Link className={styles.ctaOutline} to={ROUTES.PLAY_PVE}>
-                  Начать игру (PvE)
-                </Link>
-                <Link className={styles.ctaGhost} to={ROUTES.PLAY_SIM}>
-                  Архив матчей
-                </Link>
-              </div>
-              <div className={styles.secondaryActions}>
-                <Link className={styles.secondaryButton} to={ROUTES.DECKS}>
-                  Мастерская колод
-                </Link>
-                <Link className={styles.secondaryButton} to={ROUTES.RULES}>
-                  Правила академии
-                </Link>
-                <Link className={styles.secondaryButton} to={ROUTES.PROFILE}>
-                  Кабинет мага
-                </Link>
-              </div>
-            </div>
-          </section>
-        </div>
+            </section>
+          </div>
 
-        <aside className={styles.sidePanels}>
-          <FriendsPanel
-            title="Круг магов"
-            currentUserId={session.userId}
-            displayName={displayName}
-            logoutError={logoutError}
-            onLogout={onLogout}
-            onOpenThemeSettings={onOpenThemeSettings}
-            sessionToken={session.token}
-          />
-        </aside>
+          <aside className={styles.sidePanels}>
+            <FriendsPanel
+              title="Круг магов"
+              currentUserId={session.userId}
+              displayName={displayName}
+              logoutError={logoutError}
+              onLogout={onLogout}
+              onOpenThemeSettings={onOpenThemeSettings}
+              sessionToken={session.token}
+            />
+          </aside>
+        </div>
       </main>
 
       {isThemeSettingsOpen ? (
@@ -247,11 +249,7 @@ const ThemeSettingsModal = ({ onClose }: { onClose: () => void }) => {
   }, [onClose]);
 
   return (
-    <div
-      className={styles.settingsOverlay}
-      role="presentation"
-      onClick={onClose}
-    >
+    <div className={styles.settingsOverlay} role="presentation" onClick={onClose}>
       <section
         className={styles.settingsModal}
         role="dialog"

@@ -9,12 +9,17 @@
   flex-direction: column;
 }
 
+.pageMain {
+  display: grid;
+  gap: 18px;
+  padding: 0 clamp(20px, 4vw, 48px) 48px;
+}
+
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 356px);
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 432px);
   align-items: start;
   gap: clamp(20px, 2.4vw, 28px);
-  padding: 0 clamp(20px, 4vw, 48px) 48px;
 }
 
 .mainColumn {
@@ -257,16 +262,18 @@
   gap: 16px;
   align-content: start;
   min-width: 0;
+  width: 100%;
 }
 
 .friendsPanel {
   composes: panelSurface from "@/components/SurfaceTokens.module.css";
   color: var(--theme-text);
   border-radius: 18px;
-  padding: 18px;
+  padding: 20px;
   display: grid;
   gap: 18px;
   min-width: 0;
+  width: 100%;
 }
 
 .friendsPanelTitle {
@@ -620,7 +627,7 @@
 
 .socialTabTooltip {
   width: max-content;
-  max-width: 180px;
+  max-width: 220px;
   font-size: 12px;
 }
 
@@ -914,9 +921,7 @@
 
 .themeOptionTooltipBubble {
   width: min(240px, calc(100vw - 48px));
-  font-size: 13px;
-  color: var(--theme-text);
-  line-height: 1.5;
+  max-width: min(260px, calc(100vw - 48px));
 }
 
 .settingsFooter {
@@ -952,7 +957,7 @@
 
 @media (max-width: 1440px) {
   .layout {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 408px);
   }
 
   .heroInfo {
@@ -962,7 +967,7 @@
 
 @media (max-width: 1280px) {
   .layout {
-    grid-template-columns: minmax(0, 1fr) minmax(286px, 320px);
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 380px);
     gap: 22px;
   }
 
@@ -992,6 +997,18 @@
   }
 }
 
+@media (max-width: 1320px) {
+  .socialTabButtonActive {
+    justify-content: center;
+    gap: 0;
+    padding-right: 12px;
+  }
+
+  .socialTabLabel {
+    display: none;
+  }
+}
+
 @media (max-width: 1180px) {
   .layout {
     grid-template-columns: 1fr;
@@ -1012,18 +1029,18 @@
   }
 
   .sidePanels {
-    width: min(100%, 392px);
-    max-width: 392px;
+    width: min(100%, 432px);
+    max-width: 432px;
     justify-self: end;
   }
 
-  .layout {
+  .pageMain {
     padding-bottom: 36px;
   }
 
   .friendsPanel {
     max-width: none;
-    padding: 16px;
+    padding: 18px;
     gap: 16px;
   }
 
@@ -1035,15 +1052,6 @@
     padding: 12px;
   }
 
-  .socialTabButtonActive {
-    justify-content: center;
-    gap: 0;
-    padding-right: 12px;
-  }
-
-  .socialTabLabel {
-    display: none;
-  }
 }
 
 @media (max-width: 860px) {
@@ -1068,7 +1076,7 @@
 }
 
 @media (max-width: 720px) {
-  .layout {
+  .pageMain {
     padding: 20px;
   }
 
