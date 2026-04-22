@@ -1,0 +1,267 @@
+import assert from 'node:assert/strict';
+import { afterEach, beforeEach, describe, it } from 'node:test';
+import type { AddressInfo } from 'node:net';
+import express from 'express';
+import type { Server } from 'node:http';
+import internalMatchRoutes from './internalMatchRoutes';
+import { errorHandler, notFoundHandler } from '../middlewares';
+import { FriendService } from '../services/friendService';
+import { MatchInviteService } from '../services/matchInviteService';
+
+const INTERNAL_TOKEN = 'dev-internal-token';
+const originalAreFriends = FriendService.prototype.areFriends;
+const originalUpsertInvite = MatchInviteService.prototype.upsertInvite;
+const originalListInvites = MatchInviteService.prototype.listActiveInvitesForUser;
+
+const createApp = () => {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/internal', internalMatchRoutes);
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+  return app;
+};
+
+const listen = async (): Promise<Server> => {
+  const app = createApp();
+  const server = app.listen(0);
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('listening', () => resolve());
+    server.once('error', reject);
+  });
+
+  return server;
+};
+
+const closeServer = async (server: Server): Promise<void> => {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+};
+
+const requestJson = async (
+  server: Server,
+  path: string,
+  init?: RequestInit,
+): Promise<{ status: number; body: unknown }> => {
+  const { port } = server.address() as AddressInfo;
+  const response = await fetch(`http://127.0.0.1:${port}${path}`, init);
+  return {
+    status: response.status,
+    body: await response.json(),
+  };
+};
+
+describe('internalMatchRoutes', () => {
+  beforeEach(() => {
+    FriendService.prototype.areFriends = async () => ({
+      ok: true,
+      areFriends: true,
+    });
+    MatchInviteService.prototype.upsertInvite = async (input) => ({
+      ok: true,
+      data: {
+        ...input,
+      },
+    });
+    MatchInviteService.prototype.listActiveInvitesForUser = async () => ({
+      ok: true,
+      data: [],
+    });
+  });
+
+  afterEach(() => {
+    FriendService.prototype.areFriends = originalAreFriends;
+    MatchInviteService.prototype.upsertInvite = originalUpsertInvite;
+    MatchInviteService.prototype.listActiveInvitesForUser = originalListInvites;
+  });
+
+  it('returns 403 without internal token', async () => {
+    const server = await listen();
+
+    try {
+      const response = await requestJson(
+        server,
+        '/api/internal/friends/status?userId=user_1&friendUserId=user_2',
+      );
+
+      assert.equal(response.status, 403);
+      assert.deepEqual(response.body, {
+        success: false,
+        error: 'Forbidden',
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('returns friendship status for internal clients', async () => {
+    let capturedArgs: { userId: string; friendUserId: string } | null = null;
+
+    FriendService.prototype.areFriends = async (userId, friendUserId) => {
+      capturedArgs = { userId, friendUserId };
+      return {
+        ok: true,
+        areFriends: false,
+      };
+    };
+
+    const server = await listen();
+
+    try {
+      const response = await requestJson(
+        server,
+        '/api/internal/friends/status?userId=user_1&friendUserId=user_2',
+        {
+          headers: {
+            'x-internal-token': INTERNAL_TOKEN,
+          },
+        },
+      );
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(capturedArgs, {
+        userId: 'user_1',
+        friendUserId: 'user_2',
+      });
+      assert.deepEqual(response.body, {
+        success: true,
+        data: {
+          areFriends: false,
+        },
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('lists active match invites for internal clients', async () => {
+    let capturedArgs: { userId: string; now: string } | null = null;
+
+    MatchInviteService.prototype.listActiveInvitesForUser = async (userId, now) => {
+      capturedArgs = { userId, now };
+      return {
+        ok: true,
+        data: [
+          {
+            id: 'invite_1',
+            inviterUserId: 'user_1',
+            inviterUsername: 'Alpha',
+            targetUserId: 'user_2',
+            status: 'accepted',
+            sessionId: 'invite_match_invite_1',
+            seed: 123,
+            createdAt: '2026-04-22T10:00:00.000Z',
+            updatedAt: '2026-04-22T10:01:00.000Z',
+            expiresAt: '2026-04-22T10:02:00.000Z',
+          },
+        ],
+      };
+    };
+
+    const server = await listen();
+
+    try {
+      const response = await requestJson(
+        server,
+        '/api/internal/social/invites?userId=user_2&now=2026-04-22T10:01:00.000Z',
+        {
+          headers: {
+            'x-internal-token': INTERNAL_TOKEN,
+          },
+        },
+      );
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(capturedArgs, {
+        userId: 'user_2',
+        now: '2026-04-22T10:01:00.000Z',
+      });
+      assert.deepEqual(response.body, {
+        success: true,
+        data: {
+          invites: [
+            {
+              id: 'invite_1',
+              inviterUserId: 'user_1',
+              inviterUsername: 'Alpha',
+              targetUserId: 'user_2',
+              status: 'accepted',
+              sessionId: 'invite_match_invite_1',
+              seed: 123,
+              createdAt: '2026-04-22T10:00:00.000Z',
+              updatedAt: '2026-04-22T10:01:00.000Z',
+              expiresAt: '2026-04-22T10:02:00.000Z',
+            },
+          ],
+        },
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('upserts match invite for internal clients', async () => {
+    let capturedInviteId: string | null = null;
+
+    MatchInviteService.prototype.upsertInvite = async (input) => {
+      capturedInviteId = input.id;
+      return {
+        ok: true,
+        data: {
+          ...input,
+        },
+      };
+    };
+
+    const server = await listen();
+
+    try {
+      const response = await requestJson(server, '/api/internal/social/invites/invite_1', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-token': INTERNAL_TOKEN,
+        },
+        body: JSON.stringify({
+          id: 'invite_1',
+          inviterUserId: 'user_1',
+          inviterUsername: 'Alpha',
+          targetUserId: 'user_2',
+          status: 'pending',
+          createdAt: '2026-04-22T10:00:00.000Z',
+          updatedAt: '2026-04-22T10:00:00.000Z',
+          expiresAt: '2026-04-22T10:02:00.000Z',
+        }),
+      });
+
+      assert.equal(response.status, 200);
+      assert.equal(capturedInviteId, 'invite_1');
+      assert.deepEqual(response.body, {
+        success: true,
+        data: {
+          invite: {
+            id: 'invite_1',
+            inviterUserId: 'user_1',
+            inviterUsername: 'Alpha',
+            targetUserId: 'user_2',
+            status: 'pending',
+            createdAt: '2026-04-22T10:00:00.000Z',
+            updatedAt: '2026-04-22T10:00:00.000Z',
+            expiresAt: '2026-04-22T10:02:00.000Z',
+          },
+        },
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+});

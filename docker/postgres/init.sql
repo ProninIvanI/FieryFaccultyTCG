@@ -30,6 +30,57 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id);
 
+CREATE TABLE IF NOT EXISTS friend_requests (
+    id TEXT PRIMARY KEY,
+    sender_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_low_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_high_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(16) NOT NULL CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (sender_user_id <> receiver_user_id),
+    CHECK (user_low_id < user_high_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_friend_requests_sender_user_id ON friend_requests(sender_user_id);
+CREATE INDEX IF NOT EXISTS idx_friend_requests_receiver_user_id ON friend_requests(receiver_user_id);
+CREATE INDEX IF NOT EXISTS idx_friend_requests_pair ON friend_requests(user_low_id, user_high_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_friend_requests_pending_pair
+    ON friend_requests(user_low_id, user_high_id)
+    WHERE status = 'pending';
+
+CREATE TABLE IF NOT EXISTS friendships (
+    id TEXT PRIMARY KEY,
+    user_low_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_high_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (user_low_id < user_high_id),
+    UNIQUE (user_low_id, user_high_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_friendships_user_low_id ON friendships(user_low_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_user_high_id ON friendships(user_high_id);
+
+CREATE TABLE IF NOT EXISTS match_invites (
+    id TEXT PRIMARY KEY,
+    inviter_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    inviter_username VARCHAR(64),
+    target_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(16) NOT NULL CHECK (status IN ('pending', 'accepted', 'consumed', 'declined', 'cancelled', 'expired')),
+    session_id TEXT,
+    seed INTEGER,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    CHECK (inviter_user_id <> target_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_match_invites_inviter_user_id ON match_invites(inviter_user_id);
+CREATE INDEX IF NOT EXISTS idx_match_invites_target_user_id ON match_invites(target_user_id);
+CREATE INDEX IF NOT EXISTS idx_match_invites_status ON match_invites(status);
+CREATE INDEX IF NOT EXISTS idx_match_invites_updated_at ON match_invites(updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS decks (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

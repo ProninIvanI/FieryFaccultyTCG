@@ -4,12 +4,19 @@ import { WsGateway } from './transport/ws/WsGateway';
 import { createEngine } from './engine/createEngine';
 import { logger } from './infrastructure/logger';
 import { HttpMatchPersistenceClient } from './infrastructure/matches/MatchPersistenceClient';
+import { HttpMatchInvitePersistenceClient } from './infrastructure/social/MatchInvitePersistenceClient';
 
 const port = Number(process.env.WS_PORT ?? 4000);
 
 const sessions = new SessionRegistry((seed, players) => createEngine(seed, players));
 const gameService = new GameService(sessions);
-const gateway = new WsGateway(gameService, undefined, new HttpMatchPersistenceClient());
+const gateway = new WsGateway(
+  gameService,
+  undefined,
+  new HttpMatchPersistenceClient(),
+  undefined,
+  new HttpMatchInvitePersistenceClient(),
+);
 
 gateway.start(port);
 logger.info(`WS server running on port ${port}`);

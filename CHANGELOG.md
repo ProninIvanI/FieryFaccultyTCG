@@ -1,5 +1,7 @@
 ﻿# Changelog
 
+> 2026-04-22 update: added the first full social layer around PvP without touching `game-core`. The stack now supports friend requests and friendships in `backend`, live friend presence and friend-only match invites in `server`, invite persistence/recovery plus prepared match-session handoff, and frontend confirm-flow/UI for friend management, live invites, and safer invite-based PvP entry with stale-session recovery messaging.
+
 > 2026-04-19 update: fixed and documented `Deck Rules v1` as a shared legality contract. `game-core` now owns `validateDeckLegality(...)` plus explicit deck-rule constants and validation codes, `backend` rejects illegal deck saves through the shared validator, `server` revalidates saved decks before PvP join and can reject with `deck_invalid`, and `DeckPage` now shows live legality summary/checklist, blocks illegal save or add actions, and ships working legal starter presets with short archetype blurbs.
 
 > 2026-04-18 update: normalized deck-builder pool card heights so short and long card descriptions no longer create a jagged mosaic in the left catalog. Pool cards now stretch to a shared row height and reserve stable space for the clamped effect summary, which keeps controls aligned and the catalog easier to scan.

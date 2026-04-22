@@ -35,6 +35,46 @@ export interface AuthenticatedUserResponse {
   user: AuthUser;
 }
 
+export type FriendRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
+
+export interface CursorPage<T> {
+  items: T[];
+  nextCursor: string | null;
+}
+
+export interface FriendRecordDto {
+  userId: string;
+  username: string;
+  createdAt: string;
+}
+
+export interface FriendListResponse {
+  friends: CursorPage<FriendRecordDto>;
+}
+
+export interface FriendRequestRecordDto {
+  id: string;
+  senderUserId: string;
+  senderUsername: string;
+  receiverUserId: string;
+  receiverUsername: string;
+  status: FriendRequestStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FriendRequestListResponse {
+  requests: CursorPage<FriendRequestRecordDto>;
+}
+
+export interface FriendRequestResponse {
+  request: FriendRequestRecordDto;
+}
+
+export interface FriendMutationResponse {
+  message: string;
+}
+
 export interface DeckCardItem {
   cardId: string;
   quantity: number;
@@ -205,6 +245,48 @@ export interface MatchListResponse {
 
 export interface MatchReplayResponse {
   replay: MatchReplayRecord;
+}
+
+export type MatchInviteStatus =
+  | 'pending'
+  | 'accepted'
+  | 'consumed'
+  | 'declined'
+  | 'cancelled'
+  | 'expired';
+
+export interface MatchInviteRecordDto {
+  id: string;
+  inviterUserId: string;
+  inviterUsername?: string;
+  targetUserId: string;
+  status: MatchInviteStatus;
+  sessionId?: string;
+  seed?: number;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+}
+
+export interface UpsertMatchInviteInput {
+  id: string;
+  inviterUserId: string;
+  inviterUsername?: string;
+  targetUserId: string;
+  status: MatchInviteStatus;
+  sessionId?: string;
+  seed?: number;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+}
+
+export interface MatchInviteResponse {
+  invite: MatchInviteRecordDto;
+}
+
+export interface MatchInviteListResponse {
+  invites: MatchInviteRecordDto[];
 }
 
 

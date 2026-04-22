@@ -1,9 +1,16 @@
 import type { PlayerBoardModel, RoundDraftValidationError, RoundResolutionResult } from '../../../../game-core/src/types';
+import type { MatchInviteRecord } from '../../domain/social/MatchInviteRegistry';
+import type { PresenceState } from '../../domain/social/PresenceRegistry';
 
 export type ClientMessageDto =
   | { type: 'join'; sessionId: string; token: string; deckId: string; seed?: number }
   | { type: 'roundDraft.replace'; roundNumber: number; intents: unknown[] }
-  | { type: 'roundDraft.lock'; roundNumber: number };
+  | { type: 'roundDraft.lock'; roundNumber: number }
+  | { type: 'social.subscribe'; token: string }
+  | { type: 'social.presence.query'; userIds: string[] }
+  | { type: 'matchInvite.send'; targetUserId: string }
+  | { type: 'matchInvite.respond'; inviteId: string; action: 'accept' | 'decline' }
+  | { type: 'matchInvite.cancel'; inviteId: string };
 
 export type ServerMessageDto =
   | { type: 'state'; state: unknown; playerLabels?: Record<string, string> }
@@ -58,6 +65,27 @@ export type ServerMessageDto =
       opponentDraftCount: number;
     }
   | { type: 'roundResolved'; result: RoundResolutionResult }
+  | { type: 'social.subscribed'; userId: string; username?: string }
+  | { type: 'social.presence'; presences: Array<{ userId: string; status: PresenceState }> }
+  | { type: 'social.invites.snapshot'; invites: MatchInviteRecord[] }
+  | { type: 'matchInvite.received'; invite: MatchInviteRecord }
+  | { type: 'matchInvite.updated'; invite: MatchInviteRecord }
+  | {
+      type: 'matchInvite.rejected';
+      code:
+        | 'unauthorized'
+        | 'invalid_payload'
+        | 'target_offline'
+        | 'target_in_match'
+        | 'not_friends'
+        | 'self_invite'
+        | 'duplicate_pending'
+        | 'not_found'
+        | 'forbidden'
+        | 'invite_not_pending';
+      error: string;
+      inviteId?: string;
+    }
   | { type: 'error'; error: string }
   | { type: 'ack' };
 
@@ -74,6 +102,7 @@ type ParseClientMessageResult =
 
 const isString = (value: unknown): value is string => typeof value === 'string';
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const isStringArray = (value: unknown): value is string[] => Array.isArray(value) && value.every(isString);
 
 const toTransportParseError = (
   code: TransportRejectedParseMessage['code'],
@@ -135,6 +164,10 @@ export const parseClientMessage = (raw: string): ParseClientMessageResult => {
     seed?: unknown;
     roundNumber?: unknown;
     intents?: unknown;
+    userIds?: unknown;
+    targetUserId?: unknown;
+    inviteId?: unknown;
+    action?: unknown;
   };
   if (data.type === 'join') {
     if (!isString(data.sessionId) || !isString(data.token) || !isString(data.deckId)) {
@@ -186,6 +219,87 @@ export const parseClientMessage = (raw: string): ParseClientMessageResult => {
       value: {
         type: 'roundDraft.lock',
         roundNumber: data.roundNumber,
+      },
+    };
+  }
+  if (data.type === 'social.subscribe') {
+    if (!isString(data.token)) {
+      return {
+        ok: false,
+        error: 'Invalid social.subscribe payload',
+        rejection: toTransportParseError('invalid_payload', 'Invalid social.subscribe payload', 'social.subscribe'),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        type: 'social.subscribe',
+        token: data.token,
+      },
+    };
+  }
+  if (data.type === 'social.presence.query') {
+    if (!isStringArray(data.userIds)) {
+      return {
+        ok: false,
+        error: 'Invalid social.presence.query payload',
+        rejection: toTransportParseError('invalid_payload', 'Invalid social.presence.query payload', 'social.presence.query'),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        type: 'social.presence.query',
+        userIds: data.userIds,
+      },
+    };
+  }
+  if (data.type === 'matchInvite.send') {
+    if (!isString(data.targetUserId)) {
+      return {
+        ok: false,
+        error: 'Invalid matchInvite.send payload',
+        rejection: toTransportParseError('invalid_payload', 'Invalid matchInvite.send payload', 'matchInvite.send'),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        type: 'matchInvite.send',
+        targetUserId: data.targetUserId,
+      },
+    };
+  }
+  if (data.type === 'matchInvite.respond') {
+    if (!isString(data.inviteId) || (data.action !== 'accept' && data.action !== 'decline')) {
+      return {
+        ok: false,
+        error: 'Invalid matchInvite.respond payload',
+        rejection: toTransportParseError('invalid_payload', 'Invalid matchInvite.respond payload', 'matchInvite.respond'),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        type: 'matchInvite.respond',
+        inviteId: data.inviteId,
+        action: data.action,
+      },
+    };
+  }
+  if (data.type === 'matchInvite.cancel') {
+    if (!isString(data.inviteId)) {
+      return {
+        ok: false,
+        error: 'Invalid matchInvite.cancel payload',
+        rejection: toTransportParseError('invalid_payload', 'Invalid matchInvite.cancel payload', 'matchInvite.cancel'),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        type: 'matchInvite.cancel',
+        inviteId: data.inviteId,
       },
     };
   }

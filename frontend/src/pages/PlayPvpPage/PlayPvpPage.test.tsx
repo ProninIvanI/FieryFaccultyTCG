@@ -135,12 +135,20 @@ const mockDeckList = (characterId: string) => {
   };
 };
 
-const renderPage = async (characterId: string, userId: string, username = userId): Promise<void> => {
+const renderPage = async (
+  characterId: string,
+  userId: string,
+  username = userId,
+  initialEntry = '/play/pvp',
+): Promise<void> => {
   setAuthSession(userId, username);
   const resolveDeckList = mockDeckList(characterId);
 
   render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter
+      initialEntries={[initialEntry]}
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
       <PlayPvpPage />
     </MemoryRouter>,
   );
@@ -587,6 +595,39 @@ describe('PlayPvpPage', () => {
     });
 
     expect(socket.sent.some((item) => item.includes('"seed"'))).toBe(false);
+  });
+
+  it('auto-joins invited match from query params with shared session and seed', async () => {
+    await renderPage(
+      'char_1',
+      'user_1',
+      'user_1',
+      '/play/pvp?mode=create&sessionId=invite_match_invite_1&seed=77&autojoin=1&peer=Bravo',
+    );
+
+    expect(screen.getByTestId('invite-entry-banner')).toHaveTextContent('Сессия с Bravo');
+    expect(screen.getByTestId('invite-entry-banner')).toHaveTextContent('Session: invite_match_invite_1');
+    expect(screen.getByTestId('invite-entry-banner')).toHaveTextContent('Seed: 77');
+
+    const socket = FakeWebSocket.instances[0];
+    expect(socket).toBeDefined();
+
+    await act(async () => {
+      socket.emitOpen();
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(socket.sent).toContain(
+        JSON.stringify({
+          type: 'join',
+          sessionId: 'invite_match_invite_1',
+          token: 'token_user_1',
+          deckId: 'deck_1',
+          seed: 77,
+        }),
+      );
+    });
   });
 
   it('collapses connection form into compact hud after match connection', async () => {
@@ -3476,6 +3517,39 @@ describe('PlayPvpPage', () => {
       expect(screen.getByText(/Этот персонаж уже занят в матче. Выберите колоду с другим магом/i)).toBeInTheDocument();
       expect(screen.getByText(/Сервер отклонил вход в сессию session_duplicate_character/i)).toBeInTheDocument();
       expect(screen.getByText(/^Матч:/i)).toHaveTextContent('ещё не подключено');
+    });
+  });
+
+  it('shows invite-specific hint when prepared invite session is already occupied', async () => {
+    await renderPage(
+      'char_3',
+      'user_3',
+      'user_3',
+      '/play/pvp?mode=create&sessionId=invite_match_invite_1&seed=77&autojoin=1&peer=Bravo',
+    );
+
+    const socket = FakeWebSocket.instances[0];
+    expect(socket).toBeDefined();
+
+    await act(async () => {
+      socket.emitOpen();
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'join.rejected',
+        sessionId: 'invite_match_invite_1',
+        code: 'session_full',
+        error: 'Session is full',
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Матч по приглашению/i)).toBeInTheDocument();
+      expect(screen.getByText(/Эта invite-сессия уже занята/i)).toBeInTheDocument();
+      expect(screen.getByText(/Скорее всего матч был запущен раньше или ссылка устарела/i)).toBeInTheDocument();
     });
   });
 

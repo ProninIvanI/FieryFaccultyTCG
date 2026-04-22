@@ -933,6 +933,390 @@ describe('ws gateway integration', () => {
     socket.close();
   });
 
+  it('assigns a PvP session and seed when a live invite is accepted', async () => {
+    const port = 47460 + Math.floor(Math.random() * 1000);
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
+    const service = new GameService(registry);
+    const gateway = new WsGateway(service, async (token) => {
+      if (token === 'token_1') {
+        return { userId: 'player_1', username: 'Alpha' };
+      }
+      if (token === 'token_2') {
+        return { userId: 'player_2', username: 'Bravo' };
+        }
+        return null;
+      }, undefined, {
+        areFriends: async () => true,
+      });
+
+    gateway.start(port);
+    gateways.push(gateway);
+
+    const inviter = new WebSocket(`ws://127.0.0.1:${port}`);
+    const receiver = new WebSocket(`ws://127.0.0.1:${port}`);
+    const inviterMessages = createMessageCollector(inviter);
+    const receiverMessages = createMessageCollector(receiver);
+    await Promise.all([waitForOpen(inviter), waitForOpen(receiver)]);
+
+    inviter.send(JSON.stringify({ type: 'social.subscribe', token: 'token_1' }));
+    receiver.send(JSON.stringify({ type: 'social.subscribe', token: 'token_2' }));
+
+    await inviterMessages.waitFor((message): message is { type: 'social.subscribed' } => message.type === 'social.subscribed');
+    await receiverMessages.waitFor((message): message is { type: 'social.subscribed' } => message.type === 'social.subscribed');
+
+    inviter.send(JSON.stringify({ type: 'matchInvite.send', targetUserId: 'player_2' }));
+    const receivedInvite = await receiverMessages.waitFor<{
+      type: 'matchInvite.received';
+      invite: { id: string; status: string };
+    }>(
+      (message): message is {
+        type: 'matchInvite.received';
+        invite: { id: string; status: string };
+      } =>
+        message.type === 'matchInvite.received' &&
+        typeof message.invite === 'object' &&
+        message.invite !== null &&
+        typeof (message.invite as { id?: unknown }).id === 'string',
+    );
+
+    receiver.send(JSON.stringify({
+      type: 'matchInvite.respond',
+      inviteId: receivedInvite.invite.id,
+      action: 'accept',
+    }));
+
+    const [inviterUpdated, receiverUpdated] = await Promise.all([
+      inviterMessages.waitFor<{
+        type: 'matchInvite.updated';
+        invite: { status: string; sessionId?: string; seed?: number };
+      }>(
+        (message): message is {
+          type: 'matchInvite.updated';
+          invite: { status: string; sessionId?: string; seed?: number };
+        } =>
+          message.type === 'matchInvite.updated' &&
+          typeof message.invite === 'object' &&
+          message.invite !== null &&
+          (message.invite as { status?: unknown }).status === 'accepted' &&
+          typeof (message.invite as { sessionId?: unknown }).sessionId === 'string' &&
+          typeof (message.invite as { seed?: unknown }).seed === 'number',
+      ),
+      receiverMessages.waitFor<{
+        type: 'matchInvite.updated';
+        invite: { status: string; sessionId?: string; seed?: number };
+      }>(
+        (message): message is {
+          type: 'matchInvite.updated';
+          invite: { status: string; sessionId?: string; seed?: number };
+        } =>
+          message.type === 'matchInvite.updated' &&
+          typeof message.invite === 'object' &&
+          message.invite !== null &&
+          (message.invite as { status?: unknown }).status === 'accepted' &&
+          typeof (message.invite as { sessionId?: unknown }).sessionId === 'string' &&
+          typeof (message.invite as { seed?: unknown }).seed === 'number',
+      ),
+    ]);
+
+    expect(inviterUpdated.invite.sessionId).toBe(`invite_match_${receivedInvite.invite.id}`);
+    expect(receiverUpdated.invite.sessionId).toBe(inviterUpdated.invite.sessionId);
+    expect(receiverUpdated.invite.seed).toBe(inviterUpdated.invite.seed);
+    expect(inviterUpdated.invite.seed).toBeGreaterThan(0);
+
+    inviter.close();
+    receiver.close();
+  });
+
+  it('rejects live invite when users are not friends', async () => {
+    const port = 47470 + Math.floor(Math.random() * 1000);
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
+    const service = new GameService(registry);
+    const gateway = new WsGateway(service, async (token) => {
+      if (token === 'token_1') {
+        return { userId: 'player_1', username: 'Alpha' };
+      }
+      if (token === 'token_2') {
+        return { userId: 'player_2', username: 'Bravo' };
+      }
+      return null;
+    }, undefined, {
+      areFriends: async () => false,
+    });
+
+    gateway.start(port);
+    gateways.push(gateway);
+
+    const inviter = new WebSocket(`ws://127.0.0.1:${port}`);
+    const inviterMessages = createMessageCollector(inviter);
+    const receiver = new WebSocket(`ws://127.0.0.1:${port}`);
+    await Promise.all([waitForOpen(inviter), waitForOpen(receiver)]);
+
+    inviter.send(JSON.stringify({ type: 'social.subscribe', token: 'token_1' }));
+    receiver.send(JSON.stringify({ type: 'social.subscribe', token: 'token_2' }));
+
+    await inviterMessages.waitFor((message): message is { type: 'social.subscribed' } => message.type === 'social.subscribed');
+
+    inviter.send(JSON.stringify({ type: 'matchInvite.send', targetUserId: 'player_2' }));
+
+    const rejected = await inviterMessages.waitFor<{
+      type: 'matchInvite.rejected';
+      code: string;
+      error: string;
+    }>(
+      (message): message is {
+        type: 'matchInvite.rejected';
+        code: string;
+        error: string;
+      } =>
+        message.type === 'matchInvite.rejected' &&
+        typeof message.code === 'string' &&
+        typeof message.error === 'string',
+    );
+
+    expect(rejected).toEqual({
+      type: 'matchInvite.rejected',
+      code: 'not_friends',
+      error: 'Invite is available only for friends',
+    });
+
+    inviter.close();
+    receiver.close();
+  });
+
+  it('restores active invites from persistence on social subscribe', async () => {
+    const port = 47480 + Math.floor(Math.random() * 1000);
+    const now = Date.now();
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
+    const service = new GameService(registry);
+    const gateway = new WsGateway(
+      service,
+      async (token) => {
+        if (token === 'token_2') {
+          return { userId: 'player_2', username: 'Bravo' };
+        }
+        return null;
+      },
+      undefined,
+      undefined,
+      {
+        listActiveInvitesForUser: async (userId) =>
+          userId === 'player_2'
+            ? [
+                {
+                  id: 'invite_1',
+                  inviterUserId: 'player_1',
+                  inviterUsername: 'Alpha',
+                  targetUserId: 'player_2',
+                  status: 'accepted',
+                  sessionId: 'invite_match_invite_1',
+                  seed: 123,
+                  createdAt: new Date(now - 60_000).toISOString(),
+                  updatedAt: new Date(now - 30_000).toISOString(),
+                  expiresAt: new Date(now + 5 * 60_000).toISOString(),
+                },
+              ]
+            : [],
+        saveInvite: async () => undefined,
+      },
+    );
+
+    gateway.start(port);
+    gateways.push(gateway);
+
+    const receiver = new WebSocket(`ws://127.0.0.1:${port}`);
+    const receiverMessages = createMessageCollector(receiver);
+    await waitForOpen(receiver);
+
+    receiver.send(JSON.stringify({ type: 'social.subscribe', token: 'token_2' }));
+
+    const snapshot = await receiverMessages.waitFor<{
+      type: 'social.invites.snapshot';
+      invites: Array<{ id: string; status: string }>;
+    }>(
+      (message): message is {
+        type: 'social.invites.snapshot';
+        invites: Array<{ id: string; status: string }>;
+      } =>
+        message.type === 'social.invites.snapshot' &&
+        Array.isArray(message.invites),
+    );
+    expect(snapshot.invites).toEqual([
+      expect.objectContaining({
+        id: 'invite_1',
+        status: 'accepted',
+      }),
+    ]);
+
+    const restoredInvite = await receiverMessages.waitFor<{
+      type: 'matchInvite.updated';
+      invite: { id: string; status: string; sessionId?: string; seed?: number };
+    }>(
+      (message): message is {
+        type: 'matchInvite.updated';
+        invite: { id: string; status: string; sessionId?: string; seed?: number };
+      } =>
+        message.type === 'matchInvite.updated' &&
+        typeof message.invite === 'object' &&
+        message.invite !== null &&
+        (message.invite as { id?: unknown }).id === 'invite_1',
+    );
+
+    expect(restoredInvite.invite).toEqual(
+      expect.objectContaining({
+        id: 'invite_1',
+        inviterUserId: 'player_1',
+        inviterUsername: 'Alpha',
+        targetUserId: 'player_2',
+        status: 'accepted',
+        sessionId: 'invite_match_invite_1',
+        seed: 123,
+      }),
+    );
+
+    receiver.close();
+  });
+
+  it('marks prepared invite as consumed after both players join the invite match', async () => {
+    const port = 47490 + Math.floor(Math.random() * 1000);
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
+    const service = new GameService(registry);
+    const savedInvites: Array<{ status: string; sessionId?: string }> = [];
+    const gateway = new WsGateway(
+      service,
+      async (token) => {
+        if (token === 'token_1') {
+          return { userId: 'player_1', username: 'Alpha' };
+        }
+        if (token === 'token_2') {
+          return { userId: 'player_2', username: 'Bravo' };
+        }
+        return null;
+      },
+      undefined,
+      {
+        areFriends: async () => true,
+      },
+      {
+        listActiveInvitesForUser: async () => [],
+        saveInvite: async (invite) => {
+          savedInvites.push({ status: invite.status, sessionId: invite.sessionId });
+        },
+      },
+    );
+
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const deckId = url.endsWith('/deck_1') ? 'deck_1' : 'deck_2';
+
+      return {
+        ok: true,
+        json: async () =>
+          buildResolvedDeckPayload(
+            deckId,
+            deckId === 'deck_1' ? CHARACTER_ONE : CHARACTER_TWO,
+            deckId === 'deck_1' ? LEGAL_DECK_ONE : LEGAL_DECK_TWO,
+          ),
+      } as Response;
+    }));
+
+    gateway.start(port);
+    gateways.push(gateway);
+
+    const inviter = new WebSocket(`ws://127.0.0.1:${port}`);
+    const receiver = new WebSocket(`ws://127.0.0.1:${port}`);
+    const inviterMessages = createMessageCollector(inviter);
+    const receiverMessages = createMessageCollector(receiver);
+    await Promise.all([waitForOpen(inviter), waitForOpen(receiver)]);
+
+    inviter.send(JSON.stringify({ type: 'social.subscribe', token: 'token_1' }));
+    receiver.send(JSON.stringify({ type: 'social.subscribe', token: 'token_2' }));
+
+    await inviterMessages.waitFor((message): message is { type: 'social.subscribed' } => message.type === 'social.subscribed');
+    await receiverMessages.waitFor((message): message is { type: 'social.subscribed' } => message.type === 'social.subscribed');
+
+    inviter.send(JSON.stringify({ type: 'matchInvite.send', targetUserId: 'player_2' }));
+    const receivedInvite = await receiverMessages.waitFor<{
+      type: 'matchInvite.received';
+      invite: { id: string };
+    }>(
+      (message): message is {
+        type: 'matchInvite.received';
+        invite: { id: string };
+      } =>
+        message.type === 'matchInvite.received' &&
+        typeof message.invite === 'object' &&
+        message.invite !== null &&
+        typeof (message.invite as { id?: unknown }).id === 'string',
+    );
+
+    receiver.send(
+      JSON.stringify({
+        type: 'matchInvite.respond',
+        inviteId: receivedInvite.invite.id,
+        action: 'accept',
+      }),
+    );
+
+    const accepted = await inviterMessages.waitFor<{
+      type: 'matchInvite.updated';
+      invite: { status: string; sessionId?: string; seed?: number };
+    }>(
+      (message): message is {
+        type: 'matchInvite.updated';
+        invite: { status: string; sessionId?: string; seed?: number };
+      } =>
+        message.type === 'matchInvite.updated' &&
+        typeof message.invite === 'object' &&
+        message.invite !== null &&
+        (message.invite as { status?: unknown }).status === 'accepted' &&
+        typeof (message.invite as { sessionId?: unknown }).sessionId === 'string' &&
+        typeof (message.invite as { seed?: unknown }).seed === 'number',
+    );
+
+    inviter.send(
+      JSON.stringify({
+        type: 'join',
+        sessionId: accepted.invite.sessionId,
+        token: 'token_1',
+        deckId: 'deck_1',
+        seed: accepted.invite.seed,
+      }),
+    );
+    await inviterMessages.waitFor(
+      (message): message is { type: 'state' } => message.type === 'state',
+    );
+
+    receiver.send(
+      JSON.stringify({
+        type: 'join',
+        sessionId: accepted.invite.sessionId,
+        token: 'token_2',
+        deckId: 'deck_2',
+      }),
+    );
+
+    const consumedUpdate = await inviterMessages.waitFor<{
+      type: 'matchInvite.updated';
+      invite: { status: string; sessionId?: string };
+    }>(
+      (message): message is {
+        type: 'matchInvite.updated';
+        invite: { status: string; sessionId?: string };
+      } =>
+        message.type === 'matchInvite.updated' &&
+        typeof message.invite === 'object' &&
+        message.invite !== null &&
+        (message.invite as { status?: unknown }).status === 'consumed' &&
+        (message.invite as { sessionId?: unknown }).sessionId === accepted.invite.sessionId,
+    );
+
+    expect(consumedUpdate.invite.status).toBe('consumed');
+    expect(savedInvites.some((invite) => invite.status === 'consumed')).toBe(true);
+
+    inviter.close();
+    receiver.close();
+  });
+
   it('sends structured roundDraft.rejected when roundDraft.replace payload is malformed', async () => {
     const port = 47600 + Math.floor(Math.random() * 1000);
     const registry = new SessionRegistry((seed, players) => createEngine(seed, players));

@@ -18,6 +18,35 @@ export type { ApiError, ApiRequestConfig } from './api';
 export type { UserAccount, AuthSession } from './auth';
 export type { DeckCardItem, DeckListResponse, DeckResponse, SaveDeckRequest, UserDeck } from './deck';
 export type {
+  CursorPage,
+  Friend,
+  FriendListPayload,
+  FriendRequest,
+  FriendRequestListPayload,
+  FriendRequestPayload,
+  FriendRequestStatus,
+} from './friend';
+export type {
+  MatchInvite,
+  MatchInviteCancelMessage,
+  MatchInviteReceivedServerMessage,
+  MatchInviteRejectedServerMessage,
+  MatchInviteRespondMessage,
+  MatchInviteSendMessage,
+  MatchInviteStatus,
+  MatchInviteUpdatedServerMessage,
+  PresenceState,
+  SocialClientMessage,
+  SocialConnectionStatus,
+  SocialInvitesSnapshotServerMessage,
+  SocialPresenceQueryMessage,
+  SocialPresenceServerMessage,
+  SocialServerMessage,
+  SocialServiceEvent,
+  SocialSubscribeMessage,
+  SocialSubscribedServerMessage,
+} from './social';
+export type {
   AckServerMessage,
   ErrorServerMessage,
   GameStateSnapshot,

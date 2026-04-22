@@ -1,8 +1,22 @@
 import { Request, Response } from 'express';
-import { ApiResponse, CompleteMatchInput, CreateMatchRecordInput, MatchReplayResponse, MatchResponse, SaveMatchReplayInput } from '../types';
+import {
+  ApiResponse,
+  CompleteMatchInput,
+  CreateMatchRecordInput,
+  MatchInviteListResponse,
+  MatchInviteResponse,
+  MatchReplayResponse,
+  MatchResponse,
+  SaveMatchReplayInput,
+  UpsertMatchInviteInput,
+} from '../types';
 import { MatchService } from '../services/matchService';
+import { FriendService } from '../services/friendService';
+import { MatchInviteService } from '../services/matchInviteService';
 
 const matchService = new MatchService();
+const friendService = new FriendService();
+const matchInviteService = new MatchInviteService();
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -138,6 +152,38 @@ const parseSaveReplayInput = (value: unknown): SaveMatchReplayInput | null => {
   };
 };
 
+const parseUpsertMatchInviteInput = (value: unknown): UpsertMatchInviteInput | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (
+    typeof value.id !== 'string' ||
+    typeof value.inviterUserId !== 'string' ||
+    typeof value.targetUserId !== 'string' ||
+    typeof value.status !== 'string' ||
+    typeof value.createdAt !== 'string' ||
+    typeof value.updatedAt !== 'string' ||
+    typeof value.expiresAt !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    inviterUserId: value.inviterUserId,
+    inviterUsername:
+      typeof value.inviterUsername === 'string' ? value.inviterUsername : undefined,
+    targetUserId: value.targetUserId,
+    status: value.status as UpsertMatchInviteInput['status'],
+    sessionId: typeof value.sessionId === 'string' ? value.sessionId : undefined,
+    seed: typeof value.seed === 'number' ? value.seed : undefined,
+    createdAt: value.createdAt,
+    updatedAt: value.updatedAt,
+    expiresAt: value.expiresAt,
+  };
+};
+
 export const createInternalMatch = async (
   req: Request,
   res: Response<ApiResponse<MatchResponse>>,
@@ -183,4 +229,72 @@ export const saveInternalReplay = async (
 
   const replay = await matchService.saveReplay(input);
   res.status(200).json({ success: true, data: { replay } });
+};
+
+export const getInternalFriendshipStatus = async (
+  req: Request,
+  res: Response<ApiResponse<{ areFriends: boolean }>>,
+): Promise<void> => {
+  const userId = typeof req.query.userId === 'string' ? req.query.userId : '';
+  const friendUserId =
+    typeof req.query.friendUserId === 'string' ? req.query.friendUserId : '';
+
+  const result = await friendService.areFriends(userId, friendUserId);
+  if (!result.ok) {
+    res.status(400).json({ success: false, error: result.error, message: result.code });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      areFriends: result.areFriends,
+    },
+  });
+};
+
+export const upsertInternalMatchInvite = async (
+  req: Request,
+  res: Response<ApiResponse<MatchInviteResponse>>,
+): Promise<void> => {
+  const input = parseUpsertMatchInviteInput(req.body);
+  if (!input) {
+    res.status(400).json({ success: false, error: 'Некорректный payload invite' });
+    return;
+  }
+
+  const result = await matchInviteService.upsertInvite(input);
+  if (!result.ok) {
+    res.status(400).json({ success: false, error: result.error });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      invite: result.data,
+    },
+  });
+};
+
+export const listInternalActiveMatchInvites = async (
+  req: Request,
+  res: Response<ApiResponse<MatchInviteListResponse>>,
+): Promise<void> => {
+  const userId = typeof req.query.userId === 'string' ? req.query.userId : '';
+  const now =
+    typeof req.query.now === 'string' ? req.query.now : new Date().toISOString();
+
+  const result = await matchInviteService.listActiveInvitesForUser(userId, now);
+  if (!result.ok) {
+    res.status(400).json({ success: false, error: result.error });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      invites: result.data,
+    },
+  });
 };

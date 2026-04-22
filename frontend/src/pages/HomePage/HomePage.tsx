@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, FriendListItem, SiteHeader, Tooltip } from "@/components";
+import { Card, SiteHeader, Tooltip } from "@/components";
 import { ROUTES, UI_THEMES, type UiTheme } from "@/constants";
 import { useUiTheme } from "@/hooks/useUiTheme";
 import { authService } from "@/services";
-import { AuthSession } from "@/types";
+import { type AuthSession } from "@/types";
+import { FriendsPanel } from "./FriendsPanel";
 import styles from "./HomePage.module.css";
 
 const THEME_PRESENTATION: Record<
@@ -148,52 +149,11 @@ const AuthHome = ({
   logoutError: string | null;
   onLogout: () => Promise<void>;
 } & ThemeSettingsProps) => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
-  const [friendNickname, setFriendNickname] = useState("");
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
-  const friends: Array<{
-    id: string;
-    name: string;
-    status: string;
-    subtitle?: string;
-  }> = [];
   const displayName = session.username ?? session.userId;
-  const avatarInitial = displayName.slice(0, 1).toUpperCase();
-
-  useEffect(() => {
-    if (!isMenuOpen) {
-      return;
-    }
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      if (
-        menuRef.current?.contains(target) ||
-        menuButtonRef.current?.contains(target)
-      ) {
-        return;
-      }
-
-      setIsMenuOpen(false);
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isMenuOpen]);
 
   return (
     <div className={styles.page}>
-      <SiteHeader
-        title="Академия Ремесла"
-      />
+      <SiteHeader title="Академия Ремесла" />
 
       <main className={styles.layout}>
         <div className={styles.mainColumn}>
@@ -211,12 +171,10 @@ const AuthHome = ({
 
           <section className={styles.hero}>
             <div className={styles.heroInfo}>
-              <h2 className={styles.heroTitle}>
-                Ваш путь к следующей дуэли
-              </h2>
+              <h2 className={styles.heroTitle}>Ваш путь к следующей дуэли</h2>
               <p className={styles.heroText}>
-                Собирайте колоды, изучайте архив карт и выходите на арену,
-                когда всё будет готово к бою.
+                Собирайте колоды, изучайте архив карт и выходите на арену, когда
+                всё будет готово к бою.
               </p>
               <div className={styles.heroButtons}>
                 <Link className={styles.ctaPrimary} to={ROUTES.PLAY_PVP}>
@@ -245,130 +203,20 @@ const AuthHome = ({
         </div>
 
         <aside className={styles.sidePanels}>
-          <div className={styles.friendsPanel}>
-            <div className={styles.friendsHeader}>
-              <div className={styles.userChip}>
-                <button
-                  className={styles.userButton}
-                  type="button"
-                  onClick={() => setIsMenuOpen((prev) => !prev)}
-                  aria-haspopup="menu"
-                  aria-expanded={isMenuOpen}
-                  ref={menuButtonRef}
-                >
-                  <span className={styles.userAvatar}>{avatarInitial}</span>
-                  <span className={styles.userMeta}>
-                    <span className={styles.userName}>{displayName}</span>
-                  </span>
-                  <span className={styles.userCaret}>▾</span>
-                </button>
-
-                {isMenuOpen ? (
-                  <div className={styles.userMenu} role="menu" ref={menuRef}>
-                    <div className={styles.userMenuHeader}>
-                      <div className={styles.userMenuTitle}>{displayName}</div>
-                      <div className={styles.userMenuSub}>Аккаунт активен</div>
-                    </div>
-                    <div className={styles.userMenuSection}>
-                      <button className={styles.menuButton} type="button">
-                        Профиль
-                      </button>
-                      <button
-                        className={styles.menuButton}
-                        type="button"
-                        onClick={() => {
-                          setIsMenuOpen(false);
-                          onOpenThemeSettings();
-                        }}
-                      >
-                        Настройки
-                      </button>
-                      <button className={styles.menuButton} type="button">
-                        Список друзей
-                      </button>
-                    </div>
-                    {logoutError ? (
-                      <div className={styles.userMenuSection}>{logoutError}</div>
-                    ) : null}
-                    <div className={styles.userMenuFooter}>
-                      <button
-                        className={styles.menuLogout}
-                        type="button"
-                        onClick={onLogout}
-                      >
-                        Выйти
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <button className={styles.iconButton} type="button">
-                Поиск
-              </button>
-            </div>
-
-            <div className={styles.friendsTools}>
-              <button
-                className={styles.toolButton}
-                type="button"
-                onClick={() => setIsAddFriendOpen((prev) => !prev)}
-              >
-                Добавить друга
-              </button>
-            </div>
-
-            {isAddFriendOpen ? (
-              <div className={styles.addFriendPanel}>
-                <label
-                  className={styles.addFriendLabel}
-                  htmlFor="friend-nickname"
-                >
-                  Никнейм друга
-                </label>
-                <input
-                  id="friend-nickname"
-                  className={styles.addFriendInput}
-                  type="text"
-                  placeholder="Введите никнейм"
-                  value={friendNickname}
-                  onChange={(event) => setFriendNickname(event.target.value)}
-                />
-                <div className={styles.addFriendActions}>
-                  <button className={styles.addFriendButton} type="button">
-                    Отправить запрос
-                  </button>
-                  <button
-                    className={styles.addFriendGhost}
-                    type="button"
-                    onClick={() => {
-                      setIsAddFriendOpen(false);
-                      setFriendNickname("");
-                    }}
-                  >
-                    Отмена
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            <div className={styles.friendsList}>
-              {friends.length === 0 ? (
-                <div className={styles.friendsEmpty}>Друзья пока не добавлены.</div>
-              ) : (
-                friends.map((friend) => (
-                  <FriendListItem key={friend.id} friend={friend} />
-                ))
-              )}
-            </div>
-          </div>
+          <FriendsPanel
+            currentUserId={session.userId}
+            displayName={displayName}
+            logoutError={logoutError}
+            onLogout={onLogout}
+            onOpenThemeSettings={onOpenThemeSettings}
+            sessionToken={session.token}
+          />
         </aside>
       </main>
 
       {isThemeSettingsOpen ? (
         <ThemeSettingsModal onClose={onCloseThemeSettings} />
       ) : null}
-
     </div>
   );
 };
@@ -437,22 +285,22 @@ const ThemeSettingsModal = ({ onClose }: { onClose: () => void }) => {
                 fullWidth
               >
                 <button
-                type="button"
-                className={isActive ? styles.themeOptionActive : styles.themeOption}
-                onClick={() => setTheme(themeOption)}
-                aria-pressed={isActive}
-                aria-label={`${presentation.title}. ${presentation.subtitle}`}
-              >
-                <span className={styles.themeOptionHeader}>
-                  <span className={styles.themeOptionTitle}>
-                    {presentation.title}
-                  </span>
-                  {isActive ? (
-                    <span className={styles.themeOptionChip} aria-hidden="true">
-                      ✓
+                  type="button"
+                  className={isActive ? styles.themeOptionActive : styles.themeOption}
+                  onClick={() => setTheme(themeOption)}
+                  aria-pressed={isActive}
+                  aria-label={`${presentation.title}. ${presentation.subtitle}`}
+                >
+                  <span className={styles.themeOptionHeader}>
+                    <span className={styles.themeOptionTitle}>
+                      {presentation.title}
                     </span>
-                  ) : null}
-                </span>
+                    {isActive ? (
+                      <span className={styles.themeOptionChip} aria-hidden="true">
+                        ✓
+                      </span>
+                    ) : null}
+                  </span>
                 </button>
               </Tooltip>
             );

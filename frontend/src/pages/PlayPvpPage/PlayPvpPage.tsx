@@ -1,5 +1,5 @@
 ﻿import { FocusEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useCallback } from 'react';
 import {
   buildCatalogCharacterSummaries,
@@ -579,6 +579,23 @@ const getJoinRejectCodeLabel = (code: JoinRejectedServerMessage['code']): string
   }
 };
 
+const getInviteJoinRejectHint = (
+  code: JoinRejectedServerMessage['code'],
+): string | null => {
+  switch (code) {
+    case 'session_full':
+      return 'Эта invite-сессия уже занята. Скорее всего матч был запущен раньше или ссылка устарела.';
+    case 'seed_mismatch':
+      return 'Параметры invite-сессии больше не совпадают с состоянием сервера. Лучше запросить новое приглашение.';
+    case 'unauthorized':
+      return 'Сессия входа истекла. Перезайдите в аккаунт и откройте приглашение заново.';
+    case 'deck_unavailable':
+      return 'Для входа по приглашению нужна доступная колода. Выберите другую колоду и попробуйте снова.';
+    default:
+      return null;
+  }
+};
+
 const getTransportRejectCodeLabel = (code: TransportRejectedServerMessage['code']): string => {
   switch (code) {
     case 'invalid_json':
@@ -590,6 +607,30 @@ const getTransportRejectCodeLabel = (code: TransportRejectedServerMessage['code'
     default:
       return 'Транспортный запрос отклонён сервером';
   }
+};
+
+const toInviteMode = (value: string | null): 'create' | 'join' | null => {
+  if (value === 'create' || value === 'join') {
+    return value;
+  }
+
+  return null;
+};
+
+const getInviteEntryStatusLabel = (
+  hasActiveMatchConnection: boolean,
+  isSubmitting: boolean,
+  shouldAutoJoinInvite: boolean,
+): string => {
+  if (hasActiveMatchConnection) {
+    return 'Подключение подтверждено';
+  }
+
+  if (isSubmitting || shouldAutoJoinInvite) {
+    return 'Подключаем бой';
+  }
+
+  return 'Матч подготовлен';
 };
 
 const getIntentPreviewLayer = (
@@ -1126,12 +1167,18 @@ const handleServiceEvent = (
 };
 
 export const PlayPvpPage = () => {
+  const [searchParams] = useSearchParams();
+  const invitedMode = toInviteMode(searchParams.get('mode'));
+  const invitedSessionId = searchParams.get('sessionId')?.trim() ?? '';
+  const invitedSeed = searchParams.get('seed')?.trim() ?? '';
+  const shouldAutoJoinInvite = searchParams.get('autojoin') === '1';
+  const invitedPeerLabel = searchParams.get('peer')?.trim() ?? '';
   const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
   const playerId = session?.userId ?? '';
   const authToken = session?.token ?? '';
-  const [mode, setMode] = useState<'create' | 'join'>('create');
-  const [sessionId, setSessionId] = useState(() => buildSessionId());
-  const [seed, setSeed] = useState('1');
+  const [mode, setMode] = useState<'create' | 'join'>(invitedMode ?? 'create');
+  const [sessionId, setSessionId] = useState(() => invitedSessionId || buildSessionId());
+  const [seed, setSeed] = useState(invitedSeed || '1');
   const [deckId, setDeckId] = useState('');
   const [savedDecks, setSavedDecks] = useState<UserDeck[]>([]);
   const [isDecksLoading, setIsDecksLoading] = useState(false);
@@ -1160,6 +1207,7 @@ export const PlayPvpPage = () => {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showConnectionControls, setShowConnectionControls] = useState(false);
   const hasLiveStateRef = useRef(false);
+  const autoJoinAttemptedRef = useRef(false);
   const pendingSessionIdRef = useRef('');
   const intentSequenceRef = useRef(0);
   const currentRoundRef = useRef<number | null>(null);
@@ -1169,6 +1217,18 @@ export const PlayPvpPage = () => {
   useEffect(() => {
     roundDraftRef.current = roundDraft;
   }, [roundDraft]);
+
+  useEffect(() => {
+    if (!invitedSessionId) {
+      return;
+    }
+
+    setSessionId(invitedSessionId);
+    setMode(invitedMode ?? 'create');
+    if (invitedSeed) {
+      setSeed(invitedSeed);
+    }
+  }, [invitedMode, invitedSeed, invitedSessionId]);
 
   useEffect(() => {
     if (!session || session.username) {
@@ -1260,6 +1320,99 @@ export const PlayPvpPage = () => {
       cancelled = true;
     };
   }, [authToken, deckId]);
+
+  const submitJoinRequest = useCallback(async () => {
+    if (!playerId) {
+      setError('Для PvP нужен вход в аккаунт.');
+      return;
+    }
+    if (!authToken) {
+      setError('Не удалось получить auth token для PvP.');
+      return;
+    }
+    if (!deckId) {
+      setError('Выбери сохранённую колоду для PvP.');
+      return;
+    }
+
+    const normalizedSessionId = sessionId.trim();
+    if (!normalizedSessionId) {
+      setError('Укажи sessionId матча.');
+      return;
+    }
+
+    const parsedSeed = Number(seed);
+    const joinPayload =
+      mode === 'create'
+        ? {
+            type: 'join' as const,
+            sessionId: normalizedSessionId,
+            token: authToken,
+            deckId,
+            seed: Number.isFinite(parsedSeed) ? parsedSeed : 1,
+          }
+        : {
+            type: 'join' as const,
+            sessionId: normalizedSessionId,
+            token: authToken,
+            deckId,
+          };
+
+    setIsSubmitting(true);
+    setError('');
+    setMatchState(null);
+    setPlayerLabels({});
+    setJoinedSessionId('');
+    setSelection(null);
+    setDraftTarget(null);
+    setRoundDraft([]);
+    setTransportRejected(null);
+    setJoinRejected(null);
+    setRoundDraftRejected(null);
+    setRoundSync(null);
+    setLastResolvedRound(null);
+    setResolvedRoundHistory([]);
+    setExpandedFeedRoundNumber(null);
+    hasLiveStateRef.current = false;
+    pendingSessionIdRef.current = normalizedSessionId;
+    currentRoundRef.current = null;
+
+    try {
+      await gameWsService.joinSession(joinPayload);
+    } catch (joinError) {
+      pendingSessionIdRef.current = '';
+      setJoinedSessionId('');
+      setError(joinError instanceof Error ? joinError.message : 'Не удалось подключиться к игровому серверу');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [authToken, deckId, mode, playerId, seed, sessionId]);
+
+  useEffect(() => {
+    if (
+      !shouldAutoJoinInvite ||
+      autoJoinAttemptedRef.current ||
+      !authToken ||
+      !deckId ||
+      isDecksLoading ||
+      isSubmitting ||
+      joinedSessionId ||
+      pendingSessionIdRef.current
+    ) {
+      return;
+    }
+
+    autoJoinAttemptedRef.current = true;
+    void submitJoinRequest();
+  }, [
+    authToken,
+    deckId,
+    isDecksLoading,
+    isSubmitting,
+    joinedSessionId,
+    shouldAutoJoinInvite,
+    submitJoinRequest,
+  ]);
 
   useEffect(() => {
     const totalSteps = lastResolvedRound?.orderedActions.length ?? 0;
@@ -1842,71 +1995,7 @@ export const PlayPvpPage = () => {
 
   const submitJoin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (!playerId) {
-      setError('Для PvP нужен вход в аккаунт.');
-      return;
-    }
-    if (!authToken) {
-      setError('Не удалось получить auth token для PvP.');
-      return;
-    }
-    if (!deckId) {
-      setError('Выбери сохранённую колоду для PvP.');
-      return;
-    }
-
-    const normalizedSessionId = sessionId.trim();
-    if (!normalizedSessionId) {
-      setError('Укажи sessionId матча.');
-      return;
-    }
-
-    const parsedSeed = Number(seed);
-    const joinPayload =
-      mode === 'create'
-        ? {
-            type: 'join' as const,
-            sessionId: normalizedSessionId,
-            token: authToken,
-            deckId,
-            seed: Number.isFinite(parsedSeed) ? parsedSeed : 1,
-          }
-        : {
-            type: 'join' as const,
-            sessionId: normalizedSessionId,
-            token: authToken,
-            deckId,
-          };
-
-    setIsSubmitting(true);
-    setError('');
-    setMatchState(null);
-    setPlayerLabels({});
-    setJoinedSessionId('');
-    setSelection(null);
-    setDraftTarget(null);
-    setRoundDraft([]);
-    setTransportRejected(null);
-    setJoinRejected(null);
-    setRoundDraftRejected(null);
-    setRoundSync(null);
-    setLastResolvedRound(null);
-    setResolvedRoundHistory([]);
-    setExpandedFeedRoundNumber(null);
-    hasLiveStateRef.current = false;
-    pendingSessionIdRef.current = normalizedSessionId;
-    currentRoundRef.current = null;
-
-    try {
-      await gameWsService.joinSession(joinPayload);
-    } catch (joinError) {
-      pendingSessionIdRef.current = '';
-      setJoinedSessionId('');
-      setError(joinError instanceof Error ? joinError.message : 'Не удалось подключиться к игровому серверу');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await submitJoinRequest();
   };
 
   const handleDisconnect = () => {
@@ -2732,6 +2821,22 @@ export const PlayPvpPage = () => {
     localBoardItems,
   );
   const hasActiveMatchConnection = Boolean(joinedSessionId || matchState);
+  const inviteJoinRejectHint =
+    invitedSessionId && joinRejected?.sessionId === invitedSessionId
+      ? getInviteJoinRejectHint(joinRejected.code)
+      : null;
+  const inviteEntrySummary = invitedSessionId
+    ? {
+        peerLabel: invitedPeerLabel || 'другом',
+        sessionId: invitedSessionId,
+        seed: invitedSeed || seed,
+        statusLabel: getInviteEntryStatusLabel(
+          hasActiveMatchConnection,
+          isSubmitting,
+          shouldAutoJoinInvite,
+        ),
+      }
+    : null;
   const selectedDeckName = savedDecks.find((deck) => deck.id === deckId)?.name ?? 'не выбрана';
   const visibleLocalPlaybackSourceBoardItemId = isResolvedReplayOpen ? activeLocalPlaybackSourceBoardItemId : null;
   const hasReplayAvailable = Boolean(lastResolvedRound && resolvedTimelineEntries.length > 0);
@@ -3049,6 +3154,25 @@ export const PlayPvpPage = () => {
                 <span className={styles.cardBadge}>{getConnectionStatusLabel(status)}</span>
               </div>
             </div>
+            {inviteEntrySummary ? (
+              <div className={styles.inviteEntryBanner} data-testid="invite-entry-banner">
+                <div className={styles.inviteEntryHeader}>
+                  <span className={styles.summaryLabel}>Матч по приглашению</span>
+                  <span className={styles.cardBadge}>{inviteEntrySummary.statusLabel}</span>
+                </div>
+                <strong className={styles.inviteEntryTitle}>
+                  {`Сессия с ${inviteEntrySummary.peerLabel}`}
+                </strong>
+                <div className={styles.inviteEntryMeta}>
+                  <span className={styles.hudStatusPill}>
+                    Session: <strong>{inviteEntrySummary.sessionId}</strong>
+                  </span>
+                  <span className={styles.hudStatusPill}>
+                    Seed: <strong>{inviteEntrySummary.seed}</strong>
+                  </span>
+                </div>
+              </div>
+            ) : null}
             {hasActiveMatchConnection && !showConnectionControls ? (
               <div className={styles.hudPanel}>
                 <div className={styles.hudHeader}>
@@ -3257,6 +3381,7 @@ export const PlayPvpPage = () => {
                   <span>{getJoinRejectCodeLabel(joinRejected.code)}</span>
                 </div>
                 <span>{joinRejected.error}</span>
+                {inviteJoinRejectHint ? <span>{inviteJoinRejectHint}</span> : null}
               </div>
             ) : null}
             {error ? <div className={styles.errorBox}>{error}</div> : null}

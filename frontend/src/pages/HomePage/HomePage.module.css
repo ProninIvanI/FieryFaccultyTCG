@@ -440,10 +440,80 @@
   padding-right: 4px;
 }
 
+.matchConfirmPanel {
+  composes: insetSurface from "@/components/SurfaceTokens.module.css";
+  display: grid;
+  gap: 8px;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.matchConfirmMeta {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--theme-text-dim);
+}
+
+.matchConfirmTitle {
+  color: var(--theme-text-strong);
+  font-size: 14px;
+}
+
+.matchConfirmText {
+  font-size: 12px;
+  color: var(--theme-text);
+}
+
+.matchConfirmActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.friendsSection {
+  display: grid;
+  gap: 10px;
+}
+
+.friendsSectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--theme-text-dim);
+}
+
 .friendsEmpty {
   font-size: 12px;
   color: var(--theme-text-dim);
   padding: 8px 0;
+}
+
+.friendError {
+  font-size: 12px;
+  color: #e4a2a2;
+}
+
+.friendActionPrimary,
+.friendActionGhost {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.friendActionPrimary {
+  border: 1px solid rgba(196, 154, 90, 0.42);
+  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
+  color: #120f0d;
+  font-weight: 700;
+}
+
+.friendActionGhost {
+  composes: controlSurface controlSurfaceHover from "@/components/SurfaceTokens.module.css";
 }
 
 .debugRow {

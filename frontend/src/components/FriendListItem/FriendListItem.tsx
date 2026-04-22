@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import styles from "./FriendListItem.module.css";
 
 export type FriendListItemData = {
@@ -9,9 +10,10 @@ export type FriendListItemData = {
 
 interface FriendListItemProps {
   friend: FriendListItemData;
+  actions?: ReactNode;
 }
 
-export const FriendListItem = ({ friend }: FriendListItemProps) => {
+export const FriendListItem = ({ friend, actions }: FriendListItemProps) => {
   return (
     <div className={styles.row}>
       <div className={styles.avatar}>{friend.name.slice(0, 1)}</div>
@@ -19,6 +21,7 @@ export const FriendListItem = ({ friend }: FriendListItemProps) => {
         <div className={styles.name}>{friend.name}</div>
         <div className={styles.status}>{friend.status}</div>
         {friend.subtitle ? <div className={styles.subtitle}>{friend.subtitle}</div> : null}
+        {actions ? <div className={styles.actions}>{actions}</div> : null}
       </div>
     </div>
   );
