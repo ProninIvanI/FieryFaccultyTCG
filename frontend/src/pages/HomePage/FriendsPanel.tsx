@@ -882,6 +882,7 @@ export function FriendsPanel({
                 key={tab.id}
                 content={tab.label}
                 bubbleClassName={styles.socialTabTooltip}
+                side="bottom"
               >
                 <button
                   type="button"

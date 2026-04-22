@@ -501,7 +501,7 @@
   gap: 10px;
   max-height: 420px;
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 2px 6px 0 0;
   min-width: 0;
 }
 
@@ -513,7 +513,7 @@
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding: 2px 8px 8px 0;
+  padding: 8px 12px 12px 0;
 }
 
 .socialTabs::-webkit-scrollbar {
@@ -525,6 +525,7 @@
 .socialTabButtonAttention {
   flex: 0 0 auto;
   position: relative;
+  overflow: visible;
   min-width: 42px;
   height: 42px;
   border-radius: 14px;
@@ -599,8 +600,9 @@
 .socialTabBadge,
 .socialTabBadgeAttention {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: 0;
+  right: 0;
+  transform: translate(26%, -28%);
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
@@ -612,6 +614,7 @@
   display: grid;
   place-items: center;
   border: 1px solid rgba(12, 10, 9, 0.4);
+  z-index: 1;
 }
 
 .socialTabBadgeAttention {

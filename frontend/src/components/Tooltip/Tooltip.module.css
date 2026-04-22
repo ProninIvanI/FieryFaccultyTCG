@@ -21,7 +21,7 @@
 
 .bubble {
   position: absolute;
-  z-index: 12;
+  z-index: 24;
   display: none;
   width: max-content;
   max-width: min(320px, calc(100vw - 48px));
@@ -51,7 +51,7 @@
 }
 
 .sideTop .bubble {
-  bottom: calc(100% + 12px);
+  bottom: calc(100% + 10px);
   --tooltip-shift-y: 8px;
 }
 
@@ -63,7 +63,7 @@
 }
 
 .sideBottom .bubble {
-  top: calc(100% + 12px);
+  top: calc(100% + 10px);
   --tooltip-shift-y: -8px;
 }
 
