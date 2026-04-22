@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { validateDeckLegality } from '../../../../game-core/src';
 
 type DeckResponse = {
@@ -31,8 +32,10 @@ export type ResolvePlayerDeckResult =
   | { status: 'invalid'; error: string };
 
 const DEFAULT_BACKEND_URL = process.env.BACKEND_API_URL ?? 'http://localhost:3001';
+const currentFilePath = fileURLToPath(import.meta.url);
+const currentDirPath = path.dirname(currentFilePath);
 const cardCatalogCandidates = [
-  path.resolve(__dirname, '..', '..', '..', '..', 'game-core', 'data', 'cards.json'),
+  path.resolve(currentDirPath, '..', '..', '..', '..', 'game-core', 'data', 'cards.json'),
   path.resolve(process.cwd(), '..', 'game-core', 'data', 'cards.json'),
   path.resolve(process.cwd(), 'game-core', 'data', 'cards.json'),
 ];
