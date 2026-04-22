@@ -212,11 +212,7 @@ const AuthHome = ({
 
         <aside className={styles.sidePanels}>
           <div className={styles.sidePanelIntro}>
-            <p className={styles.sidePanelEyebrow}>Социальное крыло</p>
             <h2 className={styles.sidePanelTitle}>Круг магов</h2>
-            <p className={styles.sidePanelText}>
-              Друзья, приглашения и быстрый путь к совместным матчам.
-            </p>
           </div>
           <FriendsPanel
             currentUserId={session.userId}
