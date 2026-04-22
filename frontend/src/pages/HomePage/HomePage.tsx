@@ -171,6 +171,14 @@ const AuthHome = ({
 
           <section className={styles.hero}>
             <div className={styles.heroInfo}>
+              <div className={styles.heroIntro}>
+                <p className={styles.heroEyebrow}>Главный зал академии</p>
+                <div className={styles.heroMarks} aria-hidden="true">
+                  <span className={styles.heroMark}>Колоды</span>
+                  <span className={styles.heroMark}>Архив</span>
+                  <span className={styles.heroMark}>Дуэли</span>
+                </div>
+              </div>
               <h2 className={styles.heroTitle}>Ваш путь к следующей дуэли</h2>
               <p className={styles.heroText}>
                 Собирайте колоды, изучайте архив карт и выходите на арену, когда
@@ -203,6 +211,13 @@ const AuthHome = ({
         </div>
 
         <aside className={styles.sidePanels}>
+          <div className={styles.sidePanelIntro}>
+            <p className={styles.sidePanelEyebrow}>Социальное крыло</p>
+            <h2 className={styles.sidePanelTitle}>Круг магов</h2>
+            <p className={styles.sidePanelText}>
+              Друзья, приглашения и быстрый путь к совместным матчам.
+            </p>
+          </div>
           <FriendsPanel
             currentUserId={session.userId}
             displayName={displayName}

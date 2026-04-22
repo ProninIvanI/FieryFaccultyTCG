@@ -11,27 +11,38 @@
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 2.3fr) minmax(260px, 0.9fr);
-  gap: 28px;
-  padding: 0 48px 48px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 356px);
+  align-items: start;
+  gap: clamp(20px, 2.4vw, 28px);
+  padding: 0 clamp(20px, 4vw, 48px) 48px;
 }
 
 .mainColumn {
   display: grid;
+  align-content: start;
   gap: 28px;
+  min-width: 0;
 }
 
 .sectionsBar {
   display: flex;
   gap: 10px;
   align-items: center;
-  flex-wrap: wrap;
-  padding: 6px 2px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 6px 2px 10px;
   margin-bottom: 4px;
+}
+
+.sectionsBar::-webkit-scrollbar {
+  display: none;
 }
 
 .sectionChip {
   flex: 0 0 auto;
+  white-space: nowrap;
   padding: 8px 14px;
   border-radius: 999px;
   background: var(--theme-surface-panel-soft);
@@ -68,6 +79,41 @@
   border: 1px solid var(--theme-line);
   box-shadow: var(--theme-shadow-panel);
   backdrop-filter: blur(14px);
+}
+
+.heroIntro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.heroEyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244, 214, 161, 0.82);
+}
+
+.heroMarks {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.heroMark {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(196, 154, 90, 0.18);
+  background: rgba(255, 248, 236, 0.03);
+  color: var(--theme-text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .heroTitle {
@@ -210,6 +256,38 @@
   display: grid;
   gap: 20px;
   align-content: start;
+  min-width: 0;
+}
+
+.sidePanelIntro {
+  display: grid;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.sidePanelEyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244, 214, 161, 0.82);
+}
+
+.sidePanelTitle {
+  margin: 0;
+  color: var(--theme-text-strong);
+  font-size: 26px;
+  font-family: var(--theme-font-display);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.sidePanelText {
+  margin: 0;
+  color: var(--theme-text-dim);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .friendsPanel {
@@ -219,6 +297,7 @@
   padding: 18px;
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .friendsHeader {
@@ -438,19 +517,28 @@
   max-height: 420px;
   overflow-y: auto;
   padding-right: 4px;
+  min-width: 0;
 }
 
 .socialTabs {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 2px 0 4px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 2px 0 8px;
+}
+
+.socialTabs::-webkit-scrollbar {
+  display: none;
 }
 
 .socialTabButton,
 .socialTabButtonActive,
 .socialTabButtonAttention {
+  flex: 0 0 auto;
   position: relative;
   min-width: 42px;
   height: 42px;
@@ -549,6 +637,7 @@
   composes: insetSurface from "@/components/SurfaceTokens.module.css";
   border-radius: 16px;
   padding: 14px 12px;
+  min-width: 0;
 }
 
 .socialTabTooltip {
@@ -883,19 +972,162 @@
   margin-top: auto;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1440px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+  }
+
+  .heroInfo {
+    padding: 26px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(286px, 320px);
+    gap: 22px;
+  }
+
+  .heroInfo {
+    gap: 16px;
+    padding: 24px;
+  }
+
+  .heroTitle {
+    font-size: 28px;
+  }
+
+  .sidePanelTitle {
+    font-size: 24px;
+  }
+
+  .heroButtons {
+    gap: 10px;
+  }
+
+  .ctaPrimary,
+  .ctaOutline,
+  .ctaGhost,
+  .secondary {
+    padding: 11px 16px;
+    font-size: 14px;
+  }
+
+  .secondaryActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
   .layout {
     grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .mainColumn {
+    gap: 24px;
+  }
+
+  .hero {
+    max-width: 980px;
+  }
+
+  .heroInfo {
+    padding: 24px 26px;
+    border-radius: 22px;
+  }
+
+  .sidePanels {
+    width: min(100%, 392px);
+    max-width: 392px;
+    justify-self: end;
+  }
+
+  .sidePanelIntro {
+    padding-right: 2px;
+  }
+
+  .layout {
+    padding-bottom: 36px;
   }
 
   .friendsPanel {
-    max-width: 420px;
+    max-width: none;
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .friendsList {
+    max-height: 360px;
+  }
+
+  .socialContentPanel {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 860px) {
+  .heroButtons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ctaGhost {
+    grid-column: 1 / -1;
+  }
+
+  .secondaryActions {
+    grid-template-columns: 1fr;
+  }
+
+  .sidePanels {
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .sidePanelIntro {
+    padding: 0;
   }
 }
 
 @media (max-width: 720px) {
   .layout {
     padding: 20px;
+  }
+
+  .sectionsBar {
+    margin-inline: -2px;
+    padding-bottom: 8px;
+  }
+
+  .heroInfo {
+    padding: 22px;
+    border-radius: 20px;
+  }
+
+  .heroIntro {
+    align-items: flex-start;
+  }
+
+  .heroTitle {
+    font-size: 26px;
+  }
+
+  .sidePanelTitle {
+    font-size: 22px;
+  }
+
+  .heroButtons {
+    grid-template-columns: 1fr;
+  }
+
+  .secondaryActions {
+    grid-template-columns: 1fr;
+  }
+
+  .friendsPanel {
+    padding: 16px;
   }
 
   .settingsModal {
@@ -908,5 +1140,39 @@
 
   .footer {
     padding: 20px;
+  }
+}
+
+@media (max-width: 540px) {
+  .friendsHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .iconButton,
+  .toolButton {
+    width: 100%;
+  }
+
+  .addFriendActions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .socialTabs {
+    gap: 6px;
+  }
+
+  .socialTabButton,
+  .socialTabButtonActive,
+  .socialTabButtonAttention {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 10px;
+  }
+
+  .socialTabLabel {
+    font-size: 11px;
   }
 }
