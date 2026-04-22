@@ -219,11 +219,17 @@ export function FriendsPanel({
   const [isSubmittingFriendRequest, setIsSubmittingFriendRequest] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [activeFriendUserId, setActiveFriendUserId] = useState<string | null>(null);
-  const [activeFriendMenuUserId, setActiveFriendMenuUserId] = useState<string | null>(null);
+  const [activeFriendMenu, setActiveFriendMenu] = useState<{
+    userId: string;
+    top: number;
+    left: number;
+  } | null>(null);
   const [pendingMatchConfirmation, setPendingMatchConfirmation] = useState<MatchInvite | null>(null);
   const [activeTab, setActiveTab] = useState<SocialTabId>("friends");
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const friendMenuRef = useRef<HTMLDivElement | null>(null);
+  const activeFriendMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const handledInviteRedirectIdsRef = useRef(new Set<string>());
   const avatarInitial = displayName.slice(0, 1).toUpperCase();
 
@@ -272,7 +278,7 @@ export function FriendsPanel({
     setIncomingRequests(snapshot.incomingRequests);
     setOutgoingRequests(snapshot.outgoingRequests);
     setFriendsError(snapshot.error);
-    setActiveFriendMenuUserId(null);
+    setActiveFriendMenu(null);
     setIsFriendsLoading(false);
   };
 
@@ -299,6 +305,39 @@ export function FriendsPanel({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!activeFriendMenu) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (friendMenuRef.current?.contains(target) || activeFriendMenuButtonRef.current?.contains(target)) {
+        return;
+      }
+
+      setActiveFriendMenu(null);
+    };
+
+    const handleViewportChange = () => {
+      setActiveFriendMenu(null);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [activeFriendMenu]);
 
   useEffect(() => {
     let cancelled = false;
@@ -657,50 +696,32 @@ export function FriendsPanel({
                   <FriendInviteGlyph />
                 </button>
               </Tooltip>
-              <Tooltip content="Техническое меню" side="bottom">
-                <div className={styles.friendTechMenu}>
-                  <button
-                    className={styles.friendActionIconButtonGhost}
-                    type="button"
-                    aria-label="Техническое меню друга"
-                    aria-haspopup="menu"
-                    aria-expanded={activeFriendMenuUserId === friend.userId}
-                    onClick={() => {
-                      setActiveFriendMenuUserId((current) =>
-                        current === friend.userId ? null : friend.userId,
-                      );
-                    }}
-                  >
-                    <FriendMenuGlyph />
-                  </button>
-                  {activeFriendMenuUserId === friend.userId ? (
-                    <div className={styles.friendTechMenuPanel} role="menu">
-                      <button
-                        className={styles.friendTechMenuItemDanger}
-                        type="button"
-                        role="menuitem"
-                        aria-label="Удалить"
-                        disabled={activeFriendUserId === friend.userId}
-                        onClick={async () => {
-                          setFriendActionError(null);
-                          setActiveFriendUserId(friend.userId);
-                          const result = await friendService.deleteFriend(friend.userId);
-                          setActiveFriendUserId(null);
+              <div className={styles.friendTechMenu}>
+                <button
+                  className={styles.friendActionIconButtonGhost}
+                  type="button"
+                  aria-label="Техническое меню друга"
+                  aria-haspopup="menu"
+                  aria-expanded={activeFriendMenu?.userId === friend.userId}
+                  onClick={(event) => {
+                    if (activeFriendMenu?.userId === friend.userId) {
+                      setActiveFriendMenu(null);
+                      return;
+                    }
 
-                          if (!result.ok) {
-                            setFriendActionError(result.error);
-                            return;
-                          }
-
-                          await refreshSocialData();
-                        }}
-                      >
-                        Удалить из друзей
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </Tooltip>
+                    const button = event.currentTarget;
+                    const rect = button.getBoundingClientRect();
+                    activeFriendMenuButtonRef.current = button;
+                    setActiveFriendMenu({
+                      userId: friend.userId,
+                      top: rect.bottom + 8,
+                      left: rect.right,
+                    });
+                  }}
+                >
+                  <FriendMenuGlyph />
+                </button>
+              </div>
             </>
           }
         />
@@ -978,13 +999,46 @@ export function FriendsPanel({
           <div className={styles.friendsEmpty}>Загружаем социальный профиль...</div>
         ) : (
           <div className={styles.socialContentPanel}>
-            <div className={styles.friendsSection}>
-              <div className={styles.friendsSectionTitle}>{activeTabLabel}</div>
-              {renderActiveTab()}
+            <div className={styles.socialContentScroll}>
+              <div className={styles.friendsSection}>
+                <div className={styles.friendsSectionTitle}>{activeTabLabel}</div>
+                {renderActiveTab()}
+              </div>
             </div>
           </div>
         )}
       </div>
+      {activeFriendMenu ? (
+        <div
+          className={styles.friendTechMenuPanel}
+          role="menu"
+          ref={friendMenuRef}
+          style={{ top: `${activeFriendMenu.top}px`, left: `${activeFriendMenu.left}px` }}
+        >
+          <button
+            className={styles.friendTechMenuItemDanger}
+            type="button"
+            role="menuitem"
+            aria-label="Удалить"
+            disabled={activeFriendUserId === activeFriendMenu.userId}
+            onClick={async () => {
+              setFriendActionError(null);
+              setActiveFriendUserId(activeFriendMenu.userId);
+              const result = await friendService.deleteFriend(activeFriendMenu.userId);
+              setActiveFriendUserId(null);
+
+              if (!result.ok) {
+                setFriendActionError(result.error);
+                return;
+              }
+
+              await refreshSocialData();
+            }}
+          >
+            Удалить из друзей
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

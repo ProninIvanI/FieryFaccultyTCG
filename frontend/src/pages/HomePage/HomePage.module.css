@@ -13,6 +13,8 @@
   display: grid;
   gap: 18px;
   padding: 0 clamp(20px, 4vw, 48px) 48px;
+  flex: 1;
+  min-height: 0;
 }
 
 .layout {
@@ -263,6 +265,7 @@
   align-content: start;
   min-width: 0;
   width: 100%;
+  min-height: 0;
 }
 
 .friendsPanel {
@@ -271,9 +274,13 @@
   border-radius: 18px;
   padding: 20px;
   display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
   gap: 18px;
   min-width: 0;
   width: 100%;
+  min-height: 0;
+  max-height: calc(100dvh - clamp(164px, 20dvh, 220px));
+  overflow: hidden;
 }
 
 .friendsPanelTitle {
@@ -499,9 +506,10 @@
 .friendsList {
   display: grid;
   gap: 10px;
-  max-height: 420px;
-  overflow-y: auto;
-  padding: 2px 6px 0 0;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  padding: 2px 0 0;
   min-width: 0;
 }
 
@@ -655,6 +663,16 @@
   border-radius: 16px;
   padding: 14px 12px;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.socialContentScroll {
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
 }
 
 .socialTabTooltip {
@@ -702,6 +720,7 @@
 .friendsSection {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .friendsSectionGroup {
@@ -804,7 +823,7 @@
 }
 
 .friendTechMenu {
-  position: relative;
+  position: static;
 }
 
 .friendActionIconButtonGhost[aria-expanded="true"] {
@@ -813,16 +832,15 @@
 }
 
 .friendTechMenuPanel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
   min-width: 168px;
   composes: floatingSurface from "@/components/SurfaceTokens.module.css";
   border-radius: 14px;
   padding: 6px;
   display: grid;
   gap: 4px;
-  z-index: 8;
+  transform: translateX(calc(-100% + 34px));
+  z-index: 40;
 }
 
 .friendTechMenuItemDanger {
@@ -1155,10 +1173,7 @@
     max-width: none;
     padding: 18px;
     gap: 16px;
-  }
-
-  .friendsList {
-    max-height: 360px;
+    max-height: calc(100dvh - clamp(152px, 18dvh, 196px));
   }
 
   .socialContentPanel {
@@ -1225,6 +1240,22 @@
 
   .friendsPanel {
     padding: 16px;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .friendsList {
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .socialContentPanel {
+    overflow: visible;
+  }
+
+  .socialContentScroll {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .settingsModal {
