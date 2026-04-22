@@ -21,8 +21,8 @@ export const FriendListItem = ({ friend, actions }: FriendListItemProps) => {
         <div className={styles.name}>{friend.name}</div>
         <div className={styles.status}>{friend.status}</div>
         {friend.subtitle ? <div className={styles.subtitle}>{friend.subtitle}</div> : null}
-        {actions ? <div className={styles.actions}>{actions}</div> : null}
       </div>
+      {actions ? <div className={styles.actions}>{actions}</div> : null}
     </div>
   );
 };

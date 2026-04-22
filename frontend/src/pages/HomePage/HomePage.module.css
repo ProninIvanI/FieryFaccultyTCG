@@ -563,7 +563,9 @@
     rgba(196, 154, 90, 0.16),
     rgba(255, 248, 236, 0.05)
   );
-  box-shadow: var(--theme-glow-accent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 236, 0.08),
+    0 0 0 1px rgba(196, 154, 90, 0.2);
   justify-content: flex-start;
   gap: 8px;
   padding-right: 16px;
@@ -732,6 +734,83 @@
 
 .friendActionGhost {
   composes: controlSurface controlSurfaceHover from "@/components/SurfaceTokens.module.css";
+}
+
+.friendActionIconButtonPrimary,
+.friendActionIconButtonGhost {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.friendActionIconButtonPrimary {
+  border: 1px solid rgba(196, 154, 90, 0.42);
+  background: linear-gradient(180deg, rgba(196, 154, 90, 0.96), rgba(145, 107, 58, 0.98));
+  color: #120f0d;
+  box-shadow: var(--theme-glow-accent);
+}
+
+.friendActionIconButtonGhost {
+  composes: controlSurface controlSurfaceHover from "@/components/SurfaceTokens.module.css";
+  color: var(--theme-text-strong);
+}
+
+.friendActionIconButtonPrimary:disabled,
+.friendActionIconButtonGhost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.friendActionIconSvg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.friendTechMenu {
+  position: relative;
+}
+
+.friendActionIconButtonGhost[aria-expanded="true"] {
+  border-color: var(--theme-line-strong);
+  box-shadow: var(--theme-shadow-float);
+}
+
+.friendTechMenuPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 168px;
+  composes: floatingSurface from "@/components/SurfaceTokens.module.css";
+  border-radius: 14px;
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+  z-index: 8;
+}
+
+.friendTechMenuItemDanger {
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #e4a2a2;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.friendTechMenuItemDanger:hover,
+.friendTechMenuItemDanger:focus-visible {
+  background: rgba(138, 68, 68, 0.14);
+  border-color: rgba(138, 68, 68, 0.24);
 }
 
 @keyframes socialTabPulse {

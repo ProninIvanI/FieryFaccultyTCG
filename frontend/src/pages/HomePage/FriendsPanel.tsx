@@ -169,6 +169,24 @@ const MatchInviteIcon = () => (
   </svg>
 );
 
+const FriendInviteGlyph = () => (
+  <svg viewBox="0 0 20 20" aria-hidden="true" className={styles.friendActionIconSvg}>
+    <path
+      d="M6 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Zm7.5 1a.8.8 0 0 1 .8.8v1.4h1.4a.8.8 0 1 1 0 1.6h-1.4v1.4a.8.8 0 1 1-1.6 0v-1.4h-1.4a.8.8 0 1 1 0-1.6h1.4V7.3a.8.8 0 0 1 .8-.8ZM2.8 15.6c0-1.8 1.7-3.2 3.8-3.2 1.1 0 2.1.4 2.8 1.1-.4.5-.7 1.2-.7 2v.1H2.8Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+const FriendMenuGlyph = () => (
+  <svg viewBox="0 0 20 20" aria-hidden="true" className={styles.friendActionIconSvg}>
+    <path
+      d="M4.5 10a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm4 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm4 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 type SocialTabConfig = {
   id: SocialTabId;
   label: string;
@@ -201,6 +219,7 @@ export function FriendsPanel({
   const [isSubmittingFriendRequest, setIsSubmittingFriendRequest] = useState(false);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [activeFriendUserId, setActiveFriendUserId] = useState<string | null>(null);
+  const [activeFriendMenuUserId, setActiveFriendMenuUserId] = useState<string | null>(null);
   const [pendingMatchConfirmation, setPendingMatchConfirmation] = useState<MatchInvite | null>(null);
   const [activeTab, setActiveTab] = useState<SocialTabId>("friends");
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -253,6 +272,7 @@ export function FriendsPanel({
     setIncomingRequests(snapshot.incomingRequests);
     setOutgoingRequests(snapshot.outgoingRequests);
     setFriendsError(snapshot.error);
+    setActiveFriendMenuUserId(null);
     setIsFriendsLoading(false);
   };
 
@@ -601,48 +621,86 @@ export function FriendsPanel({
           }}
           actions={
             <>
-              <button
-                className={styles.friendActionPrimary}
-                type="button"
-                disabled={isInviteDisabled}
-                onClick={async () => {
-                  setFriendActionError(null);
-                  setActiveFriendUserId(friend.userId);
-                  try {
-                    await socialWsService.sendMatchInvite(friend.userId);
-                  } catch {
-                    setFriendActionError("Не удалось отправить приглашение в матч");
-                  } finally {
-                    setActiveFriendUserId(null);
-                  }
-                }}
+              <Tooltip
+                content={
+                  friendPresence === "in_match"
+                    ? "Друг уже в матче"
+                    : friendPresence === "offline"
+                      ? "Друг сейчас не в сети"
+                      : "Пригласить в матч"
+                }
+                side="bottom"
               >
-                {friendPresence === "in_match"
-                  ? "В матче"
-                  : friendPresence === "offline"
-                    ? "Не в сети"
-                    : "Пригласить"}
-              </button>
-              <button
-                className={styles.friendActionGhost}
-                type="button"
-                disabled={activeFriendUserId === friend.userId}
-                onClick={async () => {
-                  setFriendActionError(null);
-                  setActiveFriendUserId(friend.userId);
-                  const result = await friendService.deleteFriend(friend.userId);
-                  setActiveFriendUserId(null);
-
-                  if (!result.ok) {
-                    setFriendActionError(result.error);
-                    return;
+                <button
+                  className={styles.friendActionIconButtonPrimary}
+                  type="button"
+                  aria-label={
+                    friendPresence === "in_match"
+                      ? "В матче"
+                      : friendPresence === "offline"
+                        ? "Не в сети"
+                        : "Пригласить"
                   }
+                  disabled={isInviteDisabled}
+                  onClick={async () => {
+                    setFriendActionError(null);
+                    setActiveFriendUserId(friend.userId);
+                    try {
+                      await socialWsService.sendMatchInvite(friend.userId);
+                    } catch {
+                      setFriendActionError("Не удалось отправить приглашение в матч");
+                    } finally {
+                      setActiveFriendUserId(null);
+                    }
+                  }}
+                >
+                  <FriendInviteGlyph />
+                </button>
+              </Tooltip>
+              <Tooltip content="Техническое меню" side="bottom">
+                <div className={styles.friendTechMenu}>
+                  <button
+                    className={styles.friendActionIconButtonGhost}
+                    type="button"
+                    aria-label="Техническое меню друга"
+                    aria-haspopup="menu"
+                    aria-expanded={activeFriendMenuUserId === friend.userId}
+                    onClick={() => {
+                      setActiveFriendMenuUserId((current) =>
+                        current === friend.userId ? null : friend.userId,
+                      );
+                    }}
+                  >
+                    <FriendMenuGlyph />
+                  </button>
+                  {activeFriendMenuUserId === friend.userId ? (
+                    <div className={styles.friendTechMenuPanel} role="menu">
+                      <button
+                        className={styles.friendTechMenuItemDanger}
+                        type="button"
+                        role="menuitem"
+                        aria-label="Удалить"
+                        disabled={activeFriendUserId === friend.userId}
+                        onClick={async () => {
+                          setFriendActionError(null);
+                          setActiveFriendUserId(friend.userId);
+                          const result = await friendService.deleteFriend(friend.userId);
+                          setActiveFriendUserId(null);
 
-                  await refreshSocialData();
-                }}
-              >
-                Удалить
-              </button>
+                          if (!result.ok) {
+                            setFriendActionError(result.error);
+                            return;
+                          }
+
+                          await refreshSocialData();
+                        }}
+                      >
+                        Удалить из друзей
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </Tooltip>
             </>
           }
         />

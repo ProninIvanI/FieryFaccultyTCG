@@ -1,6 +1,6 @@
 .row {
   display: grid;
-  grid-template-columns: 36px 1fr;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
 }
@@ -20,6 +20,7 @@
 .info {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .name {
@@ -42,5 +43,20 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: center;
+}
+
+@media (max-width: 720px) {
+  .row {
+    grid-template-columns: 36px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .actions {
+    grid-column: 2;
+    justify-content: flex-start;
+    margin-top: 6px;
+  }
 }

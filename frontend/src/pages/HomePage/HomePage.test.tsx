@@ -343,7 +343,9 @@ describe('HomePage', () => {
       </BrowserRouter>,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Удалить' }));
+    expect(await screen.findByText('Bravo')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Техническое меню друга' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Удалить' }));
 
     await waitFor(() => {
       expect(deleteSpy).toHaveBeenCalledWith('/api/friends/user_bravo', undefined);
