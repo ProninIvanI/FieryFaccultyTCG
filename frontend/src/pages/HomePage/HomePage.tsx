@@ -211,10 +211,8 @@ const AuthHome = ({
         </div>
 
         <aside className={styles.sidePanels}>
-          <div className={styles.sidePanelIntro}>
-            <h2 className={styles.sidePanelTitle}>Круг магов</h2>
-          </div>
           <FriendsPanel
+            title="Круг магов"
             currentUserId={session.userId}
             displayName={displayName}
             logoutError={logoutError}

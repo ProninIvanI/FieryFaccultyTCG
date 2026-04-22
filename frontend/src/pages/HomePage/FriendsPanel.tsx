@@ -10,6 +10,7 @@ const FRIEND_PAGE_LIMIT = 50;
 const MATCH_CONFIRM_STORAGE_PREFIX = "fftcg_match_confirm";
 
 type FriendsPanelProps = {
+  title: string;
   currentUserId: string;
   displayName: string;
   logoutError: string | null;
@@ -177,6 +178,7 @@ type SocialTabConfig = {
 };
 
 export function FriendsPanel({
+  title,
   currentUserId,
   displayName,
   logoutError,
@@ -706,6 +708,8 @@ export function FriendsPanel({
 
   return (
     <div className={styles.friendsPanel}>
+      <h2 className={styles.friendsPanelTitle}>{title}</h2>
+
       <div className={styles.friendsHeader}>
         <div className={styles.userChip}>
           <button
