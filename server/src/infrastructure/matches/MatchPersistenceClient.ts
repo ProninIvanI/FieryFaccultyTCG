@@ -39,7 +39,7 @@ export interface MatchPersistenceClientLike {
   saveReplay(matchId: string, payload: PersistentMatchReplayPayload): Promise<void>;
 }
 
-const DEFAULT_BACKEND_URL = process.env.BACKEND_API_URL ?? 'http://backend:3001';
+const DEFAULT_BACKEND_URL = process.env.BACKEND_API_URL ?? 'http://localhost:3001';
 const DEFAULT_INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token';
 
 const buildHeaders = (): HeadersInit => ({
