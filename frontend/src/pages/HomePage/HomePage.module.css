@@ -636,6 +636,10 @@
   font-size: 12px;
 }
 
+.socialTabTooltip::after {
+  display: none;
+}
+
 .matchConfirmPanel {
   composes: insetSurface from "@/components/SurfaceTokens.module.css";
   display: grid;
