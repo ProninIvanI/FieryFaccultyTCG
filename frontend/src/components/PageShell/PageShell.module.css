@@ -37,6 +37,7 @@
   display: grid;
   gap: 20px;
   flex: 1;
+  align-content: start;
 }
 
 @media (max-width: 720px) {

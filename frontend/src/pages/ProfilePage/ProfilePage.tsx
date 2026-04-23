@@ -51,6 +51,7 @@ export const ProfilePage = () => {
   const [profile, setProfile] = useState<PlayerProfileViewModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [matchFilter, setMatchFilter] = useState<MatchFilterId>('all');
 
   useEffect(() => {
@@ -61,13 +62,16 @@ export const ProfilePage = () => {
     if (!currentSession) {
       setIsLoading(false);
       setProfile(null);
+      setWarning(null);
       return;
     }
 
     setIsLoading(true);
     setError(null);
+    setWarning(null);
 
-    void profileService.getMyProfile()
+    void profileService
+      .getMyProfile()
       .then((result) => {
         if (cancelled) {
           return;
@@ -76,10 +80,12 @@ export const ProfilePage = () => {
         if (!result.ok) {
           setProfile(null);
           setError(result.error);
+          setWarning(null);
           return;
         }
 
         setProfile(result.profile);
+        setWarning(result.warning);
       })
       .finally(() => {
         if (!cancelled) {
@@ -103,20 +109,21 @@ export const ProfilePage = () => {
   const joinedAtLabel = profile?.joinedAtLabel ?? formatSessionDate(session?.createdAt);
   const profileHint = isLoading
     ? 'Загружаем статистику по аккаунту, колодам и матчам.'
-    : error
+    : error || warning
       ? 'Не все данные профиля удалось загрузить.'
       : 'Профиль собран из живых данных аккаунта, колод и матчей.';
-  const filteredRecentMatches = profile?.recentMatches.filter((match) => {
-    if (matchFilter === 'wins') {
-      return match.resultTone === 'positive';
-    }
+  const filteredRecentMatches =
+    profile?.recentMatches.filter((match) => {
+      if (matchFilter === 'wins') {
+        return match.resultTone === 'positive';
+      }
 
-    if (matchFilter === 'losses') {
-      return match.resultTone === 'negative';
-    }
+      if (matchFilter === 'losses') {
+        return match.resultTone === 'negative';
+      }
 
-    return true;
-  }) ?? [];
+      return true;
+    }) ?? [];
 
   return (
     <PageShell
@@ -126,7 +133,9 @@ export const ProfilePage = () => {
     >
       <Card title="Профиль игрока">
         <div className={styles.profileHeader}>
-          <div className={styles.avatar} aria-hidden="true">{avatarInitial}</div>
+          <div className={styles.avatar} aria-hidden="true">
+            {avatarInitial}
+          </div>
           <div className={styles.profileMeta}>
             <div className={styles.profileName}>{displayName}</div>
             <div className={styles.metaRow}>
@@ -158,7 +167,13 @@ export const ProfilePage = () => {
         </Card>
       ) : null}
 
-      {session && !isLoading && !error && profile ? (
+      {session && !isLoading && !error && warning ? (
+        <Card title="Не удалось загрузить профиль">
+          <p className={styles.emptyState}>{warning}</p>
+        </Card>
+      ) : null}
+
+      {session && !isLoading && profile ? (
         <>
           <Card title="Аккаунт">
             <div className={styles.statsGrid}>
@@ -205,21 +220,27 @@ export const ProfilePage = () => {
                 <div className={styles.filterRow}>
                   <button
                     type="button"
-                    className={`${styles.filterChip} ${matchFilter === 'all' ? styles.filterChipActive : ''}`.trim()}
+                    className={`${styles.filterChip} ${
+                      matchFilter === 'all' ? styles.filterChipActive : ''
+                    }`.trim()}
                     onClick={() => setMatchFilter('all')}
                   >
                     Все
                   </button>
                   <button
                     type="button"
-                    className={`${styles.filterChip} ${matchFilter === 'wins' ? styles.filterChipActive : ''}`.trim()}
+                    className={`${styles.filterChip} ${
+                      matchFilter === 'wins' ? styles.filterChipActive : ''
+                    }`.trim()}
                     onClick={() => setMatchFilter('wins')}
                   >
                     Победы
                   </button>
                   <button
                     type="button"
-                    className={`${styles.filterChip} ${matchFilter === 'losses' ? styles.filterChipActive : ''}`.trim()}
+                    className={`${styles.filterChip} ${
+                      matchFilter === 'losses' ? styles.filterChipActive : ''
+                    }`.trim()}
                     onClick={() => setMatchFilter('losses')}
                   >
                     Поражения
@@ -257,7 +278,9 @@ export const ProfilePage = () => {
                           <span>vs {match.opponentDeckLabel}</span>
                           <span>{match.endReasonLabel}</span>
                         </div>
-                        <div className={styles.matchMeta}>{match.subtitleLabel} · {match.metaLabel}</div>
+                        <div className={styles.matchMeta}>
+                          {match.subtitleLabel} · {match.metaLabel}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -266,7 +289,9 @@ export const ProfilePage = () => {
                 )}
               </>
             ) : (
-              <p className={styles.emptyState}>Матчей пока нет. Сыграйте первую дуэль, и история появится здесь.</p>
+              <p className={styles.emptyState}>
+                Матчей пока нет. Сыграйте первую дуэль, и история появится здесь.
+              </p>
             )}
           </Card>
         </>

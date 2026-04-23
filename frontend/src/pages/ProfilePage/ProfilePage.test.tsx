@@ -431,7 +431,7 @@ describe('ProfilePage', () => {
     expect(screen.queryByText('Матч 100001')).not.toBeInTheDocument();
   });
 
-  it('shows an error card when profile data cannot be loaded', async () => {
+  it('keeps profile sections visible when matches cannot be loaded', async () => {
     setAuthenticatedSession();
     mockProfileApi({
       matchesError: 'Не удалось загрузить матчи',
@@ -445,6 +445,6 @@ describe('ProfilePage', () => {
 
     expect(await screen.findByText('Не удалось загрузить профиль')).toBeInTheDocument();
     expect(screen.getByText('Не удалось загрузить матчи')).toBeInTheDocument();
-    expect(screen.getByText('Akela')).toBeInTheDocument();
+    expect(screen.getAllByText('Akela').length).toBeGreaterThan(0);
   });
 });

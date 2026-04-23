@@ -71,6 +71,23 @@ const formatDateTimeLabel = (value: string | null | undefined): string => {
 
 const formatPercentLabel = (value: number): string => `${Math.round(value)}%`;
 
+const resolveProfileWarning = (
+  decksResponse: { ok: true; decks: UserDeck[] } | { ok: false; error: string },
+  matchesResponse: { ok: true; matches: MatchSummary[] } | { ok: false; error: string },
+): string | null => {
+  const issues: string[] = [];
+
+  if (!decksResponse.ok) {
+    issues.push(decksResponse.error);
+  }
+
+  if (!matchesResponse.ok) {
+    issues.push(matchesResponse.error);
+  }
+
+  return issues.length > 0 ? issues.join(' ') : null;
+};
+
 const formatMatchResult = (
   player: MatchPlayerRecord | undefined,
   match: MatchSummary,
@@ -238,7 +255,7 @@ const buildProfileViewModel = (
 
 export const profileService = {
   async getMyProfile(): Promise<
-    { ok: true; profile: PlayerProfileViewModel } | { ok: false; error: string }
+    { ok: true; profile: PlayerProfileViewModel; warning: string | null } | { ok: false; error: string }
   > {
     const [userResponse, decksResponse, matchesResponse] = await Promise.all([
       apiClient.get<AuthMeResponse>('/api/auth/me'),
@@ -250,17 +267,13 @@ export const profileService = {
       return { ok: false, error: userResponse.error ?? DEFAULT_ERROR };
     }
 
-    if (!decksResponse.ok) {
-      return { ok: false, error: decksResponse.error };
-    }
-
-    if (!matchesResponse.ok) {
-      return { ok: false, error: matchesResponse.error };
-    }
+    const decks = decksResponse.ok ? decksResponse.decks : [];
+    const matches = matchesResponse.ok ? matchesResponse.matches : [];
 
     return {
       ok: true,
-      profile: buildProfileViewModel(userResponse.data.user, decksResponse.decks, matchesResponse.matches),
+      profile: buildProfileViewModel(userResponse.data.user, decks, matches),
+      warning: resolveProfileWarning(decksResponse, matchesResponse),
     };
   },
 };
