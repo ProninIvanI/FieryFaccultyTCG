@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { FriendListItem, Tooltip } from "@/components";
 import { ROUTES } from "@/constants";
@@ -74,6 +75,8 @@ const toInviteStatusInfoLabel = (status: MatchInvite["status"]): string | null =
 
 const MATCH_CONFIRM_STALE_MESSAGE =
   "Подготовленная сессия больше недоступна. Отправьте приглашение ещё раз.";
+const FRIEND_TECH_MENU_WIDTH = 168;
+const FRIEND_TECH_MENU_GAP = 8;
 
 const upsertInvite = (current: MatchInvite[], invite: MatchInvite): MatchInvite[] => {
   const next = current.filter((item) => item.id !== invite.id);
@@ -667,11 +670,15 @@ export function FriendsPanel({
 
                     const button = event.currentTarget;
                     const rect = button.getBoundingClientRect();
+                    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
                     activeFriendMenuButtonRef.current = button;
                     setActiveFriendMenu({
                       userId: friend.userId,
-                      top: rect.bottom + 8,
-                      left: rect.right,
+                      top: rect.bottom + FRIEND_TECH_MENU_GAP,
+                      left: Math.min(
+                        rect.left,
+                        viewportWidth - FRIEND_TECH_MENU_WIDTH - FRIEND_TECH_MENU_GAP,
+                      ),
                     });
                   }}
                 >
@@ -960,7 +967,7 @@ export function FriendsPanel({
           </div>
         )}
       </div>
-      {activeFriendMenu ? (
+      {activeFriendMenu && typeof document !== "undefined" ? createPortal(
         <div
           className={styles.friendTechMenuPanel}
           role="menu"
@@ -988,7 +995,8 @@ export function FriendsPanel({
           >
             Удалить из друзей
           </button>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   );

@@ -11,6 +11,7 @@
 
 .pageMain {
   display: grid;
+  align-content: start;
   gap: 18px;
   padding: 0 clamp(20px, 4vw, 48px) 48px;
   flex: 1;
@@ -834,12 +835,12 @@
 .friendTechMenuPanel {
   position: fixed;
   min-width: 168px;
+  width: 168px;
   composes: floatingSurface from "@/components/SurfaceTokens.module.css";
   border-radius: 14px;
   padding: 6px;
   display: grid;
   gap: 4px;
-  transform: translateX(calc(-100% + 34px));
   z-index: 40;
 }
 
