@@ -674,9 +674,9 @@
   max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  width: calc(100% - 6px);
-  margin-right: 6px;
-  padding-right: 10px;
+  width: calc(100% - 12px);
+  margin-right: 12px;
+  padding-right: 16px;
   scrollbar-gutter: stable;
 }
 
@@ -859,10 +859,6 @@
   font-weight: 700;
   font-size: 13px;
   color: var(--theme-text-strong);
-}
-
-.friendTechMenuSub {
-  color: var(--theme-text-dim);
 }
 
 .friendTechMenuSection {

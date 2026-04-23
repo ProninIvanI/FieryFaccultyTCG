@@ -981,7 +981,6 @@ export function FriendsPanel({
         >
           <div className={styles.friendTechMenuHeader}>
             <div className={styles.friendTechMenuTitle}>{activeFriendMenu.username}</div>
-            <div className={styles.friendTechMenuSub}>Управление другом</div>
           </div>
           <div className={styles.friendTechMenuSection}>
             <button
