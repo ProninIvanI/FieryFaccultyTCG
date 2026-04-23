@@ -5,7 +5,6 @@ import {
   PlayerProfileViewModel,
   ProfileDeckSummaryItem,
   ProfileRecentMatchItem,
-  ProfileStatItem,
   UserAccount,
   UserDeck,
 } from '@/types';
@@ -75,17 +74,17 @@ const resolveProfileWarning = (
   decksResponse: { ok: true; decks: UserDeck[] } | { ok: false; error: string },
   matchesResponse: { ok: true; matches: MatchSummary[] } | { ok: false; error: string },
 ): string | null => {
-  const issues: string[] = [];
+  const issues = new Set<string>();
 
   if (!decksResponse.ok) {
-    issues.push(decksResponse.error);
+    issues.add(decksResponse.error);
   }
 
   if (!matchesResponse.ok) {
-    issues.push(matchesResponse.error);
+    issues.add(matchesResponse.error);
   }
 
-  return issues.length > 0 ? issues.join(' ') : null;
+  return issues.size > 0 ? Array.from(issues).join(' · ') : null;
 };
 
 const formatMatchResult = (
@@ -146,13 +145,6 @@ const formatEndReasonLabel = (endReason: MatchSummary['endReason']): string => {
   }
 };
 
-const buildAccountStats = (user: UserAccount): ProfileStatItem[] => [
-  { label: 'Логин', value: user.username },
-  { label: 'ID игрока', value: user.id },
-  { label: 'Почта', value: user.email },
-  { label: 'В академии с', value: formatDateLabel(user.createdAt) },
-];
-
 const buildDeckSummaryItem = (deck: UserDeck): ProfileDeckSummaryItem => {
   const cardCount = deck.cards.reduce((total, card) => total + card.quantity, 0);
   return {
@@ -201,8 +193,12 @@ const buildProfileViewModel = (
     (left, right) => resolveIsoDate(right.updatedAt) - resolveIsoDate(left.updatedAt),
   );
   const sortedMatches = [...matches].sort((left, right) => {
-    const rightValue = resolveIsoDate(right.finishedAt ?? right.updatedAt ?? right.startedAt ?? right.createdAt);
-    const leftValue = resolveIsoDate(left.finishedAt ?? left.updatedAt ?? left.startedAt ?? left.createdAt);
+    const rightValue = resolveIsoDate(
+      right.finishedAt ?? right.updatedAt ?? right.startedAt ?? right.createdAt,
+    );
+    const leftValue = resolveIsoDate(
+      left.finishedAt ?? left.updatedAt ?? left.startedAt ?? left.createdAt,
+    );
     return rightValue - leftValue;
   });
 
@@ -225,7 +221,6 @@ const buildProfileViewModel = (
     displayName: user.username || user.id,
     avatarInitial: (user.username || user.id).slice(0, 1).toUpperCase(),
     joinedAtLabel: formatDateLabel(user.createdAt),
-    accountStats: buildAccountStats(user),
     matchStats: [
       { label: 'Всего матчей', value: String(sortedMatches.length) },
       { label: 'Завершено', value: String(finishedMatches.length) },
@@ -242,7 +237,10 @@ const buildProfileViewModel = (
         value: finishedMatches.length > 0 ? formatPercentLabel((wins / finishedMatches.length) * 100) : '—',
       },
       { label: 'Прервано', value: String(abortedMatches) },
-      { label: 'Последний матч', value: lastMatch ? formatDateLabel(lastMatch.finishedAt ?? lastMatch.createdAt) : '—' },
+      {
+        label: 'Последний матч',
+        value: lastMatch ? formatDateLabel(lastMatch.finishedAt ?? lastMatch.createdAt) : '—',
+      },
     ],
     totalDecks: sortedDecks.length,
     latestDeckUpdateLabel: sortedDecks[0] ? formatDateLabel(sortedDecks[0].updatedAt) : '—',

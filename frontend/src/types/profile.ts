@@ -33,7 +33,6 @@ export interface PlayerProfileViewModel {
   displayName: string;
   avatarInitial: string;
   joinedAtLabel: string;
-  accountStats: ProfileStatItem[];
   matchStats: ProfileStatItem[];
   resultStats: ProfileStatItem[];
   activityStats: ProfileStatItem[];

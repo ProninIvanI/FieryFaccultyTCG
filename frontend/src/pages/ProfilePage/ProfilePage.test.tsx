@@ -19,7 +19,7 @@ type MockProfileState = {
     updatedAt: string;
     cards: Array<{ cardId: string; quantity: number }>;
   }>;
-    matches?: Array<{
+  matches?: Array<{
     matchId: string;
     status: 'pending' | 'active' | 'finished' | 'aborted';
     createdByUserId: string | null;
@@ -34,13 +34,13 @@ type MockProfileState = {
     finishedAt: string | null;
     createdAt: string;
     updatedAt: string;
-      players: Array<{
-        id: string;
-        matchId: string;
-        userId: string;
-        username?: string;
-        playerSlot: number;
-        playerIdInMatch: string;
+    players: Array<{
+      id: string;
+      matchId: string;
+      userId: string;
+      username?: string;
+      playerSlot: number;
+      playerIdInMatch: string;
       deckId: string | null;
       deckNameSnapshot: string | null;
       deckSnapshot: unknown | null;
@@ -51,6 +51,7 @@ type MockProfileState = {
       createdAt: string;
     }>;
   }>;
+  decksError?: string;
   matchesError?: string;
 };
 
@@ -73,18 +74,28 @@ const mockProfileApi = (state: MockProfileState = {}) =>
         data: {
           success: true,
           data: {
-            user: state.user ?? {
-              id: 'user_1',
-              email: 'akela@example.com',
-              username: 'Akela',
-              createdAt: '2026-03-17T10:00:00.000Z',
-            },
+            user:
+              state.user ?? {
+                id: 'user_1',
+                email: 'akela@example.com',
+                username: 'Akela',
+                createdAt: '2026-03-17T10:00:00.000Z',
+              },
           },
         },
       } as Awaited<ReturnType<typeof axiosInstance.get>>;
     }
 
     if (url === '/api/decks') {
+      if (state.decksError) {
+        return {
+          data: {
+            success: false,
+            error: state.decksError,
+          },
+        } as Awaited<ReturnType<typeof axiosInstance.get>>;
+      }
+
       return {
         data: {
           success: true,
@@ -128,7 +139,7 @@ describe('ProfilePage', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders real profile sections from account, decks and matches data', async () => {
+  it('renders profile sections without personal account details', async () => {
     setAuthenticatedSession();
     const getSpy = mockProfileApi({
       decks: [
@@ -273,7 +284,7 @@ describe('ProfilePage', () => {
     });
 
     expect(screen.getAllByText('Akela').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('akela@example.com').length).toBeGreaterThan(0);
+    expect(screen.queryByText('akela@example.com')).not.toBeInTheDocument();
     expect(screen.getByText('Всего колод: 2')).toBeInTheDocument();
     expect(screen.getAllByText('Aggro Fire').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Control Tide').length).toBeGreaterThan(0);
@@ -283,12 +294,18 @@ describe('ProfilePage', () => {
     expect(screen.getByText('vs Stone Guard')).toBeInTheDocument();
     expect(screen.getByText('vs Night Archive')).toBeInTheDocument();
     expect(screen.getByText('50%')).toBeInTheDocument();
+    expect(screen.queryByText('Аккаунт')).not.toBeInTheDocument();
+    expect(screen.queryByText('ID игрока')).not.toBeInTheDocument();
+    expect(screen.queryByText('Почта')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('profile-notice')).not.toBeInTheDocument();
     expect(screen.getByText('Победа')).toBeInTheDocument();
     expect(screen.getByText('Поражение')).toBeInTheDocument();
 
     expect(screen.queryByText('Уровень: 12')).not.toBeInTheDocument();
     expect(screen.queryByText('Колода 1')).not.toBeInTheDocument();
-    expect(screen.queryByText('Раздел истории матчей будет наполнен следующим шагом.')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Раздел истории матчей будет наполнен следующим шагом.'),
+    ).not.toBeInTheDocument();
   });
 
   it('shows honest empty states when there are no decks or matches yet', async () => {
@@ -303,7 +320,9 @@ describe('ProfilePage', () => {
 
     expect(await screen.findByText('Всего колод: 0')).toBeInTheDocument();
     expect(screen.getByText('Колод пока нет. Первая колода появится в мастерской.')).toBeInTheDocument();
-    expect(screen.getByText('Матчей пока нет. Сыграйте первую дуэль, и история появится здесь.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Матчей пока нет. Сыграйте первую дуэль, и история появится здесь.'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Последнее обновление: —')).toBeInTheDocument();
   });
 
@@ -431,7 +450,7 @@ describe('ProfilePage', () => {
     expect(screen.queryByText('Матч 100001')).not.toBeInTheDocument();
   });
 
-  it('keeps profile sections visible when matches cannot be loaded', async () => {
+  it('shows a compact notice in the top right when matches cannot be loaded', async () => {
     setAuthenticatedSession();
     mockProfileApi({
       matchesError: 'Не удалось загрузить матчи',
@@ -443,8 +462,10 @@ describe('ProfilePage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Не удалось загрузить профиль')).toBeInTheDocument();
+    expect(await screen.findByTestId('profile-notice')).toBeInTheDocument();
+    expect(screen.getByText('Часть данных недоступна')).toBeInTheDocument();
     expect(screen.getByText('Не удалось загрузить матчи')).toBeInTheDocument();
+    expect(screen.queryByText('Не удалось загрузить профиль')).not.toBeInTheDocument();
     expect(screen.getAllByText('Akela').length).toBeGreaterThan(0);
   });
 });

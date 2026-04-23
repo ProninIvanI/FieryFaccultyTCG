@@ -11,6 +11,13 @@ type ProfileStatsGroupProps = {
 
 type MatchFilterId = 'all' | 'wins' | 'losses';
 
+type ProfileNoticeProps = {
+  title: string;
+  message: string;
+  tone: 'warning' | 'error';
+  onDismiss: () => void;
+};
+
 const sessionDateFormatter = new Intl.DateTimeFormat('ru-RU', {
   day: '2-digit',
   month: '2-digit',
@@ -46,6 +53,33 @@ function ProfileStatsGroup({ title, items }: ProfileStatsGroupProps) {
   );
 }
 
+function ProfileNotice({ title, message, tone, onDismiss }: ProfileNoticeProps) {
+  return (
+    <div
+      className={[
+        styles.noticeToast,
+        tone === 'error' ? styles.noticeToastError : styles.noticeToastWarning,
+      ].join(' ')}
+      role="status"
+      aria-live={tone === 'error' ? 'assertive' : 'polite'}
+      data-testid="profile-notice"
+    >
+      <div className={styles.noticeCopy}>
+        <div className={styles.noticeTitle}>{title}</div>
+        <div className={styles.noticeMessage}>{message}</div>
+      </div>
+      <button
+        type="button"
+        className={styles.noticeDismiss}
+        aria-label="Скрыть уведомление"
+        onClick={onDismiss}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 export const ProfilePage = () => {
   const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
   const [profile, setProfile] = useState<PlayerProfileViewModel | null>(null);
@@ -53,6 +87,7 @@ export const ProfilePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [matchFilter, setMatchFilter] = useState<MatchFilterId>('all');
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,17 +136,15 @@ export const ProfilePage = () => {
   const fallbackDisplayName = session?.username ?? session?.userId ?? 'Игрок';
   const displayName = profile?.displayName ?? fallbackDisplayName;
   const avatarInitial = profile?.avatarInitial ?? fallbackDisplayName.slice(0, 1).toUpperCase();
-  const accountMeta = profile
-    ? profile.user.email
-    : session
-      ? `ID: ${session.userId}`
-      : 'Авторизуйтесь, чтобы увидеть профиль';
   const joinedAtLabel = profile?.joinedAtLabel ?? formatSessionDate(session?.createdAt);
   const profileHint = isLoading
     ? 'Загружаем статистику по аккаунту, колодам и матчам.'
     : error || warning
       ? 'Не все данные профиля удалось загрузить.'
       : 'Профиль собран из живых данных аккаунта, колод и матчей.';
+  const noticeTitle = error ? 'Профиль не загружен' : warning ? 'Часть данных недоступна' : null;
+  const noticeMessage = error ?? warning;
+  const noticeTone = error ? 'error' : 'warning';
   const filteredRecentMatches =
     profile?.recentMatches.filter((match) => {
       if (matchFilter === 'wins') {
@@ -125,11 +158,27 @@ export const ProfilePage = () => {
       return true;
     }) ?? [];
 
+  useEffect(() => {
+    setNoticeDismissed(false);
+  }, [noticeTitle, noticeMessage]);
+
   return (
     <PageShell
       title="Кабинет мага"
       subtitle="Ваш путь, рабочие колоды и хроника последних дуэлей."
-      actions={<HomeLinkButton />}
+      actions={
+        <div className={styles.headerActions}>
+          {noticeTitle && noticeMessage && !noticeDismissed ? (
+            <ProfileNotice
+              title={noticeTitle}
+              message={noticeMessage}
+              tone={noticeTone}
+              onDismiss={() => setNoticeDismissed(true)}
+            />
+          ) : null}
+          <HomeLinkButton />
+        </div>
+      }
     >
       <Card title="Профиль игрока">
         <div className={styles.profileHeader}>
@@ -139,7 +188,6 @@ export const ProfilePage = () => {
           <div className={styles.profileMeta}>
             <div className={styles.profileName}>{displayName}</div>
             <div className={styles.metaRow}>
-              <span>{accountMeta}</span>
               <span>В академии с {joinedAtLabel}</span>
             </div>
             <div className={styles.metaHint}>{profileHint}</div>
@@ -161,26 +209,8 @@ export const ProfilePage = () => {
         </Card>
       ) : null}
 
-      {session && !isLoading && error ? (
-        <Card title="Не удалось загрузить профиль">
-          <p className={styles.emptyState}>{error}</p>
-        </Card>
-      ) : null}
-
-      {session && !isLoading && !error && warning ? (
-        <Card title="Не удалось загрузить профиль">
-          <p className={styles.emptyState}>{warning}</p>
-        </Card>
-      ) : null}
-
       {session && !isLoading && profile ? (
         <>
-          <Card title="Аккаунт">
-            <div className={styles.statsGrid}>
-              <ProfileStatsGroup title="Учётная запись" items={profile.accountStats} />
-            </div>
-          </Card>
-
           <Card title="Сводка по матчам">
             <div className={styles.statsGrid}>
               <ProfileStatsGroup title="Общая" items={profile.matchStats} />
