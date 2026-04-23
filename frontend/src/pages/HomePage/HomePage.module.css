@@ -834,18 +834,42 @@
 
 .friendTechMenuPanel {
   position: fixed;
-  min-width: 168px;
-  width: 168px;
+  min-width: 220px;
+  width: 220px;
   composes: floatingSurface from "@/components/SurfaceTokens.module.css";
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 6px;
   display: grid;
   gap: 4px;
   z-index: 40;
 }
 
+.friendTechMenuHeader {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  padding: 8px 10px 10px;
+}
+
+.friendTechMenuTitle {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--theme-text-strong);
+}
+
+.friendTechMenuSub {
+  color: var(--theme-text-dim);
+}
+
+.friendTechMenuSection {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid rgba(196, 154, 90, 0.14);
+  padding-top: 8px;
+}
+
 .friendTechMenuItemDanger {
-  min-height: 34px;
+  min-height: 38px;
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;

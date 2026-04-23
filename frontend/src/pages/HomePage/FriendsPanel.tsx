@@ -75,7 +75,7 @@ const toInviteStatusInfoLabel = (status: MatchInvite["status"]): string | null =
 
 const MATCH_CONFIRM_STALE_MESSAGE =
   "Подготовленная сессия больше недоступна. Отправьте приглашение ещё раз.";
-const FRIEND_TECH_MENU_WIDTH = 168;
+const FRIEND_TECH_MENU_WIDTH = 220;
 const FRIEND_TECH_MENU_GAP = 8;
 
 const upsertInvite = (current: MatchInvite[], invite: MatchInvite): MatchInvite[] => {
@@ -196,6 +196,7 @@ export function FriendsPanel({
   const [activeFriendUserId, setActiveFriendUserId] = useState<string | null>(null);
   const [activeFriendMenu, setActiveFriendMenu] = useState<{
     userId: string;
+    username: string;
     top: number;
     left: number;
   } | null>(null);
@@ -670,14 +671,18 @@ export function FriendsPanel({
 
                     const button = event.currentTarget;
                     const rect = button.getBoundingClientRect();
-                    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+                    const viewportWidth = document.documentElement.clientWidth;
                     activeFriendMenuButtonRef.current = button;
                     setActiveFriendMenu({
                       userId: friend.userId,
+                      username: friend.username,
                       top: rect.bottom + FRIEND_TECH_MENU_GAP,
-                      left: Math.min(
-                        rect.left,
-                        viewportWidth - FRIEND_TECH_MENU_WIDTH - FRIEND_TECH_MENU_GAP,
+                      left: Math.max(
+                        FRIEND_TECH_MENU_GAP,
+                        Math.min(
+                          rect.right - FRIEND_TECH_MENU_WIDTH,
+                          viewportWidth - FRIEND_TECH_MENU_WIDTH - FRIEND_TECH_MENU_GAP,
+                        ),
                       ),
                     });
                   }}
@@ -974,27 +979,33 @@ export function FriendsPanel({
           ref={friendMenuRef}
           style={{ top: `${activeFriendMenu.top}px`, left: `${activeFriendMenu.left}px` }}
         >
-          <button
-            className={styles.friendTechMenuItemDanger}
-            type="button"
-            role="menuitem"
-            aria-label="Удалить"
-            disabled={activeFriendUserId === activeFriendMenu.userId}
-            onClick={async () => {
-              setFriendActionError(null);
-              setActiveFriendUserId(activeFriendMenu.userId);
-              try {
-                await socialWsService.deleteFriend(activeFriendMenu.userId);
-                setActiveFriendMenu(null);
-              } catch {
-                setFriendActionError("Не удалось удалить друга");
-              } finally {
-                setActiveFriendUserId(null);
-              }
-            }}
-          >
-            Удалить из друзей
-          </button>
+          <div className={styles.friendTechMenuHeader}>
+            <div className={styles.friendTechMenuTitle}>{activeFriendMenu.username}</div>
+            <div className={styles.friendTechMenuSub}>Управление другом</div>
+          </div>
+          <div className={styles.friendTechMenuSection}>
+            <button
+              className={styles.friendTechMenuItemDanger}
+              type="button"
+              role="menuitem"
+              aria-label="Удалить"
+              disabled={activeFriendUserId === activeFriendMenu.userId}
+              onClick={async () => {
+                setFriendActionError(null);
+                setActiveFriendUserId(activeFriendMenu.userId);
+                try {
+                  await socialWsService.deleteFriend(activeFriendMenu.userId);
+                  setActiveFriendMenu(null);
+                } catch {
+                  setFriendActionError("Не удалось удалить друга");
+                } finally {
+                  setActiveFriendUserId(null);
+                }
+              }}
+            >
+              Удалить из друзей
+            </button>
+          </div>
         </div>,
         document.body,
       ) : null}
