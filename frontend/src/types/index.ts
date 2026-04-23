@@ -18,6 +18,20 @@ export type { ApiError, ApiRequestConfig } from './api';
 export type { UserAccount, AuthSession } from './auth';
 export type { DeckCardItem, DeckListResponse, DeckResponse, SaveDeckRequest, UserDeck } from './deck';
 export type {
+  MatchEndReason,
+  MatchListResponse,
+  MatchPlayerFinishResult,
+  MatchPlayerRecord,
+  MatchStatus,
+  MatchSummary,
+} from './match';
+export type {
+  PlayerProfileViewModel,
+  ProfileDeckSummaryItem,
+  ProfileRecentMatchItem,
+  ProfileStatItem,
+} from './profile';
+export type {
   CursorPage,
   Friend,
   FriendListPayload,

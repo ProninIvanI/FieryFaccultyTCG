@@ -157,6 +157,7 @@ const mapMatchPlayerRow = (row: {
   id: string;
   match_id: string;
   user_id: string;
+  username: string | null;
   player_slot: number;
   player_id_in_match: string;
   deck_id: string | null;
@@ -171,6 +172,7 @@ const mapMatchPlayerRow = (row: {
   id: row.id,
   matchId: row.match_id,
   userId: row.user_id,
+  username: row.username ?? undefined,
   playerSlot: row.player_slot,
   playerIdInMatch: row.player_id_in_match,
   deckId: row.deck_id,
@@ -259,6 +261,7 @@ const loadPlayersByMatchIds = async (
     id: string;
     match_id: string;
     user_id: string;
+    username: string | null;
     player_slot: number;
     player_id_in_match: string;
     deck_id: string | null;
@@ -272,21 +275,23 @@ const loadPlayersByMatchIds = async (
   }>(
     `
       SELECT
-        id,
-        match_id,
-        user_id,
-        player_slot,
-        player_id_in_match,
-        deck_id,
-        deck_name_snapshot,
-        deck_snapshot_json,
-        is_winner,
-        finish_result,
-        connected_at,
-        disconnected_at,
-        created_at
-      FROM match_players
-      WHERE match_id = ANY($1::text[])
+        mp.id,
+        mp.match_id,
+        mp.user_id,
+        u.username,
+        mp.player_slot,
+        mp.player_id_in_match,
+        mp.deck_id,
+        mp.deck_name_snapshot,
+        mp.deck_snapshot_json,
+        mp.is_winner,
+        mp.finish_result,
+        mp.connected_at,
+        mp.disconnected_at,
+        mp.created_at
+      FROM match_players mp
+      LEFT JOIN users u ON u.id = mp.user_id
+      WHERE mp.match_id = ANY($1::text[])
       ORDER BY match_id, player_slot
     `,
     [matchIds],

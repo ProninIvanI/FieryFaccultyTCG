@@ -124,6 +124,7 @@ export interface MatchPlayerRecord {
   id: string;
   matchId: string;
   userId: string;
+  username?: string;
   playerSlot: number;
   playerIdInMatch: string;
   deckId: string | null;

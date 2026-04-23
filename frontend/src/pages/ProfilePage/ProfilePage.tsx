@@ -1,38 +1,127 @@
 import { useEffect, useState } from 'react';
 import { Card, HomeLinkButton, PageShell } from '@/components';
-import { authService } from '@/services';
+import { authService, profileService } from '@/services';
+import { AuthSession, PlayerProfileViewModel, ProfileStatItem } from '@/types';
 import styles from './ProfilePage.module.css';
 
+type ProfileStatsGroupProps = {
+  title: string;
+  items: ProfileStatItem[];
+};
+
+type MatchFilterId = 'all' | 'wins' | 'losses';
+
+const sessionDateFormatter = new Intl.DateTimeFormat('ru-RU', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+
+const formatSessionDate = (value: string | undefined): string => {
+  if (!value) {
+    return '—';
+  }
+
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) {
+    return '—';
+  }
+
+  return sessionDateFormatter.format(new Date(timestamp));
+};
+
+function ProfileStatsGroup({ title, items }: ProfileStatsGroupProps) {
+  return (
+    <div className={styles.statsGroup}>
+      <h3 className={styles.sectionTitle}>{title}</h3>
+      <div className={styles.statPairs}>
+        {items.map((item) => (
+          <div className={styles.statRow} key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export const ProfilePage = () => {
-  const [session, setSession] = useState(() => authService.getSession());
+  const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
+  const [profile, setProfile] = useState<PlayerProfileViewModel | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [matchFilter, setMatchFilter] = useState<MatchFilterId>('all');
 
   useEffect(() => {
     let cancelled = false;
     const currentSession = authService.getSession();
     setSession(currentSession);
 
-    if (!currentSession || currentSession.username) {
+    if (!currentSession) {
+      setIsLoading(false);
+      setProfile(null);
       return;
     }
 
-    void authService.ensureSessionProfile(currentSession).then((nextSession) => {
-      if (!cancelled) {
-        setSession(nextSession);
-      }
-    });
+    setIsLoading(true);
+    setError(null);
+
+    void profileService.getMyProfile()
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (!result.ok) {
+          setProfile(null);
+          setError(result.error);
+          return;
+        }
+
+        setProfile(result.profile);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const displayName = session?.username ?? session?.userId ?? 'Игрок';
-  const avatarInitial = displayName.slice(0, 1).toUpperCase();
+  const fallbackDisplayName = session?.username ?? session?.userId ?? 'Игрок';
+  const displayName = profile?.displayName ?? fallbackDisplayName;
+  const avatarInitial = profile?.avatarInitial ?? fallbackDisplayName.slice(0, 1).toUpperCase();
+  const accountMeta = profile
+    ? profile.user.email
+    : session
+      ? `ID: ${session.userId}`
+      : 'Авторизуйтесь, чтобы увидеть профиль';
+  const joinedAtLabel = profile?.joinedAtLabel ?? formatSessionDate(session?.createdAt);
+  const profileHint = isLoading
+    ? 'Загружаем статистику по аккаунту, колодам и матчам.'
+    : error
+      ? 'Не все данные профиля удалось загрузить.'
+      : 'Профиль собран из живых данных аккаунта, колод и матчей.';
+  const filteredRecentMatches = profile?.recentMatches.filter((match) => {
+    if (matchFilter === 'wins') {
+      return match.resultTone === 'positive';
+    }
+
+    if (matchFilter === 'losses') {
+      return match.resultTone === 'negative';
+    }
+
+    return true;
+  }) ?? [];
 
   return (
     <PageShell
       title="Кабинет мага"
-      subtitle="Ваш путь, любимые колоды и знаки мастерства."
+      subtitle="Ваш путь, рабочие колоды и хроника последних дуэлей."
       actions={<HomeLinkButton />}
     >
       <Card title="Профиль игрока">
@@ -41,90 +130,147 @@ export const ProfilePage = () => {
           <div className={styles.profileMeta}>
             <div className={styles.profileName}>{displayName}</div>
             <div className={styles.metaRow}>
-              <span>Уровень: 12</span>
-              <span>Ранг: Адепт</span>
+              <span>{accountMeta}</span>
+              <span>В академии с {joinedAtLabel}</span>
             </div>
-            <div className={styles.metaHint}>Ранг зависит от уровня и прогрессии.</div>
+            <div className={styles.metaHint}>{profileHint}</div>
           </div>
         </div>
       </Card>
 
-      <Card title="Статистика">
-        <div className={styles.statsGrid}>
-          <div className={styles.statsGroup}>
-            <h3 className={styles.sectionTitle}>Общая</h3>
-            <div className={styles.statPairs}>
-              <span>Бои</span><strong>120</strong>
-              <span>Победы</span><strong>78</strong>
-              <span>Поражения</span><strong>42</strong>
-              <span>Винрейт</span><strong>65%</strong>
+      {!session ? (
+        <Card title="Профиль недоступен">
+          <p className={styles.emptyState}>
+            Войдите в аккаунт, чтобы увидеть статистику, колоды и историю матчей.
+          </p>
+        </Card>
+      ) : null}
+
+      {session && isLoading ? (
+        <Card title="Загрузка">
+          <p className={styles.emptyState}>Подтягиваем актуальные данные профиля...</p>
+        </Card>
+      ) : null}
+
+      {session && !isLoading && error ? (
+        <Card title="Не удалось загрузить профиль">
+          <p className={styles.emptyState}>{error}</p>
+        </Card>
+      ) : null}
+
+      {session && !isLoading && !error && profile ? (
+        <>
+          <Card title="Аккаунт">
+            <div className={styles.statsGrid}>
+              <ProfileStatsGroup title="Учётная запись" items={profile.accountStats} />
             </div>
-          </div>
+          </Card>
 
-          <div className={styles.statsGroup}>
-            <h3 className={styles.sectionTitle}>Соревновательная</h3>
-            <div className={styles.statPairs}>
-              <span>Рейтинг</span><strong>-</strong>
-              <span>Макс. рейтинг</span><strong>-</strong>
-              <span>Место в таблице</span><strong>-</strong>
+          <Card title="Сводка по матчам">
+            <div className={styles.statsGrid}>
+              <ProfileStatsGroup title="Общая" items={profile.matchStats} />
+              <ProfileStatsGroup title="Результаты" items={profile.resultStats} />
+              <ProfileStatsGroup title="Активность" items={profile.activityStats} />
             </div>
-          </div>
+          </Card>
 
-          <div className={styles.statsGroup}>
-            <h3 className={styles.sectionTitle}>Серии</h3>
-            <div className={styles.statPairs}>
-              <span>Текущая победная</span><strong>3</strong>
-              <span>Лучшая победная</span><strong>11</strong>
-              <span>Лучшая поражений</span><strong>4</strong>
+          <Card title="Колоды">
+            <div className={styles.deckMeta}>
+              <span>Всего колод: {profile.totalDecks}</span>
+              <span>Последнее обновление: {profile.latestDeckUpdateLabel}</span>
             </div>
-          </div>
+            {profile.recentDecks.length > 0 ? (
+              <div className={styles.deckList}>
+                {profile.recentDecks.map((deck) => (
+                  <div className={styles.deckItem} key={deck.id}>
+                    <div className={styles.itemHeader}>
+                      <div className={styles.itemTitle}>{deck.name}</div>
+                      <div className={styles.itemDate}>{deck.updatedAtLabel}</div>
+                    </div>
+                    <div className={styles.itemMetaRow}>
+                      <span>{deck.cardCountLabel}</span>
+                      <span>{deck.characterLabel}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className={styles.emptyState}>Колод пока нет. Первая колода появится в мастерской.</p>
+            )}
+          </Card>
 
-          <div className={styles.statsGroup}>
-            <h3 className={styles.sectionTitle}>Эффективность</h3>
-            <div className={styles.statPairs}>
-              <span>Средний урон</span><strong>-</strong>
-              <span>Максимальный урон</span><strong>-</strong>
-            </div>
-          </div>
+          <Card title="Недавние матчи">
+            {profile.recentMatches.length > 0 ? (
+              <>
+                <div className={styles.filterRow}>
+                  <button
+                    type="button"
+                    className={`${styles.filterChip} ${matchFilter === 'all' ? styles.filterChipActive : ''}`.trim()}
+                    onClick={() => setMatchFilter('all')}
+                  >
+                    Все
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.filterChip} ${matchFilter === 'wins' ? styles.filterChipActive : ''}`.trim()}
+                    onClick={() => setMatchFilter('wins')}
+                  >
+                    Победы
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.filterChip} ${matchFilter === 'losses' ? styles.filterChipActive : ''}`.trim()}
+                    onClick={() => setMatchFilter('losses')}
+                  >
+                    Поражения
+                  </button>
+                </div>
 
-          <div className={styles.statsGroup}>
-            <h3 className={styles.sectionTitle}>Факультеты</h3>
-            <div className={styles.statPairs}>
-              <span>Победы против Огня</span><strong>20</strong>
-              <span>Победы против Воды</span><strong>18</strong>
-              <span>Победы против Воздуха</span><strong>22</strong>
-              <span>Победы против Земли</span><strong>18</strong>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card title="Колоды">
-        <div className={styles.deckRow}>
-          <span className={styles.deckChip}>Колода 1</span>
-          <span className={styles.deckChip}>Колода 2</span>
-          <span className={styles.deckChip}>Колода 3</span>
-        </div>
-        <div className={styles.deckMeta}>
-          <span>Любимая колода: Колода 1</span>
-          <span>Всего создано колод: 5</span>
-        </div>
-      </Card>
-
-      <Card title="Достижения">
-        <div className={styles.achievementGrid}>
-          <div className={styles.achievementItem} />
-          <div className={styles.achievementItem} />
-          <div className={styles.achievementItem} />
-          <div className={styles.achievementItem} />
-          <div className={styles.achievementItem} />
-          <div className={styles.achievementItem} />
-        </div>
-      </Card>
-
-      <Card title="История игр">
-        <p>Раздел истории матчей будет наполнен следующим шагом.</p>
-      </Card>
+                {filteredRecentMatches.length > 0 ? (
+                  <div className={styles.matchList}>
+                    {filteredRecentMatches.map((match) => (
+                      <div className={styles.matchItem} key={match.matchId}>
+                        <div className={styles.itemHeader}>
+                          <div className={styles.itemHeading}>
+                            <div className={styles.itemTitle}>{match.title}</div>
+                            <div className={styles.itemSubtitle}>{match.subtitleLabel}</div>
+                          </div>
+                          <div className={styles.itemDate}>{match.dateLabel}</div>
+                        </div>
+                        <div className={styles.matchBadges}>
+                          <span
+                            className={[
+                              styles.resultBadge,
+                              match.resultTone === 'positive'
+                                ? styles.resultBadgePositive
+                                : match.resultTone === 'negative'
+                                  ? styles.resultBadgeNegative
+                                  : styles.resultBadgeNeutral,
+                            ].join(' ')}
+                          >
+                            {match.resultLabel}
+                          </span>
+                          <span className={styles.statusBadge}>{match.statusLabel}</span>
+                        </div>
+                        <div className={styles.itemMetaRow}>
+                          <span>{match.deckLabel}</span>
+                          <span>vs {match.opponentDeckLabel}</span>
+                          <span>{match.endReasonLabel}</span>
+                        </div>
+                        <div className={styles.matchMeta}>{match.subtitleLabel} · {match.metaLabel}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className={styles.emptyState}>Под выбранный фильтр матчей пока нет.</p>
+                )}
+              </>
+            ) : (
+              <p className={styles.emptyState}>Матчей пока нет. Сыграйте первую дуэль, и история появится здесь.</p>
+            )}
+          </Card>
+        </>
+      ) : null}
     </PageShell>
   );
 };
