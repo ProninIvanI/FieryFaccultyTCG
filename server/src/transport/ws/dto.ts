@@ -1,13 +1,20 @@
 import type { PlayerBoardModel, RoundDraftValidationError, RoundResolutionResult } from '../../../../game-core/src/types';
 import type { MatchInviteRecord } from '../../domain/social/MatchInviteRegistry';
 import type { PresenceState } from '../../domain/social/PresenceRegistry';
+import type { SocialGraphSnapshot } from '../../infrastructure/social/SocialGraphClient';
 
 export type ClientMessageDto =
   | { type: 'join'; sessionId: string; token: string; deckId: string; seed?: number }
   | { type: 'roundDraft.replace'; roundNumber: number; intents: unknown[] }
   | { type: 'roundDraft.lock'; roundNumber: number }
   | { type: 'social.subscribe'; token: string }
+  | { type: 'social.friends.query' }
   | { type: 'social.presence.query'; userIds: string[] }
+  | { type: 'friendRequest.send'; username: string }
+  | { type: 'friendRequest.accept'; requestId: string }
+  | { type: 'friendRequest.decline'; requestId: string }
+  | { type: 'friendRequest.cancel'; requestId: string }
+  | { type: 'friend.delete'; friendUserId: string }
   | { type: 'matchInvite.send'; targetUserId: string }
   | { type: 'matchInvite.respond'; inviteId: string; action: 'accept' | 'decline' }
   | { type: 'matchInvite.cancel'; inviteId: string };
@@ -66,8 +73,22 @@ export type ServerMessageDto =
     }
   | { type: 'roundResolved'; result: RoundResolutionResult }
   | { type: 'social.subscribed'; userId: string; username?: string }
+  | {
+      type: 'social.friends.snapshot';
+      friends: SocialGraphSnapshot['friends'];
+      incomingRequests: SocialGraphSnapshot['incomingRequests'];
+      outgoingRequests: SocialGraphSnapshot['outgoingRequests'];
+    }
   | { type: 'social.presence'; presences: Array<{ userId: string; status: PresenceState }> }
   | { type: 'social.invites.snapshot'; invites: MatchInviteRecord[] }
+  | {
+      type: 'social.friends.rejected';
+      code: 'unauthorized' | 'invalid_payload' | 'internal_error';
+      error: string;
+      requestType: 'social.friends.query' | 'friendRequest.send' | 'friendRequest.accept' | 'friendRequest.decline' | 'friendRequest.cancel' | 'friend.delete';
+      requestId?: string;
+      friendUserId?: string;
+    }
   | { type: 'matchInvite.received'; invite: MatchInviteRecord }
   | { type: 'matchInvite.updated'; invite: MatchInviteRecord }
   | {
@@ -165,9 +186,12 @@ export const parseClientMessage = (raw: string): ParseClientMessageResult => {
     roundNumber?: unknown;
     intents?: unknown;
     userIds?: unknown;
+    username?: unknown;
     targetUserId?: unknown;
     inviteId?: unknown;
     action?: unknown;
+    requestId?: unknown;
+    friendUserId?: unknown;
   };
   if (data.type === 'join') {
     if (!isString(data.sessionId) || !isString(data.token) || !isString(data.deckId)) {
@@ -251,6 +275,94 @@ export const parseClientMessage = (raw: string): ParseClientMessageResult => {
       value: {
         type: 'social.presence.query',
         userIds: data.userIds,
+      },
+    };
+  }
+  if (data.type === 'social.friends.query') {
+    return {
+      ok: true,
+      value: {
+        type: 'social.friends.query',
+      },
+    };
+  }
+  if (data.type === 'friendRequest.send') {
+    if (!isString(data.username)) {
+      return {
+        ok: false,
+        error: 'Invalid friendRequest.send payload',
+        rejection: toTransportParseError('invalid_payload', 'Invalid friendRequest.send payload', 'friendRequest.send'),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        type: 'friendRequest.send',
+        username: data.username,
+      },
+    };
+  }
+  if (data.type === 'friendRequest.accept') {
+    if (!isString(data.requestId)) {
+      return {
+        ok: false,
+        error: 'Invalid friendRequest.accept payload',
+        rejection: toTransportParseError('invalid_payload', 'Invalid friendRequest.accept payload', 'friendRequest.accept'),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        type: 'friendRequest.accept',
+        requestId: data.requestId,
+      },
+    };
+  }
+  if (data.type === 'friendRequest.decline') {
+    if (!isString(data.requestId)) {
+      return {
+        ok: false,
+        error: 'Invalid friendRequest.decline payload',
+        rejection: toTransportParseError('invalid_payload', 'Invalid friendRequest.decline payload', 'friendRequest.decline'),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        type: 'friendRequest.decline',
+        requestId: data.requestId,
+      },
+    };
+  }
+  if (data.type === 'friendRequest.cancel') {
+    if (!isString(data.requestId)) {
+      return {
+        ok: false,
+        error: 'Invalid friendRequest.cancel payload',
+        rejection: toTransportParseError('invalid_payload', 'Invalid friendRequest.cancel payload', 'friendRequest.cancel'),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        type: 'friendRequest.cancel',
+        requestId: data.requestId,
+      },
+    };
+  }
+  if (data.type === 'friend.delete') {
+    if (!isString(data.friendUserId)) {
+      return {
+        ok: false,
+        error: 'Invalid friend.delete payload',
+        rejection: toTransportParseError('invalid_payload', 'Invalid friend.delete payload', 'friend.delete'),
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        type: 'friend.delete',
+        friendUserId: data.friendUserId,
       },
     };
   }

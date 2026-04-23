@@ -10,6 +10,14 @@ import { MatchInviteService } from '../services/matchInviteService';
 
 const INTERNAL_TOKEN = 'dev-internal-token';
 const originalAreFriends = FriendService.prototype.areFriends;
+const originalListFriends = FriendService.prototype.listFriends;
+const originalListIncomingRequests = FriendService.prototype.listIncomingRequests;
+const originalListOutgoingRequests = FriendService.prototype.listOutgoingRequests;
+const originalSendRequest = FriendService.prototype.sendRequest;
+const originalAcceptRequest = FriendService.prototype.acceptRequest;
+const originalDeclineRequest = FriendService.prototype.declineRequest;
+const originalCancelRequest = FriendService.prototype.cancelRequest;
+const originalDeleteFriend = FriendService.prototype.deleteFriend;
 const originalUpsertInvite = MatchInviteService.prototype.upsertInvite;
 const originalListInvites = MatchInviteService.prototype.listActiveInvitesForUser;
 
@@ -66,6 +74,50 @@ describe('internalMatchRoutes', () => {
       ok: true,
       areFriends: true,
     });
+    FriendService.prototype.listFriends = async () => ({
+      items: [],
+      nextCursor: null,
+    });
+    FriendService.prototype.listIncomingRequests = async () => ({
+      items: [],
+      nextCursor: null,
+    });
+    FriendService.prototype.listOutgoingRequests = async () => ({
+      items: [],
+      nextCursor: null,
+    });
+    FriendService.prototype.sendRequest = async () => ({
+      ok: true,
+      data: {
+        id: 'request_1',
+        senderUserId: 'user_1',
+        senderUsername: 'Alpha',
+        receiverUserId: 'user_2',
+        receiverUsername: 'Bravo',
+        status: 'pending',
+        createdAt: '2026-04-22T10:00:00.000Z',
+        updatedAt: '2026-04-22T10:00:00.000Z',
+      },
+    });
+    FriendService.prototype.acceptRequest = async () => ({
+      ok: true,
+      data: {
+        id: 'request_1',
+        senderUserId: 'user_1',
+        senderUsername: 'Alpha',
+        receiverUserId: 'user_2',
+        receiverUsername: 'Bravo',
+        status: 'accepted',
+        createdAt: '2026-04-22T10:00:00.000Z',
+        updatedAt: '2026-04-22T10:05:00.000Z',
+      },
+    });
+    FriendService.prototype.declineRequest = FriendService.prototype.acceptRequest;
+    FriendService.prototype.cancelRequest = FriendService.prototype.acceptRequest;
+    FriendService.prototype.deleteFriend = async () => ({
+      ok: true,
+      message: 'Друг удалён',
+    });
     MatchInviteService.prototype.upsertInvite = async (input) => ({
       ok: true,
       data: {
@@ -80,6 +132,14 @@ describe('internalMatchRoutes', () => {
 
   afterEach(() => {
     FriendService.prototype.areFriends = originalAreFriends;
+    FriendService.prototype.listFriends = originalListFriends;
+    FriendService.prototype.listIncomingRequests = originalListIncomingRequests;
+    FriendService.prototype.listOutgoingRequests = originalListOutgoingRequests;
+    FriendService.prototype.sendRequest = originalSendRequest;
+    FriendService.prototype.acceptRequest = originalAcceptRequest;
+    FriendService.prototype.declineRequest = originalDeclineRequest;
+    FriendService.prototype.cancelRequest = originalCancelRequest;
+    FriendService.prototype.deleteFriend = originalDeleteFriend;
     MatchInviteService.prototype.upsertInvite = originalUpsertInvite;
     MatchInviteService.prototype.listActiveInvitesForUser = originalListInvites;
   });
@@ -202,6 +262,126 @@ describe('internalMatchRoutes', () => {
               expiresAt: '2026-04-22T10:02:00.000Z',
             },
           ],
+        },
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('returns social graph snapshot for internal clients', async () => {
+    let capturedUserId: string | null = null;
+
+    FriendService.prototype.listFriends = async ({ authUserId }) => {
+      capturedUserId = authUserId;
+      return {
+        items: [
+          {
+            userId: 'user_2',
+            username: 'Bravo',
+            createdAt: '2026-04-22T10:00:00.000Z',
+          },
+        ],
+        nextCursor: null,
+      };
+    };
+
+    const server = await listen();
+
+    try {
+      const response = await requestJson(
+        server,
+        '/api/internal/social/friends?userId=user_1&limit=50',
+        {
+          headers: {
+            'x-internal-token': INTERNAL_TOKEN,
+          },
+        },
+      );
+
+      assert.equal(response.status, 200);
+      assert.equal(capturedUserId, 'user_1');
+      assert.deepEqual(response.body, {
+        success: true,
+        data: {
+          friends: {
+            items: [
+              {
+                userId: 'user_2',
+                username: 'Bravo',
+                createdAt: '2026-04-22T10:00:00.000Z',
+              },
+            ],
+            nextCursor: null,
+          },
+          incomingRequests: {
+            items: [],
+            nextCursor: null,
+          },
+          outgoingRequests: {
+            items: [],
+            nextCursor: null,
+          },
+        },
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('creates friend request for internal clients', async () => {
+    let capturedArgs: { actorUserId: string; username: string } | null = null;
+
+    FriendService.prototype.sendRequest = async (actorUserId, username) => {
+      capturedArgs = { actorUserId, username };
+      return {
+        ok: true,
+        data: {
+          id: 'request_1',
+          senderUserId: actorUserId,
+          senderUsername: 'Alpha',
+          receiverUserId: 'user_2',
+          receiverUsername: username,
+          status: 'pending',
+          createdAt: '2026-04-22T10:00:00.000Z',
+          updatedAt: '2026-04-22T10:00:00.000Z',
+        },
+      };
+    };
+
+    const server = await listen();
+
+    try {
+      const response = await requestJson(server, '/api/internal/social/friend-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-token': INTERNAL_TOKEN,
+        },
+        body: JSON.stringify({
+          actorUserId: 'user_1',
+          username: 'Bravo',
+        }),
+      });
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(capturedArgs, {
+        actorUserId: 'user_1',
+        username: 'Bravo',
+      });
+      assert.deepEqual(response.body, {
+        success: true,
+        data: {
+          request: {
+            id: 'request_1',
+            senderUserId: 'user_1',
+            senderUsername: 'Alpha',
+            receiverUserId: 'user_2',
+            receiverUsername: 'Bravo',
+            status: 'pending',
+            createdAt: '2026-04-22T10:00:00.000Z',
+            updatedAt: '2026-04-22T10:00:00.000Z',
+          },
         },
       });
     } finally {

@@ -120,6 +120,45 @@ describe('socialWsService', () => {
     unsubscribe();
   });
 
+  it('emits friends snapshot events from social friends snapshot payload', async () => {
+    const listener = vi.fn();
+    const unsubscribe = socialWsService.subscribe(listener);
+    const connectPromise = socialWsService.connect('token_1', 'ws://social.test');
+    const socket = FakeWebSocket.instances[0];
+
+    socket.emitOpen();
+    await connectPromise;
+
+    socket.emitMessage({
+      type: 'social.friends.snapshot',
+      friends: [
+        {
+          userId: 'user_bravo',
+          username: 'Bravo',
+          createdAt: '2026-04-22T10:00:00.000Z',
+        },
+      ],
+      incomingRequests: [],
+      outgoingRequests: [],
+    });
+    await flushMicrotasks();
+
+    expect(listener).toHaveBeenCalledWith({
+      type: 'friendsSnapshot',
+      friends: [
+        {
+          userId: 'user_bravo',
+          username: 'Bravo',
+          createdAt: '2026-04-22T10:00:00.000Z',
+        },
+      ],
+      incomingRequests: [],
+      outgoingRequests: [],
+    });
+
+    unsubscribe();
+  });
+
   it('emits invite snapshot events from social snapshot payload', async () => {
     const listener = vi.fn();
     const unsubscribe = socialWsService.subscribe(listener);
@@ -182,6 +221,23 @@ describe('socialWsService', () => {
       JSON.stringify({
         type: 'social.presence.query',
         userIds: ['user_alpha', 'user_bravo'],
+      }),
+    );
+  });
+
+  it('sends friend request command over websocket', async () => {
+    const connectPromise = socialWsService.connect('token_1', 'ws://social.test');
+    const socket = FakeWebSocket.instances[0];
+
+    socket.emitOpen();
+    await connectPromise;
+
+    await socialWsService.sendFriendRequest('Bravo');
+
+    expect(socket.sent).toContain(
+      JSON.stringify({
+        type: 'friendRequest.send',
+        username: 'Bravo',
       }),
     );
   });

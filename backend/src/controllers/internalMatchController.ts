@@ -3,11 +3,13 @@ import {
   ApiResponse,
   CompleteMatchInput,
   CreateMatchRecordInput,
+  FriendRequestRecordDto,
   MatchInviteListResponse,
   MatchInviteResponse,
   MatchReplayResponse,
   MatchResponse,
   SaveMatchReplayInput,
+  SocialGraphSnapshotResponse,
   UpsertMatchInviteInput,
 } from '../types';
 import { MatchService } from '../services/matchService';
@@ -295,6 +297,131 @@ export const listInternalActiveMatchInvites = async (
     success: true,
     data: {
       invites: result.data,
+    },
+  });
+};
+
+export const getInternalSocialGraphSnapshot = async (
+  req: Request,
+  res: Response<ApiResponse<SocialGraphSnapshotResponse>>,
+): Promise<void> => {
+  const userId = typeof req.query.userId === 'string' ? req.query.userId : '';
+  const limitRaw = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : undefined;
+  const limit = Number.isFinite(limitRaw) ? limitRaw : undefined;
+
+  const [friends, incomingRequests, outgoingRequests] = await Promise.all([
+    friendService.listFriends({ authUserId: userId, limit }),
+    friendService.listIncomingRequests({ authUserId: userId, limit }),
+    friendService.listOutgoingRequests({ authUserId: userId, limit }),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    data: {
+      friends,
+      incomingRequests,
+      outgoingRequests,
+    },
+  });
+};
+
+export const createInternalFriendRequest = async (
+  req: Request,
+  res: Response<ApiResponse<{ request: FriendRequestRecordDto }>>,
+): Promise<void> => {
+  const actorUserId = typeof req.body?.actorUserId === 'string' ? req.body.actorUserId : '';
+  const username = typeof req.body?.username === 'string' ? req.body.username : '';
+  const result = await friendService.sendRequest(actorUserId, username);
+
+  if (!result.ok) {
+    res.status(400).json({ success: false, error: result.error, message: result.code });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      request: result.data,
+    },
+  });
+};
+
+export const acceptInternalFriendRequest = async (
+  req: Request,
+  res: Response<ApiResponse<{ request: FriendRequestRecordDto }>>,
+): Promise<void> => {
+  const actorUserId = typeof req.body?.actorUserId === 'string' ? req.body.actorUserId : '';
+  const result = await friendService.acceptRequest(actorUserId, req.params.requestId);
+
+  if (!result.ok) {
+    res.status(400).json({ success: false, error: result.error, message: result.code });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      request: result.data,
+    },
+  });
+};
+
+export const declineInternalFriendRequest = async (
+  req: Request,
+  res: Response<ApiResponse<{ request: FriendRequestRecordDto }>>,
+): Promise<void> => {
+  const actorUserId = typeof req.body?.actorUserId === 'string' ? req.body.actorUserId : '';
+  const result = await friendService.declineRequest(actorUserId, req.params.requestId);
+
+  if (!result.ok) {
+    res.status(400).json({ success: false, error: result.error, message: result.code });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      request: result.data,
+    },
+  });
+};
+
+export const cancelInternalFriendRequest = async (
+  req: Request,
+  res: Response<ApiResponse<{ request: FriendRequestRecordDto }>>,
+): Promise<void> => {
+  const actorUserId = typeof req.body?.actorUserId === 'string' ? req.body.actorUserId : '';
+  const result = await friendService.cancelRequest(actorUserId, req.params.requestId);
+
+  if (!result.ok) {
+    res.status(400).json({ success: false, error: result.error, message: result.code });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      request: result.data,
+    },
+  });
+};
+
+export const deleteInternalFriend = async (
+  req: Request,
+  res: Response<ApiResponse<{ message: string }>>,
+): Promise<void> => {
+  const actorUserId = typeof req.query.actorUserId === 'string' ? req.query.actorUserId : '';
+  const result = await friendService.deleteFriend(actorUserId, req.params.friendUserId);
+
+  if (!result.ok) {
+    res.status(400).json({ success: false, error: result.error, message: result.code });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      message: result.message,
     },
   });
 };

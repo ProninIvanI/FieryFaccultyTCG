@@ -18,6 +18,10 @@ import {
   HttpMatchInvitePersistenceClient,
   MatchInvitePersistenceClientLike,
 } from '../../infrastructure/social/MatchInvitePersistenceClient';
+import {
+  HttpSocialGraphClient,
+  SocialGraphClientLike,
+} from '../../infrastructure/social/SocialGraphClient';
 
 type IdentityResolver = (token: string) => Promise<AuthIdentity | null>;
 
@@ -60,6 +64,7 @@ export class WsGateway {
     private readonly matchPersistence: MatchPersistenceClientLike = new NoopMatchPersistenceClient(),
     private readonly friendshipClient: FriendshipClientLike = new HttpFriendshipClient(),
     private readonly invitePersistence: MatchInvitePersistenceClientLike = new HttpMatchInvitePersistenceClient(),
+    private readonly socialGraphClient: SocialGraphClientLike = new HttpSocialGraphClient(),
   ) {}
 
   start(port: number): void {
@@ -118,6 +123,7 @@ export class WsGateway {
         userId: identity.userId,
         username: identity.username,
       });
+      await this.sendSocialSnapshot(identity.userId, socket);
       this.send(socket, {
         type: 'social.presence',
         presences: this.presenceRegistry.getPresences([identity.userId]),
@@ -135,6 +141,16 @@ export class WsGateway {
       });
       return;
     }
+    if (message.type === 'social.friends.query') {
+      const identity = this.socketIdentity.get(socket);
+      if (!identity) {
+        this.sendSocialRejected(socket, 'social.friends.query', 'Unauthorized');
+        return;
+      }
+
+      await this.sendSocialSnapshot(identity.userId, socket);
+      return;
+    }
     if (message.type === 'social.presence.query') {
       const identity = this.socketIdentity.get(socket);
       if (!identity) {
@@ -150,6 +166,97 @@ export class WsGateway {
         type: 'social.presence',
         presences: this.presenceRegistry.getPresences(message.userIds),
       });
+      return;
+    }
+    if (message.type === 'friendRequest.send') {
+      const identity = this.socketIdentity.get(socket);
+      if (!identity) {
+        this.sendSocialRejected(socket, 'friendRequest.send', 'Unauthorized');
+        return;
+      }
+
+      try {
+        const request = await this.socialGraphClient.sendFriendRequest(identity.userId, message.username);
+        await this.broadcastSocialSnapshots([request.senderUserId, request.receiverUserId]);
+      } catch (error) {
+        this.sendSocialRejected(socket, 'friendRequest.send', this.toErrorMessage(error));
+      }
+      return;
+    }
+    if (message.type === 'friendRequest.accept') {
+      const identity = this.socketIdentity.get(socket);
+      if (!identity) {
+        this.sendSocialRejected(socket, 'friendRequest.accept', 'Unauthorized', {
+          requestId: message.requestId,
+        });
+        return;
+      }
+
+      try {
+        const request = await this.socialGraphClient.acceptFriendRequest(identity.userId, message.requestId);
+        await this.broadcastSocialSnapshots([request.senderUserId, request.receiverUserId]);
+      } catch (error) {
+        this.sendSocialRejected(socket, 'friendRequest.accept', this.toErrorMessage(error), {
+          requestId: message.requestId,
+        });
+      }
+      return;
+    }
+    if (message.type === 'friendRequest.decline') {
+      const identity = this.socketIdentity.get(socket);
+      if (!identity) {
+        this.sendSocialRejected(socket, 'friendRequest.decline', 'Unauthorized', {
+          requestId: message.requestId,
+        });
+        return;
+      }
+
+      try {
+        const request = await this.socialGraphClient.declineFriendRequest(identity.userId, message.requestId);
+        await this.broadcastSocialSnapshots([request.senderUserId, request.receiverUserId]);
+      } catch (error) {
+        this.sendSocialRejected(socket, 'friendRequest.decline', this.toErrorMessage(error), {
+          requestId: message.requestId,
+        });
+      }
+      return;
+    }
+    if (message.type === 'friendRequest.cancel') {
+      const identity = this.socketIdentity.get(socket);
+      if (!identity) {
+        this.sendSocialRejected(socket, 'friendRequest.cancel', 'Unauthorized', {
+          requestId: message.requestId,
+        });
+        return;
+      }
+
+      try {
+        const request = await this.socialGraphClient.cancelFriendRequest(identity.userId, message.requestId);
+        await this.broadcastSocialSnapshots([request.senderUserId, request.receiverUserId]);
+      } catch (error) {
+        this.sendSocialRejected(socket, 'friendRequest.cancel', this.toErrorMessage(error), {
+          requestId: message.requestId,
+        });
+      }
+      return;
+    }
+    if (message.type === 'friend.delete') {
+      const identity = this.socketIdentity.get(socket);
+      if (!identity) {
+        this.sendSocialRejected(socket, 'friend.delete', 'Unauthorized', {
+          friendUserId: message.friendUserId,
+        });
+        return;
+      }
+
+      try {
+        await this.socialGraphClient.deleteFriend(identity.userId, message.friendUserId);
+        await this.broadcastSocialSnapshots([identity.userId, message.friendUserId]);
+      } catch (error) {
+        this.sendSocialRejected(socket, 'friend.delete', this.toErrorMessage(error), {
+          friendUserId: message.friendUserId,
+        });
+      }
       return;
     }
     if (message.type === 'join') {
@@ -672,6 +779,71 @@ export class WsGateway {
     }
 
     sockets.forEach((socket) => this.send(socket, message));
+  }
+
+  private async sendSocialSnapshot(userId: string, socket: WebSocket): Promise<void> {
+    try {
+      const snapshot = await this.socialGraphClient.getSnapshot(userId);
+      this.send(socket, {
+        type: 'social.friends.snapshot',
+        friends: snapshot.friends,
+        incomingRequests: snapshot.incomingRequests,
+        outgoingRequests: snapshot.outgoingRequests,
+      });
+    } catch (error) {
+      this.sendSocialRejected(socket, 'social.friends.query', this.toErrorMessage(error));
+    }
+  }
+
+  private async broadcastSocialSnapshots(userIds: string[]): Promise<void> {
+    const uniqueUserIds = Array.from(new Set(userIds.filter((userId) => userId.length > 0)));
+
+    await Promise.all(
+      uniqueUserIds.map(async (userId) => {
+        const sockets = this.userSockets.get(userId);
+        if (!sockets || sockets.size === 0) {
+          return;
+        }
+
+        try {
+          const snapshot = await this.socialGraphClient.getSnapshot(userId);
+          sockets.forEach((socket) =>
+            this.send(socket, {
+              type: 'social.friends.snapshot',
+              friends: snapshot.friends,
+              incomingRequests: snapshot.incomingRequests,
+              outgoingRequests: snapshot.outgoingRequests,
+            }),
+          );
+        } catch (error) {
+          sockets.forEach((socket) =>
+            this.sendSocialRejected(socket, 'social.friends.query', this.toErrorMessage(error)),
+          );
+        }
+      }),
+    );
+  }
+
+  private sendSocialRejected(
+    socket: WebSocket,
+    requestType: Extract<
+      Extract<ServerMessageDto, { type: 'social.friends.rejected' }>['requestType'],
+      string
+    >,
+    error: string,
+    extra: Partial<Extract<ServerMessageDto, { type: 'social.friends.rejected' }>> = {},
+  ): void {
+    this.send(socket, {
+      type: 'social.friends.rejected',
+      code: error === 'Unauthorized' ? 'unauthorized' : 'internal_error',
+      error,
+      requestType,
+      ...extra,
+    });
+  }
+
+  private toErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
 
   private broadcastInviteUpdate(invite: MatchInviteRecord): void {

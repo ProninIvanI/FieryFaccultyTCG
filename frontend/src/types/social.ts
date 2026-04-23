@@ -1,3 +1,5 @@
+import type { Friend, FriendRequest } from './friend';
+
 export type PresenceState = 'offline' | 'online' | 'in_match';
 
 export type MatchInviteStatus =
@@ -18,6 +20,35 @@ export interface SocialPresenceQueryMessage {
   userIds: string[];
 }
 
+export interface SocialFriendsQueryMessage {
+  type: 'social.friends.query';
+}
+
+export interface FriendRequestSendMessage {
+  type: 'friendRequest.send';
+  username: string;
+}
+
+export interface FriendRequestAcceptMessage {
+  type: 'friendRequest.accept';
+  requestId: string;
+}
+
+export interface FriendRequestDeclineMessage {
+  type: 'friendRequest.decline';
+  requestId: string;
+}
+
+export interface FriendRequestCancelMessage {
+  type: 'friendRequest.cancel';
+  requestId: string;
+}
+
+export interface FriendDeleteMessage {
+  type: 'friend.delete';
+  friendUserId: string;
+}
+
 export interface MatchInviteSendMessage {
   type: 'matchInvite.send';
   targetUserId: string;
@@ -36,7 +67,13 @@ export interface MatchInviteCancelMessage {
 
 export type SocialClientMessage =
   | SocialSubscribeMessage
+  | SocialFriendsQueryMessage
   | SocialPresenceQueryMessage
+  | FriendRequestSendMessage
+  | FriendRequestAcceptMessage
+  | FriendRequestDeclineMessage
+  | FriendRequestCancelMessage
+  | FriendDeleteMessage
   | MatchInviteSendMessage
   | MatchInviteRespondMessage
   | MatchInviteCancelMessage;
@@ -50,6 +87,13 @@ export interface SocialSubscribedServerMessage {
 export interface SocialPresenceServerMessage {
   type: 'social.presence';
   presences: Array<{ userId: string; status: PresenceState }>;
+}
+
+export interface SocialFriendsSnapshotServerMessage {
+  type: 'social.friends.snapshot';
+  friends: Friend[];
+  incomingRequests: FriendRequest[];
+  outgoingRequests: FriendRequest[];
 }
 
 export interface SocialInvitesSnapshotServerMessage {
@@ -97,6 +141,21 @@ export interface MatchInviteRejectedServerMessage {
   inviteId?: string;
 }
 
+export interface SocialFriendsRejectedServerMessage {
+  type: 'social.friends.rejected';
+  code: 'unauthorized' | 'invalid_payload' | 'internal_error';
+  error: string;
+  requestType:
+    | 'social.friends.query'
+    | 'friendRequest.send'
+    | 'friendRequest.accept'
+    | 'friendRequest.decline'
+    | 'friendRequest.cancel'
+    | 'friend.delete';
+  requestId?: string;
+  friendUserId?: string;
+}
+
 export interface SocialErrorEvent {
   type: 'error';
   error: string;
@@ -104,8 +163,10 @@ export interface SocialErrorEvent {
 
 export type SocialServerMessage =
   | SocialSubscribedServerMessage
+  | SocialFriendsSnapshotServerMessage
   | SocialPresenceServerMessage
   | SocialInvitesSnapshotServerMessage
+  | SocialFriendsRejectedServerMessage
   | MatchInviteReceivedServerMessage
   | MatchInviteUpdatedServerMessage
   | MatchInviteRejectedServerMessage;
@@ -120,7 +181,16 @@ export type SocialConnectionStatus =
 export type SocialServiceEvent =
   | { type: 'status'; status: SocialConnectionStatus }
   | { type: 'subscribed'; userId: string; username?: string }
+  | { type: 'friendsSnapshot'; friends: Friend[]; incomingRequests: FriendRequest[]; outgoingRequests: FriendRequest[] }
   | { type: 'presence'; presences: Array<{ userId: string; status: PresenceState }> }
+  | {
+      type: 'friendsRejected';
+      code: SocialFriendsRejectedServerMessage['code'];
+      error: string;
+      requestType: SocialFriendsRejectedServerMessage['requestType'];
+      requestId?: string;
+      friendUserId?: string;
+    }
   | { type: 'inviteSnapshot'; invites: MatchInvite[] }
   | { type: 'inviteReceived'; invite: MatchInvite }
   | { type: 'inviteUpdated'; invite: MatchInvite }

@@ -75,6 +75,12 @@ export interface FriendMutationResponse {
   message: string;
 }
 
+export interface SocialGraphSnapshotResponse {
+  friends: CursorPage<FriendRecordDto>;
+  incomingRequests: CursorPage<FriendRequestRecordDto>;
+  outgoingRequests: CursorPage<FriendRequestRecordDto>;
+}
+
 export interface DeckCardItem {
   cardId: string;
   quantity: number;

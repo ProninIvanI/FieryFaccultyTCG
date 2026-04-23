@@ -93,6 +93,37 @@ describe('ws dto parsing', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('accepts social friends query message', () => {
+    const result = parseClientMessage(
+      JSON.stringify({ type: 'social.friends.query' }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts friend request send message', () => {
+    const result = parseClientMessage(
+      JSON.stringify({ type: 'friendRequest.send', username: 'Bravo' }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects invalid friend.delete payload', () => {
+    const result = parseClientMessage(
+      JSON.stringify({ type: 'friend.delete' }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.error).toBe('Invalid friend.delete payload');
+    expect(result.rejection).toEqual({
+      type: 'transport.rejected',
+      code: 'invalid_payload',
+      error: 'Invalid friend.delete payload',
+      requestType: 'friend.delete',
+    });
+  });
+
   it('rejects legacy action message in round-only transport', () => {
     const result = parseClientMessage(
       JSON.stringify({ type: 'action', action: { type: 'EndTurn' } }),

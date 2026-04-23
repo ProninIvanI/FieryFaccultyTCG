@@ -1,5 +1,7 @@
 import { WS_URL } from '@/constants';
 import {
+  Friend,
+  FriendRequest,
   MatchInvite,
   SocialClientMessage,
   SocialConnectionStatus,
@@ -17,6 +19,28 @@ const isOptionalString = (value: unknown): value is string | undefined =>
 
 const isPresenceState = (value: unknown): value is 'offline' | 'online' | 'in_match' =>
   value === 'offline' || value === 'online' || value === 'in_match';
+
+const isFriend = (value: unknown): value is Friend =>
+  isRecord(value) &&
+  typeof value.userId === 'string' &&
+  typeof value.username === 'string' &&
+  typeof value.createdAt === 'string';
+
+const isFriendRequestStatus = (
+  value: unknown,
+): value is 'pending' | 'accepted' | 'declined' | 'cancelled' =>
+  value === 'pending' || value === 'accepted' || value === 'declined' || value === 'cancelled';
+
+const isFriendRequest = (value: unknown): value is FriendRequest =>
+  isRecord(value) &&
+  typeof value.id === 'string' &&
+  typeof value.senderUserId === 'string' &&
+  typeof value.senderUsername === 'string' &&
+  typeof value.receiverUserId === 'string' &&
+  typeof value.receiverUsername === 'string' &&
+  isFriendRequestStatus(value.status) &&
+  typeof value.createdAt === 'string' &&
+  typeof value.updatedAt === 'string';
 
 const isMatchInviteStatus = (
   value: unknown,
@@ -62,6 +86,18 @@ const isSocialPresenceMessage = (
       isPresenceState(presence.status),
   );
 
+const isSocialFriendsSnapshotMessage = (
+  value: unknown,
+): value is Extract<SocialServerMessage, { type: 'social.friends.snapshot' }> =>
+  isRecord(value) &&
+  value.type === 'social.friends.snapshot' &&
+  Array.isArray(value.friends) &&
+  value.friends.every(isFriend) &&
+  Array.isArray(value.incomingRequests) &&
+  value.incomingRequests.every(isFriendRequest) &&
+  Array.isArray(value.outgoingRequests) &&
+  value.outgoingRequests.every(isFriendRequest);
+
 const isInviteSnapshotMessage = (
   value: unknown,
 ): value is Extract<SocialServerMessage, { type: 'social.invites.snapshot' }> =>
@@ -93,6 +129,17 @@ const isInviteRejectedMessage = (
   typeof value.error === 'string' &&
   isOptionalString(value.inviteId);
 
+const isSocialFriendsRejectedMessage = (
+  value: unknown,
+): value is Extract<SocialServerMessage, { type: 'social.friends.rejected' }> =>
+  isRecord(value) &&
+  value.type === 'social.friends.rejected' &&
+  typeof value.code === 'string' &&
+  typeof value.error === 'string' &&
+  typeof value.requestType === 'string' &&
+  isOptionalString(value.requestId) &&
+  isOptionalString(value.friendUserId);
+
 const parseServerMessage = (raw: string): SocialServerMessage | null => {
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -102,7 +149,13 @@ const parseServerMessage = (raw: string): SocialServerMessage | null => {
     if (isSocialPresenceMessage(parsed)) {
       return parsed;
     }
+    if (isSocialFriendsSnapshotMessage(parsed)) {
+      return parsed;
+    }
     if (isInviteSnapshotMessage(parsed)) {
+      return parsed;
+    }
+    if (isSocialFriendsRejectedMessage(parsed)) {
       return parsed;
     }
     if (isInviteReceivedMessage(parsed)) {
@@ -211,6 +264,60 @@ class SocialWsService {
     });
   }
 
+  async queryFriendsSnapshot(): Promise<void> {
+    if (this.authToken) {
+      await this.connect(this.authToken);
+    }
+
+    this.send({
+      type: 'social.friends.query',
+    });
+  }
+
+  async sendFriendRequest(username: string): Promise<void> {
+    if (this.authToken) {
+      await this.connect(this.authToken);
+    }
+
+    this.send({
+      type: 'friendRequest.send',
+      username,
+    });
+  }
+
+  async respondToFriendRequest(requestId: string, action: 'accept' | 'decline'): Promise<void> {
+    if (this.authToken) {
+      await this.connect(this.authToken);
+    }
+
+    this.send({
+      type: action === 'accept' ? 'friendRequest.accept' : 'friendRequest.decline',
+      requestId,
+    });
+  }
+
+  async cancelFriendRequest(requestId: string): Promise<void> {
+    if (this.authToken) {
+      await this.connect(this.authToken);
+    }
+
+    this.send({
+      type: 'friendRequest.cancel',
+      requestId,
+    });
+  }
+
+  async deleteFriend(friendUserId: string): Promise<void> {
+    if (this.authToken) {
+      await this.connect(this.authToken);
+    }
+
+    this.send({
+      type: 'friend.delete',
+      friendUserId,
+    });
+  }
+
   async sendMatchInvite(targetUserId: string): Promise<void> {
     if (this.authToken) {
       await this.connect(this.authToken);
@@ -280,6 +387,16 @@ class SocialWsService {
       return;
     }
 
+    if (parsed.type === 'social.friends.snapshot') {
+      this.emit({
+        type: 'friendsSnapshot',
+        friends: parsed.friends,
+        incomingRequests: parsed.incomingRequests,
+        outgoingRequests: parsed.outgoingRequests,
+      });
+      return;
+    }
+
     if (parsed.type === 'social.invites.snapshot') {
       this.emit({
         type: 'inviteSnapshot',
@@ -300,6 +417,18 @@ class SocialWsService {
       this.emit({
         type: 'inviteUpdated',
         invite: parsed.invite,
+      });
+      return;
+    }
+
+    if (parsed.type === 'social.friends.rejected') {
+      this.emit({
+        type: 'friendsRejected',
+        code: parsed.code,
+        error: parsed.error,
+        requestType: parsed.requestType,
+        requestId: parsed.requestId,
+        friendUserId: parsed.friendUserId,
       });
       return;
     }

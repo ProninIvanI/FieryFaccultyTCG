@@ -2,11 +2,10 @@
 import { useNavigate } from "react-router-dom";
 import { FriendListItem, Tooltip } from "@/components";
 import { ROUTES } from "@/constants";
-import { friendService, socialWsService } from "@/services";
+import { socialWsService } from "@/services";
 import { Friend, FriendRequest, MatchInvite, PresenceState } from "@/types";
 import styles from "./HomePage.module.css";
 
-const FRIEND_PAGE_LIMIT = 50;
 const MATCH_CONFIRM_STORAGE_PREFIX = "fftcg_match_confirm";
 
 type FriendsPanelProps = {
@@ -75,33 +74,6 @@ const toInviteStatusInfoLabel = (status: MatchInvite["status"]): string | null =
 
 const MATCH_CONFIRM_STALE_MESSAGE =
   "Подготовленная сессия больше недоступна. Отправьте приглашение ещё раз.";
-
-const pickFirstFriendError = (
-  ...results: Array<{ ok: boolean; error?: string }>
-): string | null => {
-  const failed = results.find((result) => !result.ok);
-  return failed && "error" in failed ? failed.error ?? null : null;
-};
-
-const loadSocialSnapshot = async (): Promise<{
-  friends: Friend[];
-  incomingRequests: FriendRequest[];
-  outgoingRequests: FriendRequest[];
-  error: string | null;
-}> => {
-  const [friendsResult, incomingResult, outgoingResult] = await Promise.all([
-    friendService.listFriends({ limit: FRIEND_PAGE_LIMIT }),
-    friendService.listIncomingRequests({ limit: FRIEND_PAGE_LIMIT }),
-    friendService.listOutgoingRequests({ limit: FRIEND_PAGE_LIMIT }),
-  ]);
-
-  return {
-    friends: friendsResult.ok ? friendsResult.data : [],
-    incomingRequests: incomingResult.ok ? incomingResult.data : [],
-    outgoingRequests: outgoingResult.ok ? outgoingResult.data : [],
-    error: pickFirstFriendError(friendsResult, incomingResult, outgoingResult),
-  };
-};
 
 const upsertInvite = (current: MatchInvite[], invite: MatchInvite): MatchInvite[] => {
   const next = current.filter((item) => item.id !== invite.id);
@@ -271,17 +243,6 @@ export function FriendsPanel({
     window.sessionStorage.removeItem(storageKey);
   }, [currentUserId, pendingMatchConfirmation]);
 
-  const refreshSocialData = async (): Promise<void> => {
-    setIsFriendsLoading(true);
-    const snapshot = await loadSocialSnapshot();
-    setFriends(snapshot.friends);
-    setIncomingRequests(snapshot.incomingRequests);
-    setOutgoingRequests(snapshot.outgoingRequests);
-    setFriendsError(snapshot.error);
-    setActiveFriendMenu(null);
-    setIsFriendsLoading(false);
-  };
-
   useEffect(() => {
     if (!isMenuOpen) {
       return;
@@ -340,27 +301,16 @@ export function FriendsPanel({
   }, [activeFriendMenu]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    void loadSocialSnapshot().then((snapshot) => {
-      if (cancelled) {
+    const unsubscribe = socialWsService.subscribe((event) => {
+      if (event.type === "friendsSnapshot") {
+        setFriends(event.friends);
+        setIncomingRequests(event.incomingRequests);
+        setOutgoingRequests(event.outgoingRequests);
+        setFriendsError(null);
+        setIsFriendsLoading(false);
         return;
       }
 
-      setFriends(snapshot.friends);
-      setIncomingRequests(snapshot.incomingRequests);
-      setOutgoingRequests(snapshot.outgoingRequests);
-      setFriendsError(snapshot.error);
-      setIsFriendsLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = socialWsService.subscribe((event) => {
       if (event.type === "presence") {
         setPresenceByUserId((prev) => {
           const next = { ...prev };
@@ -411,14 +361,24 @@ export function FriendsPanel({
         return;
       }
 
+      if (event.type === "friendsRejected") {
+        setFriendActionError(event.error);
+        setIsFriendsLoading(false);
+        return;
+      }
+
       if (event.type === "inviteRejected") {
         setFriendActionError(toInviteErrorLabel(event.error));
       }
     });
 
-    void socialWsService.connect(sessionToken).catch(() => {
-      setFriendActionError("Не удалось подключить social realtime");
-    });
+    void socialWsService
+      .connect(sessionToken)
+      .then(() => socialWsService.queryFriendsSnapshot())
+      .catch(() => {
+        setFriendActionError("Не удалось подключить social realtime");
+        setIsFriendsLoading(false);
+      });
 
     return () => {
       unsubscribe();
@@ -598,15 +558,13 @@ export function FriendsPanel({
               onClick={async () => {
                 setFriendActionError(null);
                 setActiveRequestId(request.id);
-                const result = await friendService.acceptRequest(request.id);
-                setActiveRequestId(null);
-
-                if (!result.ok) {
-                  setFriendActionError(result.error);
-                  return;
+                try {
+                  await socialWsService.respondToFriendRequest(request.id, "accept");
+                } catch {
+                  setFriendActionError("Не удалось принять заявку");
+                } finally {
+                  setActiveRequestId(null);
                 }
-
-                await refreshSocialData();
               }}
             >
               Принять
@@ -618,15 +576,13 @@ export function FriendsPanel({
               onClick={async () => {
                 setFriendActionError(null);
                 setActiveRequestId(request.id);
-                const result = await friendService.declineRequest(request.id);
-                setActiveRequestId(null);
-
-                if (!result.ok) {
-                  setFriendActionError(result.error);
-                  return;
+                try {
+                  await socialWsService.respondToFriendRequest(request.id, "decline");
+                } catch {
+                  setFriendActionError("Не удалось отклонить заявку");
+                } finally {
+                  setActiveRequestId(null);
                 }
-
-                await refreshSocialData();
               }}
             >
               Отклонить
@@ -751,15 +707,13 @@ export function FriendsPanel({
             onClick={async () => {
               setFriendActionError(null);
               setActiveRequestId(request.id);
-              const result = await friendService.cancelRequest(request.id);
-              setActiveRequestId(null);
-
-              if (!result.ok) {
-                setFriendActionError(result.error);
-                return;
+              try {
+                await socialWsService.cancelFriendRequest(request.id);
+              } catch {
+                setFriendActionError("Не удалось отменить заявку");
+              } finally {
+                setActiveRequestId(null);
               }
-
-              await refreshSocialData();
             }}
           >
             Отменить
@@ -877,17 +831,15 @@ export function FriendsPanel({
               onClick={async () => {
                 setFriendActionError(null);
                 setIsSubmittingFriendRequest(true);
-                const result = await friendService.sendRequest(friendNickname);
-                setIsSubmittingFriendRequest(false);
-
-                if (!result.ok) {
-                  setFriendActionError(result.error);
-                  return;
+                try {
+                  await socialWsService.sendFriendRequest(friendNickname);
+                  setFriendNickname("");
+                  setIsAddFriendOpen(false);
+                } catch {
+                  setFriendActionError("Не удалось отправить заявку в друзья");
+                } finally {
+                  setIsSubmittingFriendRequest(false);
                 }
-
-                setFriendNickname("");
-                setIsAddFriendOpen(false);
-                await refreshSocialData();
               }}
             >
               {isSubmittingFriendRequest ? "Отправка..." : "Отправить запрос"}
@@ -1024,15 +976,14 @@ export function FriendsPanel({
             onClick={async () => {
               setFriendActionError(null);
               setActiveFriendUserId(activeFriendMenu.userId);
-              const result = await friendService.deleteFriend(activeFriendMenu.userId);
-              setActiveFriendUserId(null);
-
-              if (!result.ok) {
-                setFriendActionError(result.error);
-                return;
+              try {
+                await socialWsService.deleteFriend(activeFriendMenu.userId);
+                setActiveFriendMenu(null);
+              } catch {
+                setFriendActionError("Не удалось удалить друга");
+              } finally {
+                setActiveFriendUserId(null);
               }
-
-              await refreshSocialData();
             }}
           >
             Удалить из друзей

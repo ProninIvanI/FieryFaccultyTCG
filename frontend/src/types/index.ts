@@ -27,6 +27,11 @@ export type {
   FriendRequestStatus,
 } from './friend';
 export type {
+  FriendDeleteMessage,
+  FriendRequestAcceptMessage,
+  FriendRequestCancelMessage,
+  FriendRequestDeclineMessage,
+  FriendRequestSendMessage,
   MatchInvite,
   MatchInviteCancelMessage,
   MatchInviteReceivedServerMessage,
@@ -38,6 +43,9 @@ export type {
   PresenceState,
   SocialClientMessage,
   SocialConnectionStatus,
+  SocialFriendsQueryMessage,
+  SocialFriendsRejectedServerMessage,
+  SocialFriendsSnapshotServerMessage,
   SocialInvitesSnapshotServerMessage,
   SocialPresenceQueryMessage,
   SocialPresenceServerMessage,

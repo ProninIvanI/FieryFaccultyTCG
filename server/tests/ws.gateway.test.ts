@@ -1083,6 +1083,169 @@ describe('ws gateway integration', () => {
     receiver.close();
   });
 
+  it('broadcasts friends snapshots after realtime friend request actions', async () => {
+    const port = 47475 + Math.floor(Math.random() * 1000);
+    const registry = new SessionRegistry((seed, players) => createEngine(seed, players));
+    const service = new GameService(registry);
+    const snapshots = new Map<string, { friends: Array<{ userId: string; username: string; createdAt: string }>; incomingRequests: Array<{ id: string; senderUserId: string; senderUsername: string; receiverUserId: string; receiverUsername: string; status: string; createdAt: string; updatedAt: string }>; outgoingRequests: Array<{ id: string; senderUserId: string; senderUsername: string; receiverUserId: string; receiverUsername: string; status: string; createdAt: string; updatedAt: string }> }>([
+      ['player_1', { friends: [], incomingRequests: [], outgoingRequests: [] }],
+      ['player_2', { friends: [], incomingRequests: [], outgoingRequests: [] }],
+    ]);
+
+    const gateway = new WsGateway(
+      service,
+      async (token) => {
+        if (token === 'token_1') {
+          return { userId: 'player_1', username: 'Alpha' };
+        }
+        if (token === 'token_2') {
+          return { userId: 'player_2', username: 'Bravo' };
+        }
+        return null;
+      },
+      undefined,
+      undefined,
+      undefined,
+      {
+        getSnapshot: async (userId) => snapshots.get(userId) ?? { friends: [], incomingRequests: [], outgoingRequests: [] },
+        sendFriendRequest: async (actorUserId, username) => {
+          const request = {
+            id: 'request_1',
+            senderUserId: actorUserId,
+            senderUsername: 'Alpha',
+            receiverUserId: 'player_2',
+            receiverUsername: username,
+            status: 'pending' as const,
+            createdAt: '2026-04-22T10:00:00.000Z',
+            updatedAt: '2026-04-22T10:00:00.000Z',
+          };
+          snapshots.set('player_1', { friends: [], incomingRequests: [], outgoingRequests: [request] });
+          snapshots.set('player_2', { friends: [], incomingRequests: [request], outgoingRequests: [] });
+          return request;
+        },
+        acceptFriendRequest: async () => {
+          const request = {
+            id: 'request_1',
+            senderUserId: 'player_1',
+            senderUsername: 'Alpha',
+            receiverUserId: 'player_2',
+            receiverUsername: 'Bravo',
+            status: 'accepted' as const,
+            createdAt: '2026-04-22T10:00:00.000Z',
+            updatedAt: '2026-04-22T10:05:00.000Z',
+          };
+          const friendshipCreatedAt = '2026-04-22T10:05:00.000Z';
+          snapshots.set('player_1', {
+            friends: [{ userId: 'player_2', username: 'Bravo', createdAt: friendshipCreatedAt }],
+            incomingRequests: [],
+            outgoingRequests: [],
+          });
+          snapshots.set('player_2', {
+            friends: [{ userId: 'player_1', username: 'Alpha', createdAt: friendshipCreatedAt }],
+            incomingRequests: [],
+            outgoingRequests: [],
+          });
+          return request;
+        },
+        declineFriendRequest: async () => {
+          throw new Error('not implemented');
+        },
+        cancelFriendRequest: async () => {
+          throw new Error('not implemented');
+        },
+        deleteFriend: async () => ({ message: 'Друг удалён' }),
+      },
+    );
+
+    gateway.start(port);
+    gateways.push(gateway);
+
+    const playerOne = new WebSocket(`ws://127.0.0.1:${port}`);
+    const playerTwo = new WebSocket(`ws://127.0.0.1:${port}`);
+    const playerOneMessages = createMessageCollector(playerOne);
+    const playerTwoMessages = createMessageCollector(playerTwo);
+    await Promise.all([waitForOpen(playerOne), waitForOpen(playerTwo)]);
+
+    playerOne.send(JSON.stringify({ type: 'social.subscribe', token: 'token_1' }));
+    playerTwo.send(JSON.stringify({ type: 'social.subscribe', token: 'token_2' }));
+
+    await Promise.all([
+      playerOneMessages.waitFor((message): message is { type: 'social.friends.snapshot'; friends: unknown[] } => message.type === 'social.friends.snapshot' && Array.isArray(message.friends)),
+      playerTwoMessages.waitFor((message): message is { type: 'social.friends.snapshot'; friends: unknown[] } => message.type === 'social.friends.snapshot' && Array.isArray(message.friends)),
+    ]);
+
+    playerOne.send(JSON.stringify({ type: 'friendRequest.send', username: 'Bravo' }));
+
+    const [senderSnapshot, receiverSnapshot] = await Promise.all([
+      playerOneMessages.waitFor<{
+        type: 'social.friends.snapshot';
+        outgoingRequests: Array<{ id: string }>;
+      }>(
+        (message): message is {
+          type: 'social.friends.snapshot';
+          outgoingRequests: Array<{ id: string }>;
+        } =>
+          message.type === 'social.friends.snapshot' &&
+          Array.isArray(message.outgoingRequests) &&
+          message.outgoingRequests.some((request) => request.id === 'request_1'),
+      ),
+      playerTwoMessages.waitFor<{
+        type: 'social.friends.snapshot';
+        incomingRequests: Array<{ id: string }>;
+      }>(
+        (message): message is {
+          type: 'social.friends.snapshot';
+          incomingRequests: Array<{ id: string }>;
+        } =>
+          message.type === 'social.friends.snapshot' &&
+          Array.isArray(message.incomingRequests) &&
+          message.incomingRequests.some((request) => request.id === 'request_1'),
+      ),
+    ]);
+
+    expect(senderSnapshot.outgoingRequests).toHaveLength(1);
+    expect(receiverSnapshot.incomingRequests).toHaveLength(1);
+
+    playerTwo.send(JSON.stringify({ type: 'friendRequest.accept', requestId: 'request_1' }));
+
+    const [acceptedBySender, acceptedByReceiver] = await Promise.all([
+      playerOneMessages.waitFor<{
+        type: 'social.friends.snapshot';
+        friends: Array<{ userId: string }>;
+      }>(
+        (message): message is {
+          type: 'social.friends.snapshot';
+          friends: Array<{ userId: string }>;
+        } =>
+          message.type === 'social.friends.snapshot' &&
+          Array.isArray(message.friends) &&
+          message.friends.some((friend) => friend.userId === 'player_2'),
+      ),
+      playerTwoMessages.waitFor<{
+        type: 'social.friends.snapshot';
+        friends: Array<{ userId: string }>;
+      }>(
+        (message): message is {
+          type: 'social.friends.snapshot';
+          friends: Array<{ userId: string }>;
+        } =>
+          message.type === 'social.friends.snapshot' &&
+          Array.isArray(message.friends) &&
+          message.friends.some((friend) => friend.userId === 'player_1'),
+      ),
+    ]);
+
+    expect(acceptedBySender.friends).toEqual([
+      expect.objectContaining({ userId: 'player_2' }),
+    ]);
+    expect(acceptedByReceiver.friends).toEqual([
+      expect.objectContaining({ userId: 'player_1' }),
+    ]);
+
+    playerOne.close();
+    playerTwo.close();
+  });
+
   it('restores active invites from persistence on social subscribe', async () => {
     const port = 47480 + Math.floor(Math.random() * 1000);
     const now = Date.now();
