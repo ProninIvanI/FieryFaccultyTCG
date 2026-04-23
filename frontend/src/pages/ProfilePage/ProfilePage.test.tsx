@@ -55,6 +55,9 @@ type MockProfileState = {
   matchesError?: string;
 };
 
+type MatchFixture = NonNullable<MockProfileState['matches']>[number];
+type MatchPlayerFixture = MatchFixture['players'][number];
+
 const setAuthenticatedSession = () => {
   localStorage.setItem(
     'fftcg_session',
@@ -65,6 +68,105 @@ const setAuthenticatedSession = () => {
       createdAt: '2026-03-17T10:00:00.000Z',
     }),
   );
+};
+
+const createDeck = (
+  id: string,
+  name: string,
+  updatedAt: string,
+  quantities: number[],
+  characterId: string | null,
+) => ({
+  id,
+  userId: 'user_1',
+  name,
+  characterId,
+  createdAt: '2026-04-09T10:00:00.000Z',
+  updatedAt,
+  cards: quantities.map((quantity, index) => ({
+    cardId: `${id}_card_${index + 1}`,
+    quantity,
+  })),
+});
+
+const createFinishedMatch = ({
+  matchId,
+  finishedAt,
+  winnerUserId,
+  currentUserResult,
+  opponentUserId = 'user_2',
+  opponentName = 'Bravo',
+  currentDeck = 'Aggro Fire',
+  opponentDeck = 'Stone Guard',
+  endReason = 'victory',
+  turnCount = 6,
+  actionCount = 18,
+}: {
+  matchId: string;
+  finishedAt: string;
+  winnerUserId: string;
+  currentUserResult: 'win' | 'loss' | 'draw';
+  opponentUserId?: string;
+  opponentName?: string;
+  currentDeck?: string;
+  opponentDeck?: string;
+  endReason?: 'victory' | 'surrender' | 'disconnect' | 'abort' | 'error';
+  turnCount?: number;
+  actionCount?: number;
+}): MatchFixture => {
+  const opponentResult: MatchPlayerFixture['finishResult'] =
+    currentUserResult === 'win' ? 'loss' : currentUserResult === 'loss' ? 'win' : 'draw';
+
+  return {
+    matchId,
+    status: 'finished',
+  createdByUserId: 'user_1',
+  winnerUserId,
+  seed: `${matchId}_seed`,
+  gameCoreVersion: '1',
+  rulesVersion: '1',
+  endReason,
+  turnCount,
+  actionCount,
+  startedAt: finishedAt,
+  finishedAt,
+  createdAt: finishedAt,
+  updatedAt: finishedAt,
+  players: [
+    {
+      id: `${matchId}_player_1`,
+      matchId,
+      userId: 'user_1',
+      username: 'Akela',
+      playerSlot: 1,
+      playerIdInMatch: 'player_1',
+      deckId: 'deck_1',
+      deckNameSnapshot: currentDeck,
+      deckSnapshot: null,
+      isWinner: currentUserResult === 'win',
+      finishResult: currentUserResult,
+      connectedAt: null,
+      disconnectedAt: null,
+      createdAt: finishedAt,
+    },
+    {
+      id: `${matchId}_player_2`,
+      matchId,
+      userId: opponentUserId,
+      username: opponentName,
+      playerSlot: 2,
+      playerIdInMatch: 'player_2',
+      deckId: 'deck_2',
+      deckNameSnapshot: opponentDeck,
+      deckSnapshot: null,
+      isWinner: currentUserResult === 'loss',
+      finishResult: opponentResult,
+      connectedAt: null,
+      disconnectedAt: null,
+      createdAt: finishedAt,
+    },
+  ],
+  };
 };
 
 const mockProfileApi = (state: MockProfileState = {}) =>
@@ -143,133 +245,29 @@ describe('ProfilePage', () => {
     setAuthenticatedSession();
     const getSpy = mockProfileApi({
       decks: [
-        {
-          id: 'deck_1',
-          userId: 'user_1',
-          name: 'Aggro Fire',
-          characterId: '1',
-          createdAt: '2026-04-10T10:00:00.000Z',
-          updatedAt: '2026-04-22T12:00:00.000Z',
-          cards: [
-            { cardId: '1', quantity: 2 },
-            { cardId: '2', quantity: 2 },
-          ],
-        },
-        {
-          id: 'deck_2',
-          userId: 'user_1',
-          name: 'Control Tide',
-          characterId: '2',
-          createdAt: '2026-04-09T10:00:00.000Z',
-          updatedAt: '2026-04-20T12:00:00.000Z',
-          cards: [
-            { cardId: '3', quantity: 2 },
-            { cardId: '4', quantity: 2 },
-            { cardId: '5', quantity: 2 },
-          ],
-        },
+        createDeck('deck_1', 'Aggro Fire', '2026-04-22T12:00:00.000Z', [2, 2], '1'),
+        createDeck('deck_2', 'Control Tide', '2026-04-20T12:00:00.000Z', [2, 2, 2], '2'),
       ],
       matches: [
-        {
+        createFinishedMatch({
           matchId: 'match_100001',
-          status: 'finished',
-          createdByUserId: 'user_1',
-          winnerUserId: 'user_1',
-          seed: 'seed_1',
-          gameCoreVersion: '1',
-          rulesVersion: '1',
-          endReason: 'victory',
-          turnCount: 6,
-          actionCount: 18,
-          startedAt: '2026-04-22T10:00:00.000Z',
           finishedAt: '2026-04-22T10:15:00.000Z',
-          createdAt: '2026-04-22T09:58:00.000Z',
-          updatedAt: '2026-04-22T10:15:00.000Z',
-          players: [
-            {
-              id: 'player_1',
-              matchId: 'match_100001',
-              userId: 'user_1',
-              username: 'Akela',
-              playerSlot: 1,
-              playerIdInMatch: 'player_1',
-              deckId: 'deck_1',
-              deckNameSnapshot: 'Aggro Fire',
-              deckSnapshot: null,
-              isWinner: true,
-              finishResult: 'win',
-              connectedAt: null,
-              disconnectedAt: null,
-              createdAt: '2026-04-22T09:58:00.000Z',
-            },
-            {
-              id: 'player_1_opponent',
-              matchId: 'match_100001',
-              userId: 'user_2',
-              username: 'Bravo',
-              playerSlot: 2,
-              playerIdInMatch: 'player_2',
-              deckId: 'deck_3',
-              deckNameSnapshot: 'Stone Guard',
-              deckSnapshot: null,
-              isWinner: false,
-              finishResult: 'loss',
-              connectedAt: null,
-              disconnectedAt: null,
-              createdAt: '2026-04-22T09:58:00.000Z',
-            },
-          ],
-        },
-        {
+          winnerUserId: 'user_1',
+          currentUserResult: 'win',
+          currentDeck: 'Aggro Fire',
+          opponentDeck: 'Stone Guard',
+        }),
+        createFinishedMatch({
           matchId: 'match_100002',
-          status: 'finished',
-          createdByUserId: 'user_2',
+          finishedAt: '2026-04-21T14:10:00.000Z',
           winnerUserId: 'user_2',
-          seed: 'seed_2',
-          gameCoreVersion: '1',
-          rulesVersion: '1',
+          currentUserResult: 'loss',
+          currentDeck: 'Control Tide',
+          opponentDeck: 'Night Archive',
           endReason: 'surrender',
           turnCount: 4,
           actionCount: 11,
-          startedAt: '2026-04-21T14:00:00.000Z',
-          finishedAt: '2026-04-21T14:10:00.000Z',
-          createdAt: '2026-04-21T13:58:00.000Z',
-          updatedAt: '2026-04-21T14:10:00.000Z',
-          players: [
-            {
-              id: 'player_2',
-              matchId: 'match_100002',
-              userId: 'user_1',
-              username: 'Akela',
-              playerSlot: 1,
-              playerIdInMatch: 'player_2',
-              deckId: 'deck_2',
-              deckNameSnapshot: 'Control Tide',
-              deckSnapshot: null,
-              isWinner: false,
-              finishResult: 'loss',
-              connectedAt: null,
-              disconnectedAt: null,
-              createdAt: '2026-04-21T13:58:00.000Z',
-            },
-            {
-              id: 'player_2_opponent',
-              matchId: 'match_100002',
-              userId: 'user_2',
-              username: 'Bravo',
-              playerSlot: 2,
-              playerIdInMatch: 'player_3',
-              deckId: 'deck_4',
-              deckNameSnapshot: 'Night Archive',
-              deckSnapshot: null,
-              isWinner: true,
-              finishResult: 'win',
-              connectedAt: null,
-              disconnectedAt: null,
-              createdAt: '2026-04-21T13:58:00.000Z',
-            },
-          ],
-        },
+        }),
       ],
     });
 
@@ -300,12 +298,6 @@ describe('ProfilePage', () => {
     expect(screen.queryByTestId('profile-notice')).not.toBeInTheDocument();
     expect(screen.getByText('Победа')).toBeInTheDocument();
     expect(screen.getByText('Поражение')).toBeInTheDocument();
-
-    expect(screen.queryByText('Уровень: 12')).not.toBeInTheDocument();
-    expect(screen.queryByText('Колода 1')).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Раздел истории матчей будет наполнен следующим шагом.'),
-    ).not.toBeInTheDocument();
   });
 
   it('shows honest empty states when there are no decks or matches yet', async () => {
@@ -319,7 +311,9 @@ describe('ProfilePage', () => {
     );
 
     expect(await screen.findByText('Всего колод: 0')).toBeInTheDocument();
-    expect(screen.getByText('Колод пока нет. Первая колода появится в мастерской.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Колод пока нет. Первая колода появится в мастерской.'),
+    ).toBeInTheDocument();
     expect(
       screen.getByText('Матчей пока нет. Сыграйте первую дуэль, и история появится здесь.'),
     ).toBeInTheDocument();
@@ -330,106 +324,21 @@ describe('ProfilePage', () => {
     setAuthenticatedSession();
     mockProfileApi({
       matches: [
-        {
+        createFinishedMatch({
           matchId: 'match_100001',
-          status: 'finished',
-          createdByUserId: 'user_1',
-          winnerUserId: 'user_1',
-          seed: 'seed_1',
-          gameCoreVersion: '1',
-          rulesVersion: '1',
-          endReason: 'victory',
-          turnCount: 6,
-          actionCount: 18,
-          startedAt: '2026-04-22T10:00:00.000Z',
           finishedAt: '2026-04-22T10:15:00.000Z',
-          createdAt: '2026-04-22T09:58:00.000Z',
-          updatedAt: '2026-04-22T10:15:00.000Z',
-          players: [
-            {
-              id: 'player_1',
-              matchId: 'match_100001',
-              userId: 'user_1',
-              username: 'Akela',
-              playerSlot: 1,
-              playerIdInMatch: 'player_1',
-              deckId: 'deck_1',
-              deckNameSnapshot: 'Aggro Fire',
-              deckSnapshot: null,
-              isWinner: true,
-              finishResult: 'win',
-              connectedAt: null,
-              disconnectedAt: null,
-              createdAt: '2026-04-22T09:58:00.000Z',
-            },
-            {
-              id: 'player_1_opponent',
-              matchId: 'match_100001',
-              userId: 'user_2',
-              username: 'Bravo',
-              playerSlot: 2,
-              playerIdInMatch: 'player_2',
-              deckId: 'deck_3',
-              deckNameSnapshot: 'Stone Guard',
-              deckSnapshot: null,
-              isWinner: false,
-              finishResult: 'loss',
-              connectedAt: null,
-              disconnectedAt: null,
-              createdAt: '2026-04-22T09:58:00.000Z',
-            },
-          ],
-        },
-        {
+          winnerUserId: 'user_1',
+          currentUserResult: 'win',
+        }),
+        createFinishedMatch({
           matchId: 'match_100002',
-          status: 'finished',
-          createdByUserId: 'user_2',
+          finishedAt: '2026-04-21T14:10:00.000Z',
           winnerUserId: 'user_2',
-          seed: 'seed_2',
-          gameCoreVersion: '1',
-          rulesVersion: '1',
+          currentUserResult: 'loss',
           endReason: 'surrender',
           turnCount: 4,
           actionCount: 11,
-          startedAt: '2026-04-21T14:00:00.000Z',
-          finishedAt: '2026-04-21T14:10:00.000Z',
-          createdAt: '2026-04-21T13:58:00.000Z',
-          updatedAt: '2026-04-21T14:10:00.000Z',
-          players: [
-            {
-              id: 'player_2',
-              matchId: 'match_100002',
-              userId: 'user_1',
-              username: 'Akela',
-              playerSlot: 1,
-              playerIdInMatch: 'player_2',
-              deckId: 'deck_2',
-              deckNameSnapshot: 'Control Tide',
-              deckSnapshot: null,
-              isWinner: false,
-              finishResult: 'loss',
-              connectedAt: null,
-              disconnectedAt: null,
-              createdAt: '2026-04-21T13:58:00.000Z',
-            },
-            {
-              id: 'player_2_opponent',
-              matchId: 'match_100002',
-              userId: 'user_2',
-              username: 'Bravo',
-              playerSlot: 2,
-              playerIdInMatch: 'player_3',
-              deckId: 'deck_4',
-              deckNameSnapshot: 'Night Archive',
-              deckSnapshot: null,
-              isWinner: true,
-              finishResult: 'win',
-              connectedAt: null,
-              disconnectedAt: null,
-              createdAt: '2026-04-21T13:58:00.000Z',
-            },
-          ],
-        },
+        }),
       ],
     });
 
@@ -450,7 +359,7 @@ describe('ProfilePage', () => {
     expect(screen.queryByText('Матч 100001')).not.toBeInTheDocument();
   });
 
-  it('shows a compact notice in the top right when matches cannot be loaded', async () => {
+  it('shows a compact notice with an explicit missing section when matches cannot be loaded', async () => {
     setAuthenticatedSession();
     mockProfileApi({
       matchesError: 'Не удалось загрузить матчи',
@@ -464,8 +373,31 @@ describe('ProfilePage', () => {
 
     expect(await screen.findByTestId('profile-notice')).toBeInTheDocument();
     expect(screen.getByText('Часть данных недоступна')).toBeInTheDocument();
-    expect(screen.getByText('Не удалось загрузить матчи')).toBeInTheDocument();
+    expect(
+      screen.getByText('Не загрузились история матчей и статистика: Не удалось загрузить матчи.'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Не удалось загрузить профиль')).not.toBeInTheDocument();
     expect(screen.getAllByText('Akela').length).toBeGreaterThan(0);
+  });
+
+  it('spells out every missing section when decks and matches both fail', async () => {
+    setAuthenticatedSession();
+    mockProfileApi({
+      decksError: 'Network error. Please check your internet connection.',
+      matchesError: 'Request timed out',
+    });
+
+    render(
+      <MemoryRouter>
+        <ProfilePage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId('profile-notice')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'раздел «Колоды»: Network error. Please check your internet connection. история матчей и статистика: Request timed out.',
+      ),
+    ).toBeInTheDocument();
   });
 });

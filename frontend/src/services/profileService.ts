@@ -70,21 +70,43 @@ const formatDateTimeLabel = (value: string | null | undefined): string => {
 
 const formatPercentLabel = (value: number): string => `${Math.round(value)}%`;
 
+const normalizeIssueText = (value: string): string => value.trim().replace(/[.\s]+$/u, '');
+
 const resolveProfileWarning = (
   decksResponse: { ok: true; decks: UserDeck[] } | { ok: false; error: string },
   matchesResponse: { ok: true; matches: MatchSummary[] } | { ok: false; error: string },
 ): string | null => {
-  const issues = new Set<string>();
+  const failedParts: Array<{ label: string; error: string }> = [];
 
   if (!decksResponse.ok) {
-    issues.add(decksResponse.error);
+    failedParts.push({
+      label: 'раздел «Колоды»',
+      error: normalizeIssueText(decksResponse.error),
+    });
   }
 
   if (!matchesResponse.ok) {
-    issues.add(matchesResponse.error);
+    failedParts.push({
+      label: 'история матчей и статистика',
+      error: normalizeIssueText(matchesResponse.error),
+    });
   }
 
-  return issues.size > 0 ? Array.from(issues).join(' · ') : null;
+  if (failedParts.length === 0) {
+    return null;
+  }
+
+  if (failedParts.length === 1) {
+    const [issue] = failedParts;
+    return `Не загрузились ${issue.label}: ${issue.error}.`;
+  }
+
+  const uniqueErrors = [...new Set(failedParts.map((issue) => issue.error))];
+  if (uniqueErrors.length === 1) {
+    return `Не загрузились колоды, история матчей и статистика: ${uniqueErrors[0]}.`;
+  }
+
+  return failedParts.map((issue) => `${issue.label}: ${issue.error}.`).join(' ');
 };
 
 const formatMatchResult = (
@@ -151,7 +173,9 @@ const buildDeckSummaryItem = (deck: UserDeck): ProfileDeckSummaryItem => {
     id: deck.id,
     name: deck.name,
     cardCountLabel: `${cardCount} карт`,
-    characterLabel: deck.characterId ? `Персонаж ${deck.characterId}` : 'Персонаж не выбран',
+    characterLabel: deck.characterId
+      ? `Персонаж ${deck.characterId}`
+      : 'Персонаж не выбран',
     updatedAtLabel: formatDateLabel(deck.updatedAt),
   };
 };
@@ -163,7 +187,8 @@ const buildRecentMatchItem = (
 ): ProfileRecentMatchItem => {
   const player = match.players.find((entry) => entry.userId === currentUserId);
   const opponent = match.players.find((entry) => entry.userId !== currentUserId);
-  const opponentLabel = opponent?.username?.trim() || opponent?.userId || 'Соперник не определён';
+  const opponentLabel =
+    opponent?.username?.trim() || opponent?.userId || 'Соперник не определён';
   const result = formatMatchResult(player, match);
   const sortDate = match.finishedAt ?? match.updatedAt ?? match.startedAt ?? match.createdAt;
   const shortMatchId = match.matchId.slice(-6).toUpperCase();
@@ -234,7 +259,10 @@ const buildProfileViewModel = (
     activityStats: [
       {
         label: 'Винрейт',
-        value: finishedMatches.length > 0 ? formatPercentLabel((wins / finishedMatches.length) * 100) : '—',
+        value:
+          finishedMatches.length > 0
+            ? formatPercentLabel((wins / finishedMatches.length) * 100)
+            : '—',
       },
       { label: 'Прервано', value: String(abortedMatches) },
       {
