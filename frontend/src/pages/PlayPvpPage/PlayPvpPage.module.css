@@ -785,16 +785,6 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 4px;
-  scrollbar-width: thin;
-}
-
-.resolveStageGrid::-webkit-scrollbar {
-  height: 8px;
-}
-
-.resolveStageGrid::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 999px;
 }
 
 .resolveStageCard {
@@ -1144,8 +1134,6 @@
   overflow-x: auto;
   padding: 10px 8px 14px;
   scroll-snap-type: x proximity;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(196, 154, 90, 0.34) transparent;
 }
 
 .resolveReplayTrackSparse {
@@ -2525,16 +2513,6 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 4px;
-  scrollbar-width: thin;
-}
-
-.creatureGrid::-webkit-scrollbar {
-  height: 8px;
-}
-
-.creatureGrid::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 999px;
 }
 
 .creatureCard {
@@ -2657,13 +2635,7 @@
 
 .handFanGrid::-webkit-scrollbar,
 .opponentHandFanGrid::-webkit-scrollbar {
-  height: 8px;
-}
-
-.handFanGrid::-webkit-scrollbar-thumb,
-.opponentHandFanGrid::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 999px;
+  height: var(--app-scrollbar-size);
 }
 
 .handFanGrid > .handCard {
