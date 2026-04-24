@@ -91,7 +91,7 @@ PageName/
 - `healthService` - работа с health check API
 - `authService` - login/logout, чтение и очистка клиентской сессии, отправка bearer token на backend
 - `deckService` - загрузка и сохранение пользовательских колод через backend API
-- `gameWsService` - типизированный WebSocket-клиент для live-PvP, который отправляет `join`, `roundDraft.replace`, `roundDraft.lock` и получает `state`, `roundDraft.snapshot`, `roundStatus`, `roundResolved`, `error`
+- `gameWsService` - типизированный WebSocket-клиент для live-PvP, который отправляет `join`, `roundDraft.replace`, `roundDraft.lock` и получает `state`, `roundDraft.snapshot`, `roundStatus`, `roundResolved`, `roundAudit`, `error`
 
 ### 5. **utils/** - Утилиты
 Вспомогательные функции и утилиты.
@@ -199,6 +199,7 @@ components/      (рендеринг компонентов)
 - Карты в руке и боевой ленте больше не ограничиваются именем и `instanceId`: они резолвят тип, школу, стоимость, эффект и summon-характеристики (`HP / ATK / SPD`) через shared catalog flow, чтобы PvP-визуал оставался согласованным с `DeckPage`.
 - Имена карт для руки и существ на столе резолвятся через `definitionId` из общего каталога `game-core/data/cards.json`, но принадлежность сущностей зонам и доступность действий берётся только из server snapshot.
 - `Raw state` убран в debug-блок, чтобы не быть основным UX-слоем матча и при этом оставаться доступным для отладки.
+- `roundAudit` и diagnostic dump остаются техническим слоем внутри сворачиваемого `Контроль матча`: они нужны для отладки reconnect / multi-round desync и не должны дублировать игровой source of truth.
 - Текущий round-flow уже выведен в интерфейс:
   - локальный игрок работает с единой боевой лентой вместо отдельной панели `черновика раунда`;
   - клик по карте из руки сразу добавляет `Summon`, target-спелл или `PlayCard` в ленту;

@@ -81,6 +81,8 @@ export type {
   PvpServerMessage,
   PvpServiceEvent,
   ReplaceRoundDraftMessage,
+  RoundAuditEvent,
+  RoundAuditServerMessage,
   RoundActionIntentDraft,
   RoundDraftAcceptedServerMessage,
   RoundDraftRejectedServerMessage,

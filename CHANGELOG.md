@@ -1,4 +1,10 @@
-﻿# Changelog
+# Changelog
+
+> 2026-04-24 update: added PvP round diagnostics for reconnect and multi-round desync investigation. `server` now emits typed `roundAudit` WebSocket events for join, draft replace, lock, and resolve checkpoints without exposing private opponent intents; `PlayPvpPage` collects them into a collapsible match-control diagnostic dump with copy-all support, and the round chronicle plus match-control technical panel can now be collapsed while testing.
+
+> 2026-04-24 update: replaced the player profile placeholders with live account/deck/match data. `ProfilePage` now loads real account info plus derived match/deck summary, shows recent decks and readable recent-match cards with opponent names, timestamps, matchup deck snapshots, and quick `all / wins / losses` filtering. Backend match-player payloads now include optional usernames so the frontend can render human-readable opponent history without changing `game-core`.
+
+> 2026-04-23 update: added a backend test-user seeding script for social/friends QA. `backend/scripts/seedTestUsers.mjs` can now create a predictable batch of friend accounts directly in Postgres without touching runtime code, and `backend/package.json` exposes it via `npm run seed:test-users`.
 
 > 2026-04-22 update: added the first full social layer around PvP without touching `game-core`. The stack now supports friend requests and friendships in `backend`, live friend presence and friend-only match invites in `server`, invite persistence/recovery plus prepared match-session handoff, and frontend confirm-flow/UI for friend management, live invites, and safer invite-based PvP entry with stale-session recovery messaging.
 
@@ -12,13 +18,13 @@
 
 > 2026-04-18 update: stabilized the PvP scene proportion system across desktop sizes. `PlayPvpPage` now uses an explicit `sceneStage` with `enemy / core / player` bands, shared scene-scale variables, and `wide / compact` scene states so opponent hand, hidden staged card, local staged card, and hand rows keep one proportional model instead of drifting by screen size.
 
-> 2026-04-16 update: moved the local PvP staged-card cluster closer to the center of the battlefield and corrected its proportions. The player's queued cards now anchor higher above the hand instead of only shifting inside the same low zone, and the local ribbon cards use a taller artwork area plus slightly taller overall card frame so the compact preview no longer reads as a squashed вЂњcard dwarfвЂќ.
+> 2026-04-16 update: moved the local PvP staged-card cluster closer to the center of the battlefield and corrected its proportions. The player's queued cards now anchor higher above the hand instead of only shifting inside the same low zone, and the local ribbon cards use a taller artwork area plus slightly taller overall card frame so the compact preview no longer reads as a squashed “card dwarf”.
 
 > 2026-04-16 update: stabilized the live PvP table after the edge-compression pass. The local ribbon no longer falls back to a bottom scrollbar, opponent hidden-draft placeholders now keep one consistent card-back size regardless of count, local queued cards sit larger and higher toward the table center, and hover lift is no longer clipped by the battlefield container.
 
 > 2026-04-15 update: freed more vertical space for the live PvP table by compressing the hand rows at the viewport edges. The opponent hand now sits deeper toward the top edge, the local hand sits deeper toward the bottom edge, and the `FieldFrame` row proportions were tightened so the battlefield gets more usable center height without changing the core table layout.
 
-> 2026-04-15 update: corrected the PvP lower battlefield composition after the previous readability pass. The local `playerBattleLane` now actually behaves as a stage-aligned grid, its ribbon cluster is centered and grouped as part of the player's lower side, local queued cards use a softer tabletop tilt closer to the opponent hand language, and the `РЈР±СЂР°С‚СЊ РёР· Р»РµРЅС‚С‹` control was visually demoted so the card itself stays primary.
+> 2026-04-15 update: corrected the PvP lower battlefield composition after the previous readability pass. The local `playerBattleLane` now actually behaves as a stage-aligned grid, its ribbon cluster is centered and grouped as part of the player's lower side, local queued cards use a softer tabletop tilt closer to the opponent hand language, and the `Убрать из ленты` control was visually demoted so the card itself stays primary.
 
 > 2026-04-15 update: refined PvP table readability after the border-removal pass. `PlayPvpPage` now drops the extra local/enemy hand labels from the battlefield surface, keeps only lightweight card counts, tones down the bright purple target flag into the warmer arena palette, and softens the local hand fan so it reads closer to the opponent's top-side card presentation.
 
@@ -28,13 +34,13 @@
 
 > 2026-04-15 update: polished two PvP interaction bugs. Removing a queued card or action from the local ribbon now clears the related inspect/selection state instead of re-sticking the card details, and the opponent hidden-draft area no longer renders the stray placeholder slash when it is empty.
 
-> 2026-04-15 update: revised the opponent upper battlefield in PvP. Enemy hand now shows only the cards still visibly in hand after hidden draft actions are staged, the old `РџРѕРґРіРѕС‚РѕРІРєР° СЃРѕРїРµСЂРЅРёРєР°` text chrome was removed, and the hidden staged card became much larger so the opponent turn reads as battlefield presence instead of a tiny marker.
+> 2026-04-15 update: revised the opponent upper battlefield in PvP. Enemy hand now shows only the cards still visibly in hand after hidden draft actions are staged, the old `Подготовка соперника` text chrome was removed, and the hidden staged card became much larger so the opponent turn reads as battlefield presence instead of a tiny marker.
 
 > 2026-04-15 update: pushed the PvP hand further toward an art-first fan layout. Local hand cards now overlap more like a real played hand, keep only mana plus title in compact view, and distinguish `selected` from `hover` so the chosen card stays readable without overpowering transient inspect focus.
 
 > 2026-04-15 update: widened the PvP opponent preparation zone for better battlefield balance and fixed scene inspect so hand-card details disappear as soon as the hovered card is moved into the local battle ribbon. Tests were updated to lock this hover-only inspect contract in place.
 
-> 2026-04-15 update: corrected the PvP battlefield container chain so the inner `boardShell` stretches with the large `sceneBoardCard` instead of collapsing to content height, removing the false empty tail under the live scene. The temporary hand-card `РљР°СЂС‚РѕС‡РєР°` label was also removed.
+> 2026-04-15 update: corrected the PvP battlefield container chain so the inner `boardShell` stretches with the large `sceneBoardCard` instead of collapsing to content height, removing the false empty tail under the live scene. The temporary hand-card `Карточка` label was also removed.
 
 > 2026-04-15 update: refined the current PvP `compact -> inspect` pass in `PlayPvpPage`. Scene inspect now behaves as a true hover layer for laid cards and inline actions instead of sticking to board selection, the inspect panel itself is denser and no longer shows dev-facing headings, queued cards lean harder into an art-first compact state with details moved into inspect, and the opponent preparation zone was enlarged for better battlefield balance.
 
@@ -44,17 +50,19 @@
 
 > 2026-04-11 update: refreshed the library-theme UI shell across the frontend. Shared page headers now use the new academy-styled panel treatment, Home keeps theme switching only inside the authenticated user menu via the modal chooser, the chooser cards were compacted to title-plus-checkmark with hover descriptions, and Login/Register now include a direct path back to the home screen.
 
-> 2026-04-09 update: adjusted PvP post-round ergonomics so new `Р›РµРЅС‚Р° РјР°С‚С‡Р°` rounds stay collapsed by default and the extra вЂњcurrent intent vs layer orderвЂќ helper line is gone from the battlefield. Added regression coverage for collapsed round-feed behavior in `frontend` and for live WebSocket state hp updates after a damaging round in `server`.
+> 2026-04-09 update: adjusted PvP post-round ergonomics so new `Лента матча` rounds stay collapsed by default and the extra “current intent vs layer order” helper line is gone from the battlefield. Added regression coverage for collapsed round-feed behavior in `frontend` and for live WebSocket state hp updates after a damaging round in `server`.
 
-> 2026-04-09 update: compacted the live PvP screen around the active match flow. `PlayPvpPage` now moves the diagnostics toggle into the match panel, removes the separate `РЎС‚Р°С‚СѓСЃ РјР°РіР°` / `Р РµР¶РёРј СЌРєСЂР°РЅР°` cards, keeps `Р›РµРЅС‚Р° РјР°С‚С‡Р°` in the left column with its own local scroll, and strips several low-value empty-state hints from the board so the main match scene stays visible without dropping into a long page layout.
+> 2026-04-09 update: compacted the live PvP screen around the active match flow. `PlayPvpPage` now moves the diagnostics toggle into the match panel, removes the separate `Статус мага` / `Режим экрана` cards, keeps `Лента матча` in the left column with its own local scroll, and strips several low-value empty-state hints from the board so the main match scene stays visible without dropping into a long page layout.
 
-> 2026-04-09 update: fixed two more `PlayPvpPage` PvP ribbon regressions after the target-isolation change. Synced round-action cards now keep showing target badges by falling back to `boardModel.roundActions[].target` when the local draft snapshot is temporarily incomplete, and local preview-layer badges now come from the shared card definition via `game-core` resolution metadata instead of a frontend `targetType` guess, so cards like `РЎС„РµСЂР° РІРѕРґС‹` render as `Р—Р°С‰РёС‚Р°` instead of `Р‘РѕРµРІРѕРµ Р·Р°РєР»РёРЅР°РЅРёРµ`.
+> 2026-04-09 update: fixed two more `PlayPvpPage` PvP ribbon regressions after the target-isolation change. Synced round-action cards now keep showing target badges by falling back to `boardModel.roundActions[].target` when the local draft snapshot is temporarily incomplete, and local preview-layer badges now come from the shared card definition via `game-core` resolution metadata instead of a frontend `targetType` guess, so cards like `Сфера воды` render as `Защита` instead of `Боевое заклинание`.
 
-> 2026-04-09 update: fixed a PvP target-draft leak in `PlayPvpPage` where a selected enemy target from one card could carry over into another hand card with a different target contract. Draft targeting is now stored per source card/attack instead of as a shared screen-level target, so cards like `РЎС„РµСЂР° РІРѕРґС‹` re-initialize to their own valid ally/self target instead of inheriting an old enemy target. Frontend coverage now includes a regression for cross-card target isolation.
+> 2026-04-09 update: fixed a PvP target-draft leak in `PlayPvpPage` where a selected enemy target from one card could carry over into another hand card with a different target contract. Draft targeting is now stored per source card/attack instead of as a shared screen-level target, so cards like `Сфера воды` re-initialize to their own valid ally/self target instead of inheriting an old enemy target. Frontend coverage now includes a regression for cross-card target isolation.
 
 > 2026-04-09 update: migrated live frontend card consumers from the legacy `frontend/src/data/cards.json` file to the shared `game-core/data/cards.json` catalog. `CardsPage`, `DeckPage`, and `PlayPvpPage` now read the same card definitions as the engine through a frontend catalog shim, the outdated local card catalog was removed, and frontend architecture docs now explicitly point card-name resolution at the shared game-core catalog.
 
-> 2026-04-08 update: fixed a PvP draft-queue race in `PlayPvpPage` where quickly queuing an auto-target modifier (for example `РљРѕРЅС†РµРЅС‚СЂР°С†РёСЏ СЃРёР»С‹`) and then another hand card could overwrite the newer draft with a stale one. Draft append/update/remove operations now read from the latest local draft ref instead of a stale render closure, and frontend coverage includes a rapid-click regression for modifier-then-spell queueing.
+> 2026-04-08 update: fixed another PvP draft-ribbon desync in `PlayPvpPage` where a stale personal `roundDraft.snapshot.boardModel` could lag behind the newer `intents` list and visually hide queued follow-up spells after opening with `Концентрация силы`. The local pre-lock battle ribbon now falls back to the canonical local `roundDraft` whenever `boardModel.roundActions/ribbonEntries` do not fully cover the current draft, and frontend coverage includes a regression for lagging snapshot-vs-intents payloads.
+
+> 2026-04-08 update: fixed a PvP draft-queue race in `PlayPvpPage` where quickly queuing an auto-target modifier (for example `Концентрация силы`) and then another hand card could overwrite the newer draft with a stale one. Draft append/update/remove operations now read from the latest local draft ref instead of a stale render closure, and frontend coverage includes a rapid-click regression for modifier-then-spell queueing.
 
 > 2026-04-08 update: completed the next public-resolve ribbon cleanup across frontend and docs. `PlayPvpPage` now renders more readable public resolved actions from board/character state instead of raw ids, playback highlights are tied to `roundResolved.orderedActions[].source` with a summon-safe fallback, and architecture docs now explicitly lock the private/public boundary: `roundDraft.snapshot.boardModel` stays owner-only draft/board view while post-lock public order and playback come only from `roundResolved.orderedActions`.
 
@@ -116,54 +124,51 @@
 
 ### Changed
 
-- PvP-СЌРєСЂР°РЅ (`PlayPvpPage`) РїРѕР»СѓС‡РёР» С†РµР»СЊРЅС‹Р№ tabletop-РІРёР·СѓР°Р»: С‚С‘РїР»СѓСЋ РґРµСЂРµРІСЏРЅРЅСѓСЋ С‚РµРјСѓ, РѕС‚РґРµР»СЊРЅС‹Рµ РїР°РЅРµР»Рё РёРіСЂРѕРєРѕРІ, РґРµРєРѕСЂР°С‚РёРІРЅС‹Рµ РїРѕР»РѕСЃС‹ РєРѕР»РѕРґ Рё Р±РѕР»РµРµ РІС‹СЂР°Р¶РµРЅРЅСѓСЋ С†РµРЅС‚СЂР°Р»СЊРЅСѓСЋ Р°СЂРµРЅСѓ РІРјРµСЃС‚Рѕ РЅР°Р±РѕСЂР° СЃРІРµС‚Р»С‹С… utility-РєР°СЂС‚РѕС‡РµРє.
-- Р¦РµРЅС‚СЂР°Р»СЊРЅРѕРµ РїРѕР»Рµ PvP СѓРїР»РѕС‚РЅРµРЅРѕ РїРѕРґ Р±РѕРµРІСѓСЋ СЃС†РµРЅСѓ: Р»РёРЅРёРё СЃСѓС‰РµСЃС‚РІ РїРµСЂРµРІРµРґРµРЅС‹ РІ РєРѕРјРїР°РєС‚РЅС‹Рµ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹Рµ Р±РѕРµРІС‹Рµ СЃР»РѕС‚С‹, Р°РєС‚РёРІРЅР°СЏ СЃС‚РѕСЂРѕРЅР° РјР°С‚С‡Р° РїРѕРґСЃРІРµС‡РёРІР°РµС‚СЃСЏ, Р° СЂСѓРєР° Р»РѕРєР°Р»СЊРЅРѕРіРѕ РёРіСЂРѕРєР° РѕС‚РѕР±СЂР°Р¶Р°РµС‚СЃСЏ РІРµРµСЂРѕРј.
-- Р’ PvP UI РґРѕР±Р°РІР»РµРЅ РґРµРєРѕСЂР°С‚РёРІРЅС‹Р№ polish-СЃР»РѕР№ Р±РµР· РёР·РјРµРЅРµРЅРёСЏ РёРіСЂРѕРІРѕР№ Р»РѕРіРёРєРё: РѕСЂРЅР°РјРµРЅС‚Р°Р»СЊРЅС‹Рµ СЂР°РјРєРё Р°СЂРµРЅС‹, СЃРёРіРёР»С‹ РЅР° РєР°СЂС‚РѕС‡РєР°С…/СЃР»РѕС‚Р°С…, С†РІРµС‚РѕРІС‹Рµ РјР°СЂРєРµСЂС‹ РґР»СЏ `HP / ATK / SPD` Рё Р±РѕР»РµРµ РІС‹СЂР°Р·РёС‚РµР»СЊРЅС‹Рµ avatar-placeholder Р±Р»РѕРєРё.
+- PvP-экран (`PlayPvpPage`) получил цельный tabletop-визуал: тёплую деревянную тему, отдельные панели игроков, декоративные полосы колод и более выраженную центральную арену вместо набора светлых utility-карточек.
+- Центральное поле PvP уплотнено под боевую сцену: линии существ переведены в компактные горизонтальные боевые слоты, активная сторона матча подсвечивается, а рука локального игрока отображается веером.
+- В PvP UI добавлен декоративный polish-слой без изменения игровой логики: орнаментальные рамки арены, сигилы на карточках/слотах, цветовые маркеры для `HP / ATK / SPD` и более выразительные avatar-placeholder блоки.
 
 ### Docs
 
-- `frontend/ARCHITECTURE.md` СЃРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅ СЃ С‚РµРєСѓС‰РёРј СЃРѕСЃС‚РѕСЏРЅРёРµРј PvP presentation-layer: Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅ РЅРѕРІС‹Р№ visual board layout, РІРµРµСЂ СЂСѓРєРё Рё РІС‹РґРµР»РµРЅРёРµ Р°РєС‚РёРІРЅРѕР№ СЃС‚РѕСЂРѕРЅС‹ РїРѕР»СЏ РєР°Рє С‡Р°СЃС‚СЊ derived UI РЅР°Рґ server snapshot.
+- `frontend/ARCHITECTURE.md` синхронизирован с текущим состоянием PvP presentation-layer: зафиксирован новый visual board layout, веер руки и выделение активной стороны поля как часть derived UI над server snapshot.
 
 ## 2026-03-23
 
 ### Changed
 
-- PvP-СЌРєСЂР°РЅ (`PlayPvpPage`) РїРµСЂРµРІРµРґС‘РЅ РЅР° Р±РѕР»РµРµ С‡РёС‚Р°РµРјС‹Р№ battlefield-layout: РєРѕРјРїР°РєС‚РЅР°СЏ РїР°РЅРµР»СЊ РјР°С‚С‡Р°, С†РµРЅС‚СЂР°Р»СЊРЅРѕРµ РёРіСЂРѕРІРѕРµ РїРѕР»Рµ, focus/context panel, РЅРёР¶РЅРёР№ hand tray Рё spotlight РїРѕ С…РѕРґСѓ РјР°С‚С‡Р°.
-- Р’ PvP UI РґРѕР±Р°РІР»РµРЅС‹ РІС‹Р±РѕСЂ РєР°СЂС‚С‹/СЃСѓС‰РµСЃС‚РІР°, focus-СЃРѕСЃС‚РѕСЏРЅРёСЏ Рё СЂР°Р±РѕС‡РёР№ target-draft flow РґР»СЏ target-heavy РєР°СЂС‚ СЃ РѕС‚РїСЂР°РІРєРѕР№ `CastSpell` / `PlayCard`.
-- `targetType` РґР»СЏ PvP РґРµР№СЃС‚РІРёР№ Р±РѕР»СЊС€Рµ РЅРµ РІС‹Р±РёСЂР°РµС‚СЃСЏ РІСЂСѓС‡РЅСѓСЋ РІРѕ frontend Рё РѕРїСЂРµРґРµР»СЏРµС‚СЃСЏ РёР· РѕР±С‰РµРіРѕ РєР°СЂС‚РѕС‡РЅРѕРіРѕ РєР°С‚Р°Р»РѕРіР°.
-- РљР°СЂС‚РѕС‡РЅС‹Р№ РєР°С‚Р°Р»РѕРі (`cards + characters`) РЅРѕСЂРјР°Р»РёР·РѕРІР°РЅ РІ `game-core`, Р° `server`, `PlayPvpPage`, `CardsPage` Рё `DeckPage` РїРµСЂРµРІРµРґРµРЅС‹ РЅР° РµРґРёРЅС‹Р№ shared-layer РІРјРµСЃС‚Рѕ Р»РѕРєР°Р»СЊРЅРѕРіРѕ СЂР°Р·Р±РѕСЂР° `cards.json`.
-- Р’ `game-core` РІС‹РЅРµСЃРµРЅС‹ РѕР±С‰РёРµ metadata/helper-СЃР»РѕРё РґР»СЏ РєР°С‚Р°Р»РѕРіР°: `normalizeCatalog(...)`, `buildCatalogCardSummaries(...)`, `buildCatalogCharacterSummaries(...)`, label-helperвЂ™С‹ РґР»СЏ С€РєРѕР» Рё С‚РёРїРѕРІ РєР°СЂС‚.
-- `CardsPage` Рё `DeckPage` Р±РѕР»СЊС€Рµ РЅРµ РґРµСЂР¶Р°С‚ Р»РѕРєР°Р»СЊРЅС‹Рµ `buildCardPool/buildCharacters`, СЂСѓС‡РЅС‹Рµ РІР°Р»РёРґР°С‚РѕСЂС‹ raw-РєР°С‚Р°Р»РѕРіР° Рё Р»РѕРєР°Р»СЊРЅС‹Рµ СЃР»РѕРІР°СЂРё РґР»СЏ С€РєРѕР»/С‚РёРїРѕРІ РєР°СЂС‚.
+- PvP-экран (`PlayPvpPage`) переведён на более читаемый battlefield-layout: компактная панель матча, центральное игровое поле, focus/context panel, нижний hand tray и spotlight по ходу матча.
+- В PvP UI добавлены выбор карты/существа, focus-состояния и рабочий target-draft flow для target-heavy карт с отправкой `CastSpell` / `PlayCard`.
+- `targetType` для PvP действий больше не выбирается вручную во frontend и определяется из общего карточного каталога.
+- Карточный каталог (`cards + characters`) нормализован в `game-core`, а `server`, `PlayPvpPage`, `CardsPage` и `DeckPage` переведены на единый shared-layer вместо локального разбора `cards.json`.
+- В `game-core` вынесены общие metadata/helper-слои для каталога: `normalizeCatalog(...)`, `buildCatalogCardSummaries(...)`, `buildCatalogCharacterSummaries(...)`, label-helper’ы для школ и типов карт.
+- `CardsPage` и `DeckPage` больше не держат локальные `buildCardPool/buildCharacters`, ручные валидаторы raw-каталога и локальные словари для школ/типов карт.
 
 ### Docs
 
-- РћР±РЅРѕРІР»РµРЅР° Р°СЂС…РёС‚РµРєС‚СѓСЂРЅР°СЏ РґРѕРєСѓРјРµРЅС‚Р°С†РёСЏ frontend РїРѕРґ С‚РµРєСѓС‰РёР№ shared catalog flow РјРµР¶РґСѓ `game-core`, PvP UI, `CardsPage` Рё `DeckPage`.
-- Р—Р°С„РёРєСЃРёСЂРѕРІР°РЅ СЃР»РµРґСѓСЋС‰РёР№ РІРѕР·РјРѕР¶РЅС‹Р№ С€Р°Рі: РІС‹РЅРµСЃС‚Рё РІ РѕР±С‰РёР№ СЃР»РѕР№ UI-label/helperвЂ™С‹ РґР»СЏ `targetType` Рё, РїСЂРё РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚Рё, С„Р°Р· РјР°С‚С‡Р°, С‡С‚РѕР±С‹ `PlayPvpPage` С‚РѕР¶Рµ РѕС‚РєР°Р·Р°Р»СЃСЏ РѕС‚ Р»РѕРєР°Р»СЊРЅС‹С… СЃР»РѕРІР°СЂРµР№ СЃС‚СЂРѕРє.
+- Обновлена архитектурная документация frontend под текущий shared catalog flow между `game-core`, PvP UI, `CardsPage` и `DeckPage`.
+- Зафиксирован следующий возможный шаг: вынести в общий слой UI-label/helper’ы для `targetType` и, при необходимости, фаз матча, чтобы `PlayPvpPage` тоже отказался от локальных словарей строк.
 
 ## 2026-03-21
 
 ### Fixed
 
-- Frontend logout РїРµСЂРµРІРµРґС‘РЅ РЅР° РµРґРёРЅС‹Р№ `authService.logout(...)` РІРјРµСЃС‚Рѕ РґСѓР±Р»РёСЂРѕРІР°РЅРЅС‹С… Р·Р°РїСЂРѕСЃРѕРІ РёР· `HomePage`.
-- `POST /api/auth/logout` С‚РµРїРµСЂСЊ РґРѕРєСѓРјРµРЅС‚РёСЂРѕРІР°РЅ РєР°Рє РѕР±СЏР·Р°С‚РµР»СЊРЅС‹Р№ С€Р°Рі РґР»СЏ СѓРґР°Р»РµРЅРёСЏ СЃРµСЂРІРµСЂРЅРѕР№ auth-СЃРµСЃСЃРёРё РїРѕ bearer token.
-- Smoke-check РґР»СЏ staging РґРѕРїРѕР»РЅРµРЅ РїСЂРѕРІРµСЂРєРѕР№ logout РїРѕСЃР»Рµ СѓСЃРїРµС€РЅРѕРіРѕ login.
+- Frontend logout переведён на единый `authService.logout(...)` вместо дублированных запросов из `HomePage`.
+- `POST /api/auth/logout` теперь документирован как обязательный шаг для удаления серверной auth-сессии по bearer token.
+- Smoke-check для staging дополнен проверкой logout после успешного login.
 
 ### Changed
 
-- `PlayPvpPage` С‚РµРїРµСЂСЊ РїРѕРєР°Р·С‹РІР°РµС‚ derived PvP-РґР°РЅРЅС‹Рµ РёР· СЂРµР°Р»СЊРЅРѕРіРѕ server snapshot: СЃРїРёСЃРѕРє РёРіСЂРѕРєРѕРІ, СЂР°Р·РјРµСЂС‹ `deck/hand/discard` Рё СЂСѓРєСѓ Р»РѕРєР°Р»СЊРЅРѕРіРѕ РёРіСЂРѕРєР°.
-- `PlayPvpPage` СЂР°СЃС€РёСЂРµРЅ РґРѕ Р±Р°Р·РѕРІРѕРіРѕ battlefield UI: РЅР° СЌРєСЂР°РЅРµ РµСЃС‚СЊ spotlight РїРѕ СЃРѕСЃС‚РѕСЏРЅРёСЋ РјР°С‚С‡Р°, Р»РёРЅРёРё `СЃРѕРїРµСЂРЅРёРє/С‚С‹`, duel-strip, event feed, debug-Р±Р»РѕРє РґР»СЏ raw state Рё summon-flow РёР· СЂСѓРєРё РґР»СЏ РєР°СЂС‚ С‚РёРїР° `summon`.
-- PvP UI РїСЂРѕРґРѕР»Р¶Р°РµС‚ РѕРїРёСЂР°С‚СЊСЃСЏ РЅР° server state РєР°Рє source of truth, Р° РЅРµ РЅР° Р»РѕРєР°Р»СЊРЅСѓСЋ СЃР±РѕСЂРєСѓ РјР°С‚С‡РµРІРѕРіРѕ СЃРѕСЃС‚РѕСЏРЅРёСЏ РІРѕ frontend.
-- `DeckPage` РѕР±СЉРµРґРёРЅСЏРµС‚ РІС‹Р±РѕСЂ СЃРѕС…СЂР°РЅС‘РЅРЅРѕР№ РєРѕР»РѕРґС‹, РµС‘ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ Рё СЃРѕС…СЂР°РЅРµРЅРёРµ РІ РѕРґРЅРѕРј Р±Р»РѕРєРµ РєРѕРЅСЃС‚СЂСѓРєС‚РѕСЂР°.
-- РЎРѕС…СЂР°РЅРµРЅРёРµ РєРѕР»РѕРґС‹ С‚РµРїРµСЂСЊ С‚СЂРµР±СѓРµС‚ РІР°Р»РёРґРЅС‹Р№ `characterId`: frontend РЅРµ РґР°С‘С‚ РѕС‚РїСЂР°РІРёС‚СЊ Р·Р°РїСЂРѕСЃ Р±РµР· РІС‹Р±СЂР°РЅРЅРѕРіРѕ РїРµСЂСЃРѕРЅР°Р¶Р°, Р° backend РѕС‚РєР»РѕРЅСЏРµС‚ РїСѓСЃС‚РѕР№ РёР»Рё РЅРµСЃСѓС‰РµСЃС‚РІСѓСЋС‰РёР№ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ РїРµСЂСЃРѕРЅР°Р¶Р°.
-- Staging backend С‚РµРїРµСЂСЊ СЃРѕР±РёСЂР°РµС‚СЃСЏ СЃ `game-core`, С‡С‚РѕР±С‹ server-backed СЃРѕС…СЂР°РЅРµРЅРёРµ РєРѕР»РѕРґ РЅРµ РїР°РґР°Р»Рѕ РЅР° С‡С‚РµРЅРёРё `game-core/data/cards.json`.
-- Backend deck catalog С‚РµРїРµСЂСЊ РєРѕСЂСЂРµРєС‚РЅРѕ С‡РёС‚Р°РµС‚ `cards.json` СЃ UTF-8 BOM, РїРѕСЌС‚РѕРјСѓ СЃРѕС…СЂР°РЅРµРЅРёРµ РєРѕР»РѕРґ РЅРµ РїР°РґР°РµС‚ РЅР° `JSON.parse`.
-- Р’С‹Р±РѕСЂ `Р§РµСЂРЅРѕРІРёРє` РІ `DeckPage` С‚РµРїРµСЂСЊ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ СЃР±СЂР°СЃС‹РІР°РµС‚ Р°РєС‚РёРІРЅСѓСЋ РєРѕР»РѕРґСѓ, РїРѕСЌС‚РѕРјСѓ РЅРѕРІР°СЏ РєРѕР»РѕРґР° СЃРѕР·РґР°С‘С‚СЃСЏ, Р° РЅРµ РїРµСЂРµР·Р°РїРёСЃС‹РІР°РµС‚ РїРѕСЃР»РµРґРЅСЋСЋ РІС‹Р±СЂР°РЅРЅСѓСЋ.
-- Р’ `DeckPage` РґРѕР±Р°РІР»РµРЅР° СЏРІРЅР°СЏ РєРЅРѕРїРєР° `РЎРѕС…СЂР°РЅРёС‚СЊ РєР°Рє РЅРѕРІСѓСЋ`, С‡С‚РѕР±С‹ С‚РµРєСѓС‰СѓСЋ СЃР±РѕСЂРєСѓ РјРѕР¶РЅРѕ Р±С‹Р»Рѕ СЃРѕС…СЂР°РЅРёС‚СЊ РѕС‚РґРµР»СЊРЅРѕР№ РєРѕР»РѕРґРѕР№ Р±РµР· РїРµСЂРµР·Р°РїРёСЃРё РІС‹Р±СЂР°РЅРЅРѕР№.
+- `PlayPvpPage` теперь показывает derived PvP-данные из реального server snapshot: список игроков, размеры `deck/hand/discard` и руку локального игрока.
+- `PlayPvpPage` расширен до базового battlefield UI: на экране есть spotlight по состоянию матча, линии `соперник/ты`, duel-strip, event feed, debug-блок для raw state и summon-flow из руки для карт типа `summon`.
+- PvP UI продолжает опираться на server state как source of truth, а не на локальную сборку матчевого состояния во frontend.
+- `DeckPage` объединяет выбор сохранённой колоды, её редактирование и сохранение в одном блоке конструктора.
+- Сохранение колоды теперь требует валидный `characterId`: frontend не даёт отправить запрос без выбранного персонажа, а backend отклоняет пустой или несуществующий идентификатор персонажа.
+- Staging backend теперь собирается с `game-core`, чтобы server-backed сохранение колод не падало на чтении `game-core/data/cards.json`.
+- Backend deck catalog теперь корректно читает `cards.json` с UTF-8 BOM, поэтому сохранение колод не падает на `JSON.parse`.
+- Выбор `Черновик` в `DeckPage` теперь действительно сбрасывает активную колоду, поэтому новая колода создаётся, а не перезаписывает последнюю выбранную.
+- В `DeckPage` добавлена явная кнопка `Сохранить как новую`, чтобы текущую сборку можно было сохранить отдельной колодой без перезаписи выбранной.
 
 ### Docs
 
-- РћР±РЅРѕРІР»РµРЅС‹ `docs/data-architecture.md`, `frontend/ARCHITECTURE.md` Рё `FUTURE_TODO.md` РїРѕРґ С‚РµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ server-backed decks Рё PvP UI.
-- Р”РѕРєСѓРјРµРЅС‚Р°С†РёСЏ РїРѕ PvP UI СЃРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅР° СЃ РЅРѕРІС‹Рј battlefield-СЃР»РѕРµРј Рё cleanup РІ С‚РµСЃС‚Р°С… `PlayPvpPage`: `act(...)` Рё React Router warnings Р±РѕР»СЊС€Рµ РЅРµ СЃС‡РёС‚Р°СЋС‚СЃСЏ РѕС‚РєСЂС‹С‚С‹Рј С‚РµС…РґРѕР»РіРѕРј.
-> 2026-04-08 update: fixed another PvP draft-ribbon desync in `PlayPvpPage` where a stale personal `roundDraft.snapshot.boardModel` could lag behind the newer `intents` list and visually hide queued follow-up spells after opening with `РљРѕРЅС†РµРЅС‚СЂР°С†РёСЏ СЃРёР»С‹`. The local pre-lock battle ribbon now falls back to the canonical local `roundDraft` whenever `boardModel.roundActions/ribbonEntries` do not fully cover the current draft, and frontend coverage includes a regression for lagging snapshot-vs-intents payloads.
-> 2026-04-23 update: added a backend test-user seeding script for social/friends QA. `backend/scripts/seedTestUsers.mjs` can now create a predictable batch of friend accounts directly in Postgres without touching runtime code, and `backend/package.json` exposes it via `npm run seed:test-users`.
-> 2026-04-24 update: replaced the player profile placeholders with live account/deck/match data. `ProfilePage` now loads real account info plus derived match/deck summary, shows recent decks and readable recent-match cards with opponent names, timestamps, matchup deck snapshots, and quick `all / wins / losses` filtering. Backend match-player payloads now include optional usernames so the frontend can render human-readable opponent history without changing `game-core`.
+- Обновлены `docs/data-architecture.md`, `frontend/ARCHITECTURE.md` и `FUTURE_TODO.md` под текущий статус server-backed decks и PvP UI.
+- Документация по PvP UI синхронизирована с новым battlefield-слоем и cleanup в тестах `PlayPvpPage`: `act(...)` и React Router warnings больше не считаются открытым техдолгом.

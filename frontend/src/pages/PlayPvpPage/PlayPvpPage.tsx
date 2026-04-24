@@ -35,6 +35,7 @@ import {
   PlayerLabelMap,
   PvpConnectionStatus,
   PvpServiceEvent,
+  RoundAuditEvent,
   RoundActionIntentDraft,
   RoundDraftRejectedServerMessage,
   TransportRejectedServerMessage,
@@ -566,6 +567,8 @@ const getJoinRejectCodeLabel = (code: JoinRejectedServerMessage['code']): string
       return 'Сессия входа недействительна или истекла';
     case 'deck_unavailable':
       return 'Выбранная колода недоступна для этого игрока';
+    case 'deck_invalid':
+      return 'Выбранная колода не проходит правила PvP';
     case 'session_full':
       return 'В матче уже заняты оба PvP-слота';
     case 'duplicate_character':
@@ -591,6 +594,8 @@ const getInviteJoinRejectHint = (
       return 'Сессия входа истекла. Перезайдите в аккаунт и откройте приглашение заново.';
     case 'deck_unavailable':
       return 'Для входа по приглашению нужна доступная колода. Выберите другую колоду и попробуйте снова.';
+    case 'deck_invalid':
+      return 'Колода из приглашения сейчас невалидна для PvP. Проверьте состав колоды и персонажа.';
     default:
       return null;
   }
@@ -1049,6 +1054,55 @@ const buildSessionId = (): string => {
   return `session_${Date.now()}`;
 };
 
+const buildPvpDiagnosticDump = (params: {
+  generatedAt: string;
+  sessionId: string;
+  playerId: string;
+  status: PvpConnectionStatus;
+  roundSync: RoundSyncSummary | null;
+  roundDraft: RoundActionIntentDraft[];
+  roundDraftRejected: RoundDraftRejectedSummary | null;
+  lastResolvedRound: RoundResolutionResult | null;
+  resolvedRoundHistory: RoundResolutionResult[];
+  roundAuditEvents: RoundAuditEvent[];
+  matchState: GameStateSnapshot | null;
+}): string => JSON.stringify(
+  {
+    generatedAt: params.generatedAt,
+    sessionId: params.sessionId,
+    playerId: params.playerId,
+    connectionStatus: params.status,
+    roundSync: params.roundSync,
+    localRoundDraft: params.roundDraft,
+    roundDraftRejected: params.roundDraftRejected,
+    lastResolvedRound: params.lastResolvedRound,
+    resolvedRoundHistory: params.resolvedRoundHistory,
+    roundAuditEvents: params.roundAuditEvents,
+    matchStateSummary: params.matchState
+      ? {
+          round: params.matchState.round,
+          players: params.matchState.players,
+          hands: params.matchState.hands,
+          decks: params.matchState.decks
+            ? Object.fromEntries(
+                Object.entries(params.matchState.decks).map(([id, deck]) => [
+                  id,
+                  { ownerId: deck.ownerId, cards: deck.cards.length },
+                ]),
+              )
+            : undefined,
+          discardPiles: params.matchState.discardPiles,
+          actionLogCount: params.matchState.actionLog?.length ?? 0,
+          lastActionLogEntries: params.matchState.actionLog?.slice(-12),
+          logCount: params.matchState.log?.length ?? 0,
+          lastLogEntries: params.matchState.log?.slice(-24),
+        }
+      : null,
+  },
+  null,
+  2,
+);
+
 const handleServiceEvent = (
   event: PvpServiceEvent,
   setStatus: (status: PvpConnectionStatus) => void,
@@ -1064,6 +1118,7 @@ const handleServiceEvent = (
   ) => void,
   setRoundDraftRejected: (value: RoundDraftRejectedSummary | null) => void,
   setSelfBoardModel: (value: PlayerBoardModel | null) => void,
+  setRoundAuditEvents: (value: RoundAuditEvent[] | ((current: RoundAuditEvent[]) => RoundAuditEvent[])) => void,
 ): void => {
   if (event.type === 'status') {
     setStatus(event.status);
@@ -1161,6 +1216,11 @@ const handleServiceEvent = (
     return;
   }
 
+  if (event.type === 'roundAudit') {
+    setRoundAuditEvents((current) => [...current, event.event].slice(-120));
+    return;
+  }
+
   if (event.type === 'error') {
     setError(event.error);
   }
@@ -1206,6 +1266,9 @@ export const PlayPvpPage = () => {
   const [isResolvedReplayPinned, setIsResolvedReplayPinned] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showConnectionControls, setShowConnectionControls] = useState(false);
+  const [isMatchFeedOpen, setIsMatchFeedOpen] = useState(true);
+  const [roundAuditEvents, setRoundAuditEvents] = useState<RoundAuditEvent[]>([]);
+  const [copyDiagnosticsStatus, setCopyDiagnosticsStatus] = useState('');
   const hasLiveStateRef = useRef(false);
   const autoJoinAttemptedRef = useRef(false);
   const pendingSessionIdRef = useRef('');
@@ -1282,6 +1345,7 @@ export const PlayPvpPage = () => {
         setResolvedRoundHistory,
         setRoundDraftRejected,
         setSelfBoardModel,
+        setRoundAuditEvents,
       );
     });
 
@@ -1373,6 +1437,8 @@ export const PlayPvpPage = () => {
     setLastResolvedRound(null);
     setResolvedRoundHistory([]);
     setExpandedFeedRoundNumber(null);
+    setRoundAuditEvents([]);
+    setCopyDiagnosticsStatus('');
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = normalizedSessionId;
     currentRoundRef.current = null;
@@ -2013,6 +2079,8 @@ export const PlayPvpPage = () => {
     setLastResolvedRound(null);
     setResolvedRoundHistory([]);
     setExpandedFeedRoundNumber(null);
+    setRoundAuditEvents([]);
+    setCopyDiagnosticsStatus('');
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = '';
     currentRoundRef.current = null;
@@ -2852,6 +2920,48 @@ export const PlayPvpPage = () => {
   const hasReplayAvailable = Boolean(lastResolvedRound && resolvedTimelineEntries.length > 0);
   const hasCurrentRoundAdvancedPastReplay =
     Boolean(lastResolvedRound) && currentRoundNumber > (lastResolvedRound?.roundNumber ?? 0);
+  const diagnosticDump = useMemo(
+    () => buildPvpDiagnosticDump({
+      generatedAt: new Date().toISOString(),
+      sessionId: joinedSessionId || sessionId,
+      playerId,
+      status,
+      roundSync,
+      roundDraft,
+      roundDraftRejected,
+      lastResolvedRound,
+      resolvedRoundHistory,
+      roundAuditEvents,
+      matchState,
+    }),
+    [
+      joinedSessionId,
+      lastResolvedRound,
+      matchState,
+      playerId,
+      resolvedRoundHistory,
+      roundAuditEvents,
+      roundDraft,
+      roundDraftRejected,
+      roundSync,
+      sessionId,
+      status,
+    ],
+  );
+
+  const handleCopyDiagnostics = useCallback(async () => {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        setCopyDiagnosticsStatus('Clipboard API недоступен, скопируй текст из поля ниже.');
+        return;
+      }
+
+      await navigator.clipboard.writeText(diagnosticDump);
+      setCopyDiagnosticsStatus('Диагностический дамп скопирован.');
+    } catch {
+      setCopyDiagnosticsStatus('Не удалось скопировать автоматически, скопируй текст из поля ниже.');
+    }
+  }, [diagnosticDump]);
 
   const restartResolvedReplay = useCallback(
     (pinned: boolean) => {
@@ -3172,6 +3282,15 @@ export const PlayPvpPage = () => {
               </div>
               <div className={styles.panelSectionMeta}>
                 <span className={styles.cardBadge}>{getConnectionStatusLabel(status)}</span>
+                {hasActiveMatchConnection ? (
+                  <button
+                    className={styles.compactButton}
+                    type="button"
+                    onClick={() => setShowConnectionControls((current) => !current)}
+                  >
+                    {showConnectionControls ? 'Свернуть' : 'Развернуть'}
+                  </button>
+                ) : null}
               </div>
             </div>
             {inviteEntrySummary ? (
@@ -3376,6 +3495,53 @@ export const PlayPvpPage = () => {
                     <div className={styles.hint}>Загружаем доступные колоды...</div>
                   ) : null}
                 </div>
+
+                {hasActiveMatchConnection ? (
+                  <div className={styles.diagnosticLogPanel}>
+                    <div className={styles.diagnosticLogHeader}>
+                      <div>
+                        <span className={styles.summaryLabel}>PvP audit</span>
+                        <strong>Журнал диагностики</strong>
+                      </div>
+                      <button className={styles.secondaryButton} type="button" onClick={handleCopyDiagnostics}>
+                        Скопировать всё
+                      </button>
+                    </div>
+                    <div className={styles.auditEventList}>
+                      {roundAuditEvents.length > 0 ? (
+                        roundAuditEvents.slice(-12).map((auditEvent, index) => (
+                          <div
+                            key={`${auditEvent.timestamp}_${auditEvent.event}_${index}`}
+                            className={styles.auditEventItem}
+                          >
+                            <strong>
+                              {auditEvent.event}
+                              {auditEvent.roundNumber ? ` R${auditEvent.roundNumber}` : ''}
+                            </strong>
+                            <span>
+                              {[
+                                auditEvent.result,
+                                auditEvent.playerId ? `player=${auditEvent.playerId}` : null,
+                                auditEvent.socketId ? `socket=${auditEvent.socketId}` : null,
+                                typeof auditEvent.intentCount === 'number' ? `intents=${auditEvent.intentCount}` : null,
+                                auditEvent.code ? `code=${auditEvent.code}` : null,
+                              ].filter(Boolean).join(' | ')}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className={styles.emptyState}>Audit-события появятся после join, replace, lock и resolve.</div>
+                      )}
+                    </div>
+                    {copyDiagnosticsStatus ? <div className={styles.hint}>{copyDiagnosticsStatus}</div> : null}
+                    <textarea
+                      className={styles.diagnosticTextArea}
+                      value={diagnosticDump}
+                      readOnly
+                      aria-label="Диагностический дамп PvP"
+                    />
+                  </div>
+                ) : null}
               </form>
             )}
 
@@ -3420,9 +3586,16 @@ export const PlayPvpPage = () => {
                 <span className={styles.cardBadge}>
                   {matchFeedRounds.length > 0 ? `${matchFeedRounds.length} раунд${matchFeedRounds.length === 1 ? '' : matchFeedRounds.length < 5 ? 'а' : 'ов'}` : 'Пока пусто'}
                 </span>
+                <button
+                  className={styles.compactButton}
+                  type="button"
+                  onClick={() => setIsMatchFeedOpen((current) => !current)}
+                >
+                  {isMatchFeedOpen ? 'Свернуть' : 'Развернуть'}
+                </button>
               </div>
             </div>
-            {matchFeedRounds.length > 0 ? (
+            {isMatchFeedOpen && matchFeedRounds.length > 0 ? (
               <div className={styles.matchFeed} data-testid="match-feed">
                 {matchFeedRounds.map((round) => {
                   const isExpanded = round.roundNumber === expandedFeedRoundNumber;
@@ -3483,9 +3656,9 @@ export const PlayPvpPage = () => {
                   );
                 })}
               </div>
-            ) : (
+            ) : isMatchFeedOpen ? (
               <div className={styles.emptyState}>Раунды появятся после первого резолва.</div>
-            )}
+            ) : null}
           </Card>
         </div>
 

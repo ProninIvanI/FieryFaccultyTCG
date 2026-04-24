@@ -3,6 +3,34 @@ import type { MatchInviteRecord } from '../../domain/social/MatchInviteRegistry'
 import type { PresenceState } from '../../domain/social/PresenceRegistry';
 import type { SocialGraphSnapshot } from '../../infrastructure/social/SocialGraphClient';
 
+export interface RoundAuditEventDto {
+  timestamp: string;
+  sessionId: string;
+  scope: 'public' | 'private';
+  event:
+    | 'join.accepted'
+    | 'roundDraft.replace'
+    | 'roundDraft.lock'
+    | 'round.resolve';
+  playerId?: string;
+  socketId?: string;
+  roundNumber?: number;
+  intentCount?: number;
+  intentIds?: string[];
+  intentKinds?: string[];
+  locked?: boolean;
+  result?: 'accepted' | 'rejected' | 'resolved' | 'pending';
+  code?: string;
+  error?: string;
+  orderedActions?: Array<{
+    intentId: string;
+    playerId: string;
+    kind: string;
+    status: string;
+    reasonCode: string;
+  }>;
+}
+
 export type ClientMessageDto =
   | { type: 'join'; sessionId: string; token: string; deckId: string; seed?: number }
   | { type: 'roundDraft.replace'; roundNumber: number; intents: unknown[] }
@@ -72,6 +100,7 @@ export type ServerMessageDto =
       opponentDraftCount: number;
     }
   | { type: 'roundResolved'; result: RoundResolutionResult }
+  | { type: 'roundAudit'; event: RoundAuditEventDto }
   | { type: 'social.subscribed'; userId: string; username?: string }
   | {
       type: 'social.friends.snapshot';

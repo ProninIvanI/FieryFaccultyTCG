@@ -56,6 +56,7 @@ export interface JoinRejectedServerMessage {
   code:
     | 'unauthorized'
     | 'deck_unavailable'
+    | 'deck_invalid'
     | 'session_full'
     | 'duplicate_character'
     | 'seed_mismatch'
@@ -115,6 +116,39 @@ export interface RoundResolvedServerMessage {
   result: RoundResolutionResult;
 }
 
+export interface RoundAuditEvent {
+  timestamp: string;
+  sessionId: string;
+  scope: 'public' | 'private';
+  event:
+    | 'join.accepted'
+    | 'roundDraft.replace'
+    | 'roundDraft.lock'
+    | 'round.resolve';
+  playerId?: string;
+  socketId?: string;
+  roundNumber?: number;
+  intentCount?: number;
+  intentIds?: string[];
+  intentKinds?: string[];
+  locked?: boolean;
+  result?: 'accepted' | 'rejected' | 'resolved' | 'pending';
+  code?: string;
+  error?: string;
+  orderedActions?: Array<{
+    intentId: string;
+    playerId: string;
+    kind: string;
+    status: string;
+    reasonCode: string;
+  }>;
+}
+
+export interface RoundAuditServerMessage {
+  type: 'roundAudit';
+  event: RoundAuditEvent;
+}
+
 export type PvpServerMessage =
   | StateServerMessage
   | TransportRejectedServerMessage
@@ -125,7 +159,8 @@ export type PvpServerMessage =
   | RoundDraftAcceptedServerMessage
   | RoundDraftRejectedServerMessage
   | RoundStatusServerMessage
-  | RoundResolvedServerMessage;
+  | RoundResolvedServerMessage
+  | RoundAuditServerMessage;
 
 export type PvpConnectionStatus =
   | 'idle'
@@ -175,4 +210,5 @@ export type PvpServiceEvent =
       selfDraftCount: number;
       opponentDraftCount: number;
     }
-  | { type: 'roundResolved'; result: RoundResolutionResult };
+  | { type: 'roundResolved'; result: RoundResolutionResult }
+  | { type: 'roundAudit'; event: RoundAuditEvent };

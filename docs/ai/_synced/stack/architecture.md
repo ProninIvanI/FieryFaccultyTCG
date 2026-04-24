@@ -201,8 +201,10 @@
   - `roundDraft.accepted`
   - `roundStatus`
   - `roundResolved`
+  - `roundAudit`
   - `error`
 - Legacy `action` больше не является частью публичного PvP transport.
+- `roundAudit` используется только как diagnostic transport для join / draft replace / lock / resolve checkpoints: private-события могут содержать intent ids/kinds и отправляются только актору, public-события не должны раскрывать hidden opponent draft до resolve.
 
 ### 6.6. Что ещё осталось после базовой миграции
 

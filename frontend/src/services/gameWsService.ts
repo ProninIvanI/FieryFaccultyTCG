@@ -120,6 +120,18 @@ const isRoundResolvedMessage = (value: unknown): value is Extract<PvpServerMessa
   Array.isArray(value.result.orderedActions) &&
   value.result.orderedActions.every(isResolvedRoundAction);
 
+const isRoundAuditEvent = (value: unknown): boolean =>
+  isRecord(value) &&
+  typeof value.timestamp === 'string' &&
+  typeof value.sessionId === 'string' &&
+  (value.scope === 'public' || value.scope === 'private') &&
+  typeof value.event === 'string';
+
+const isRoundAuditMessage = (value: unknown): value is Extract<PvpServerMessage, { type: 'roundAudit' }> =>
+  isRecord(value) &&
+  value.type === 'roundAudit' &&
+  isRoundAuditEvent(value.event);
+
 const parseServerMessage = (raw: string): PvpServerMessage | null => {
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -151,6 +163,9 @@ const parseServerMessage = (raw: string): PvpServerMessage | null => {
       return parsed;
     }
     if (isRoundResolvedMessage(parsed)) {
+      return parsed;
+    }
+    if (isRoundAuditMessage(parsed)) {
       return parsed;
     }
     return null;
@@ -336,6 +351,11 @@ class GameWsService {
 
     if (parsed.type === 'roundResolved') {
       this.emit({ type: 'roundResolved', result: parsed.result });
+      return;
+    }
+
+    if (parsed.type === 'roundAudit') {
+      this.emit({ type: 'roundAudit', event: parsed.event });
       return;
     }
 

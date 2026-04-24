@@ -195,6 +195,23 @@
   justify-content: flex-end;
 }
 
+.compactButton {
+  border: 1px solid var(--pvp-border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 248, 236, 0.04);
+  color: var(--pvp-text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.compactButton:hover {
+  transform: translateY(-1px);
+  border-color: var(--pvp-border-strong);
+}
+
 .sceneBoardCard {
   min-height: 0;
   display: grid;
@@ -503,12 +520,80 @@
 }
 
 .hintBlock,
+.diagnosticLogPanel,
 .detailsList,
 .focusPanel,
 .debugPanel,
 .noticeBlock {
   display: grid;
   gap: 12px;
+}
+
+.diagnosticLogPanel {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--pvp-border);
+  background: rgba(14, 8, 7, 0.42);
+}
+
+.diagnosticLogHeader {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.diagnosticLogHeader > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.auditEventList {
+  display: grid;
+  gap: 8px;
+  max-height: 190px;
+  overflow: auto;
+}
+
+.auditEventItem {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(196, 154, 90, 0.22);
+  background: rgba(255, 248, 236, 0.045);
+}
+
+.auditEventItem strong,
+.auditEventItem span {
+  overflow-wrap: anywhere;
+}
+
+.auditEventItem strong {
+  color: var(--pvp-text);
+  font-size: 12px;
+}
+
+.auditEventItem span {
+  color: var(--pvp-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.diagnosticTextArea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(196, 154, 90, 0.24);
+  background: rgba(14, 8, 7, 0.82);
+  color: #f1dac0;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .hint,

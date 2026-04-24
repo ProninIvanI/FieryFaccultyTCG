@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { GameService } from '../../application/GameService';
-import { ClientMessageDto, parseClientMessage, ServerMessageDto } from './dto';
+import { ClientMessageDto, parseClientMessage, RoundAuditEventDto, ServerMessageDto } from './dto';
 import { AuthIdentity, resolveAuthIdentity } from '../../infrastructure/auth/AuthIdentityClient';
 import { resolvePlayerDeck } from '../../infrastructure/decks/DeckCatalogClient';
 import {
@@ -299,6 +299,14 @@ export class WsGateway {
       }
       this.broadcastRoundStatus(message.sessionId);
       this.sendRoundDraftSnapshot(message.sessionId, identity.userId, socket);
+      this.sendRoundAudit(socket, {
+        scope: 'private',
+        event: 'join.accepted',
+        sessionId: message.sessionId,
+        playerId: identity.userId,
+        socketId: this.socketIds.get(socket),
+        result: 'accepted',
+      });
       return;
     }
     if (message.type === 'matchInvite.send') {
@@ -468,6 +476,18 @@ export class WsGateway {
         message.intents,
       );
       if (!result.ok) {
+        this.sendRoundAudit(socket, {
+          scope: 'private',
+          event: 'roundDraft.replace',
+          sessionId: binding.sessionId,
+          playerId: binding.playerId,
+          socketId: this.socketIds.get(socket),
+          roundNumber: message.roundNumber,
+          intentCount: message.intents.length,
+          result: 'rejected',
+          code: result.rejection?.code,
+          error: result.error,
+        });
         if (result.rejection) {
           this.send(socket, { type: 'roundDraft.rejected', ...result.rejection });
         } else {
@@ -476,6 +496,29 @@ export class WsGateway {
         return;
       }
 
+      const privateIntentDetails = this.getRoundIntentAuditDetails(message.intents);
+      this.sendRoundAudit(socket, {
+        scope: 'private',
+        event: 'roundDraft.replace',
+        sessionId: binding.sessionId,
+        playerId: binding.playerId,
+        socketId: this.socketIds.get(socket),
+        roundNumber: message.roundNumber,
+        intentCount: message.intents.length,
+        intentIds: privateIntentDetails.intentIds,
+        intentKinds: privateIntentDetails.intentKinds,
+        result: 'accepted',
+      });
+      this.broadcastRoundAudit(binding.sessionId, {
+        scope: 'public',
+        event: 'roundDraft.replace',
+        sessionId: binding.sessionId,
+        playerId: binding.playerId,
+        socketId: this.socketIds.get(socket),
+        roundNumber: message.roundNumber,
+        intentCount: message.intents.length,
+        result: 'accepted',
+      });
       this.send(socket, { type: 'roundDraft.accepted', roundNumber: message.roundNumber });
       this.sendRoundDraftSnapshot(binding.sessionId, binding.playerId, socket);
       this.broadcastRoundStatus(binding.sessionId);
@@ -501,6 +544,17 @@ export class WsGateway {
         message.roundNumber,
       );
       if (!result.ok) {
+        this.sendRoundAudit(socket, {
+          scope: 'private',
+          event: 'roundDraft.lock',
+          sessionId: binding.sessionId,
+          playerId: binding.playerId,
+          socketId: this.socketIds.get(socket),
+          roundNumber: message.roundNumber,
+          result: 'rejected',
+          code: result.rejection?.code,
+          error: result.error,
+        });
         if (result.rejection) {
           this.send(socket, { type: 'roundDraft.rejected', ...result.rejection });
         } else {
@@ -509,11 +563,35 @@ export class WsGateway {
         return;
       }
 
+      this.broadcastRoundAudit(binding.sessionId, {
+        scope: 'public',
+        event: 'roundDraft.lock',
+        sessionId: binding.sessionId,
+        playerId: binding.playerId,
+        socketId: this.socketIds.get(socket),
+        roundNumber: message.roundNumber,
+        locked: true,
+        result: result.resolved ? 'resolved' : 'pending',
+      });
       this.sendRoundDraftSnapshot(binding.sessionId, binding.playerId, socket);
       this.broadcastRoundStatus(binding.sessionId);
       if (result.resolved) {
         await this.persistReplay(binding.sessionId, result.state);
         this.broadcast(binding.sessionId, { type: 'roundResolved', result: result.resolved });
+        this.broadcastRoundAudit(binding.sessionId, {
+          scope: 'public',
+          event: 'round.resolve',
+          sessionId: binding.sessionId,
+          roundNumber: result.resolved.roundNumber,
+          result: 'resolved',
+          orderedActions: result.resolved.orderedActions.map((action) => ({
+            intentId: action.intentId,
+            playerId: action.playerId,
+            kind: action.kind,
+            status: action.status,
+            reasonCode: action.reasonCode,
+          })),
+        });
         const stateSnapshot = this.gameService.getStateSnapshot(binding.sessionId);
         if (stateSnapshot) {
           this.broadcast(binding.sessionId, this.toStateMessage(binding.sessionId, stateSnapshot));
@@ -739,6 +817,55 @@ export class WsGateway {
 
   private send(socket: WebSocket, message: ServerMessageDto): void {
     socket.send(JSON.stringify(message));
+  }
+
+  private sendRoundAudit(
+    socket: WebSocket,
+    event: Omit<RoundAuditEventDto, 'timestamp'> & { timestamp?: string },
+  ): void {
+    this.send(socket, {
+      type: 'roundAudit',
+      event: {
+        ...event,
+        timestamp: event.timestamp ?? new Date().toISOString(),
+      },
+    });
+  }
+
+  private broadcastRoundAudit(
+    sessionId: string,
+    event: Omit<RoundAuditEventDto, 'timestamp'> & { timestamp?: string },
+  ): void {
+    const sockets = this.sessionSockets.get(sessionId);
+    if (!sockets) {
+      return;
+    }
+
+    sockets.forEach((socket) => this.sendRoundAudit(socket, event));
+  }
+
+  private getRoundIntentAuditDetails(intents: unknown[]): {
+    intentIds: string[];
+    intentKinds: string[];
+  } {
+    const intentIds: string[] = [];
+    const intentKinds: string[] = [];
+
+    intents.forEach((intent) => {
+      if (typeof intent !== 'object' || intent === null) {
+        return;
+      }
+
+      const record = intent as Record<string, unknown>;
+      if (typeof record.intentId === 'string') {
+        intentIds.push(record.intentId);
+      }
+      if (typeof record.kind === 'string') {
+        intentKinds.push(record.kind);
+      }
+    });
+
+    return { intentIds, intentKinds };
   }
 
   private bindAuthenticatedSocket(socket: WebSocket, identity: AuthIdentity): void {
