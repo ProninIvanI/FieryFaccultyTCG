@@ -694,6 +694,18 @@ const characterCatalogById = new Map(
   buildCatalogCharacterSummaries(rawCardData).map((character) => [character.id, character] as const)
 );
 
+const getDraftManaCost = (draft: RoundActionIntentDraft[], handCards: HandCardSummary[]): number => {
+  const handCardManaByInstanceId = new Map(handCards.map((card) => [card.instanceId, card.mana] as const));
+
+  return draft.reduce((total, intent) => {
+    if (!('cardInstanceId' in intent) || typeof intent.cardInstanceId !== 'string') {
+      return total;
+    }
+
+    return total + (handCardManaByInstanceId.get(intent.cardInstanceId) ?? 0);
+  }, 0);
+};
+
 const getCharacterInitials = (name: string): string => {
   const parts = name
     .trim()
@@ -1668,13 +1680,20 @@ export const PlayPvpPage = () => {
       ).length,
     [roundDraft],
   );
+  const roundDraftManaCost = useMemo(
+    () => getDraftManaCost(roundDraft, localHandCards),
+    [localHandCards, roundDraft],
+  );
+  const remainingDraftMana = Math.max(0, (localPlayer?.mana ?? 0) - roundDraftManaCost);
   const canLockRound = Boolean(
     currentRoundNumber > 0 &&
       localPlayer &&
       localPlayer.characterId &&
       status === 'connected' &&
       !roundSync?.selfLocked &&
-      pendingTargetSelectionCount === 0
+      !roundDraftRejected &&
+      pendingTargetSelectionCount === 0 &&
+      roundDraftManaCost <= localPlayer.mana
   );
   const canActFromHand = Boolean(
     currentRoundNumber > 0 &&
@@ -2097,6 +2116,16 @@ export const PlayPvpPage = () => {
       return;
     }
 
+    if (roundDraftRejected) {
+      setError('Сервер отклонил текущую ленту. Убери проблемную карту или собери ход заново.');
+      return;
+    }
+
+    if (roundDraftManaCost > localPlayer.mana) {
+      setError('На текущую ленту не хватает маны.');
+      return;
+    }
+
     try {
       gameWsService.lockRound(currentRoundNumber);
       setSelection(null);
@@ -2167,11 +2196,12 @@ export const PlayPvpPage = () => {
       return;
     }
 
-    if (card.cardType === 'summon') {
-      if (localPlayer.mana < card.mana) {
-        return;
-      }
+    if (localPlayer.mana < roundDraftManaCost + card.mana) {
+      setError(`Не хватает маны: доступно ${remainingDraftMana}, карта стоит ${card.mana}.`);
+      return;
+    }
 
+    if (card.cardType === 'summon') {
       handleSummon(card);
       return;
     }
@@ -3060,15 +3090,12 @@ export const PlayPvpPage = () => {
     roundDraftRejected &&
       (
         roundDraftRejected.code !== 'validation_failed' ||
-        (
-          showDiagnostics &&
-          roundDraftRejected.errors.some((entry) => !isPendingTargetSelectionError(entry))
-        )
+        roundDraftRejected.errors.some((entry) => !isPendingTargetSelectionError(entry))
       ),
   );
   const visibleRoundDraftRejected = shouldShowRoundDraftRejected ? roundDraftRejected : null;
   const renderIntentValidationErrors = (intentId: string) =>
-    !showDiagnostics
+    !showDiagnostics && !shouldShowRoundDraftRejected
       ? null
       : draftRejectionErrorsByIntentId.get(intentId)?.map((entry) => (
           <div key={`${intentId}_${entry.code}_${entry.message}`} className={styles.roundQueueError}>

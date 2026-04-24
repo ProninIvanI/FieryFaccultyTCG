@@ -844,6 +844,58 @@ describe('PlayPvpPage', () => {
 
   });
 
+  it('does not queue a hand card when the remaining mana budget is too low', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_spell_no_mana', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 1, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click((await screen.findByText('Огненный шар')).closest('button')!);
+      await flushMicrotasks();
+    });
+
+    expect(screen.getByText(/Не хватает маны/i)).toBeInTheDocument();
+    expect(
+      socket.sent.some((payload) => {
+        const message = JSON.parse(payload) as { type?: string; intents?: Array<Record<string, unknown>> };
+        return (
+          message.type === 'roundDraft.replace' &&
+          Array.isArray(message.intents) &&
+          message.intents.some((intent) => intent.cardInstanceId === 'spell_card_1')
+        );
+      }),
+    ).toBe(false);
+  });
+
   it('shows scene inspect panel for hovered hand card without expanding the card body inline', async () => {
     await renderPage('char_1', 'user_1');
 
@@ -1283,7 +1335,7 @@ describe('PlayPvpPage', () => {
         type: 'state',
         state: createRoundState({
           players: {
-            user_1: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
+            user_1: { mana: 10, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
             user_2: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_2' },
           },
           creatures: {},
@@ -1364,7 +1416,7 @@ describe('PlayPvpPage', () => {
         type: 'state',
         state: createRoundState({
           players: {
-            user_1: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
+            user_1: { mana: 10, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
             user_2: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_2' },
           },
           creatures: {},
@@ -1422,7 +1474,7 @@ describe('PlayPvpPage', () => {
         type: 'state',
         state: createRoundState({
           players: {
-            user_1: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
+            user_1: { mana: 10, maxMana: 10, actionPoints: 3, characterId: 'char_1' },
             user_2: { mana: 5, maxMana: 10, actionPoints: 3, characterId: 'char_2' },
           },
           creatures: {},
