@@ -2,7 +2,7 @@
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(260px, 1fr);
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .mainColumn {
@@ -14,13 +14,20 @@
   display: grid;
   gap: 20px;
   align-content: start;
+  align-self: stretch;
+  min-width: 0;
 }
 
 .stickyStack {
   position: sticky;
   top: 0;
+  align-self: start;
   display: grid;
   gap: 20px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
 }
 
 .filterBlock {
@@ -319,9 +326,17 @@
 @media (max-width: 1024px) {
   .pageGrid {
     grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .filterControls {
     grid-template-columns: 1fr;
+  }
+
+  .stickyStack {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 }
