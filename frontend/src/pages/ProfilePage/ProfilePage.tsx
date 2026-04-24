@@ -168,19 +168,11 @@ export const ProfilePage = () => {
       subtitle="Ваш путь, рабочие колоды и хроника последних дуэлей."
       actions={
         <div className={styles.headerActions}>
-          {noticeTitle && noticeMessage && !noticeDismissed ? (
-            <ProfileNotice
-              title={noticeTitle}
-              message={noticeMessage}
-              tone={noticeTone}
-              onDismiss={() => setNoticeDismissed(true)}
-            />
-          ) : null}
           <HomeLinkButton />
         </div>
       }
     >
-      <Card title="Профиль игрока">
+      <Card title="Профиль игрока" className={styles.profileCard}>
         <div className={styles.profileHeader}>
           <div className={styles.avatar} aria-hidden="true">
             {avatarInitial}
@@ -191,12 +183,20 @@ export const ProfilePage = () => {
               <span>В академии с {joinedAtLabel}</span>
             </div>
             <div className={styles.metaHint}>{profileHint}</div>
+            {noticeTitle && noticeMessage && !noticeDismissed ? (
+              <ProfileNotice
+                title={noticeTitle}
+                message={noticeMessage}
+                tone={noticeTone}
+                onDismiss={() => setNoticeDismissed(true)}
+              />
+            ) : null}
           </div>
         </div>
       </Card>
 
       {!session ? (
-        <Card title="Профиль недоступен">
+        <Card title="Профиль недоступен" className={styles.sectionCard}>
           <p className={styles.emptyState}>
             Войдите в аккаунт, чтобы увидеть статистику, колоды и историю матчей.
           </p>
@@ -204,14 +204,14 @@ export const ProfilePage = () => {
       ) : null}
 
       {session && isLoading ? (
-        <Card title="Загрузка">
+        <Card title="Загрузка" className={styles.sectionCard}>
           <p className={styles.emptyState}>Подтягиваем актуальные данные профиля...</p>
         </Card>
       ) : null}
 
       {session && !isLoading && profile ? (
         <>
-          <Card title="Сводка по матчам">
+          <Card title="Сводка по матчам" className={styles.sectionCard}>
             <div className={styles.statsGrid}>
               <ProfileStatsGroup title="Общая" items={profile.matchStats} />
               <ProfileStatsGroup title="Результаты" items={profile.resultStats} />
@@ -219,7 +219,7 @@ export const ProfilePage = () => {
             </div>
           </Card>
 
-          <Card title="Колоды">
+          <Card title="Колоды" className={styles.sectionCard}>
             <div className={styles.deckMeta}>
               <span>Всего колод: {profile.totalDecks}</span>
               <span>Последнее обновление: {profile.latestDeckUpdateLabel}</span>
@@ -244,7 +244,7 @@ export const ProfilePage = () => {
             )}
           </Card>
 
-          <Card title="Недавние матчи">
+          <Card title="Недавние матчи" className={styles.sectionCard}>
             {profile.recentMatches.length > 0 ? (
               <>
                 <div className={styles.filterRow}>

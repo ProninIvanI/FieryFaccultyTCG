@@ -70,7 +70,15 @@ const formatDateTimeLabel = (value: string | null | undefined): string => {
 
 const formatPercentLabel = (value: number): string => `${Math.round(value)}%`;
 
-const normalizeIssueText = (value: string): string => value.trim().replace(/[.\s]+$/u, '');
+const normalizeIssueText = (value: string): string => {
+  const normalized = value.trim().replace(/[.\s]+$/u, '');
+
+  if (normalized.toLowerCase() === 'internal server error') {
+    return 'сервер временно не отдал данные';
+  }
+
+  return normalized;
+};
 
 const resolveProfileWarning = (
   decksResponse: { ok: true; decks: UserDeck[] } | { ok: false; error: string },

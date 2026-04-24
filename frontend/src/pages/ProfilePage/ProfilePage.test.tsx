@@ -380,6 +380,23 @@ describe('ProfilePage', () => {
     expect(screen.getAllByText('Akela').length).toBeGreaterThan(0);
   });
 
+  it('does not expose raw backend internals in partial profile warnings', async () => {
+    setAuthenticatedSession();
+    mockProfileApi({
+      matchesError: 'Internal server error',
+    });
+
+    render(
+      <MemoryRouter>
+        <ProfilePage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId('profile-notice')).toBeInTheDocument();
+    expect(screen.queryByText(/Internal server error/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/сервер временно не отдал данные/i)).toBeInTheDocument();
+  });
+
   it('spells out every missing section when decks and matches both fail', async () => {
     setAuthenticatedSession();
     mockProfileApi({

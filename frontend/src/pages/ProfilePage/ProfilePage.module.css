@@ -11,29 +11,53 @@
   justify-items: end;
 }
 
+.profileCard,
+.sectionCard {
+  border-radius: 8px;
+  border-color: var(--theme-line-soft);
+  background:
+    linear-gradient(180deg, rgba(255, 248, 236, 0.035), rgba(255, 248, 236, 0.012)),
+    rgba(14, 12, 11, 0.5);
+  box-shadow: none;
+}
+
+.profileCard:hover,
+.sectionCard:hover {
+  transform: none;
+  border-color: var(--theme-line);
+  box-shadow: none;
+}
+
+.profileCard {
+  padding-block: 24px;
+}
+
+.sectionCard {
+  padding-block: 26px;
+}
+
 .noticeToast {
-  width: min(320px, calc(100vw - 40px));
+  width: min(560px, 100%);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: start;
-  padding: 10px 12px;
-  border-radius: 14px;
+  margin-top: 4px;
+  padding: 9px 11px;
+  border-radius: 8px;
   border: 1px solid var(--theme-line);
-  box-shadow: var(--theme-shadow-float);
-  backdrop-filter: blur(14px);
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .noticeToastWarning {
-  background:
-    linear-gradient(180deg, rgba(56, 41, 24, 0.94), rgba(38, 28, 18, 0.96));
-  border-color: rgba(191, 143, 72, 0.38);
+  background: rgba(196, 154, 90, 0.08);
+  border-color: rgba(196, 154, 90, 0.22);
 }
 
 .noticeToastError {
-  background:
-    linear-gradient(180deg, rgba(69, 31, 28, 0.95), rgba(46, 21, 20, 0.97));
-  border-color: rgba(181, 97, 85, 0.38);
+  background: rgba(159, 94, 86, 0.1);
+  border-color: rgba(159, 94, 86, 0.24);
 }
 
 .noticeCopy {
@@ -121,10 +145,11 @@
 }
 
 .statsGroup {
-  border: 1px solid var(--theme-line);
-  border-radius: 16px;
-  padding: 12px 14px;
-  background: var(--theme-surface-panel-soft);
+  border: 0;
+  border-left: 1px solid var(--theme-line);
+  border-radius: 0;
+  padding: 2px 0 2px 14px;
+  background: transparent;
   display: grid;
   gap: 10px;
 }
@@ -180,9 +205,9 @@
 .filterChip {
   min-height: 32px;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid var(--theme-line);
-  background: var(--theme-surface-panel-soft);
+  background: rgba(255, 248, 236, 0.04);
   color: var(--theme-text-muted);
   font-size: 13px;
   font-weight: 600;
@@ -199,9 +224,9 @@
   display: grid;
   gap: 10px;
   padding: 14px;
-  border-radius: 16px;
-  border: 1px solid var(--theme-line);
-  background: var(--theme-surface-panel-soft);
+  border-radius: 8px;
+  border: 1px solid var(--theme-line-soft);
+  background: rgba(255, 248, 236, 0.035);
 }
 
 .itemHeader {
@@ -254,7 +279,7 @@
   justify-content: center;
   min-height: 28px;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 700;
   border: 1px solid var(--theme-line);
