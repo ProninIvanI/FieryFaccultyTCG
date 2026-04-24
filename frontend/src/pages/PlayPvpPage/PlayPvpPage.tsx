@@ -3274,7 +3274,7 @@ export const PlayPvpPage = () => {
 
       <div className={styles.workbench}>
         <div className={styles.controlColumn}>
-          <Card className={`${styles.themedCard} ${styles.scenePanel}`.trim()}>
+          <Card className={`${styles.themedCard} ${styles.scenePanel} ${styles.matchControlCard}`.trim()}>
             <div className={styles.panelSectionHeader}>
               <div className={styles.panelSectionHeading}>
                 <span className={styles.panelSectionKicker}>Контроль матча</span>
@@ -3284,11 +3284,11 @@ export const PlayPvpPage = () => {
                 <span className={styles.cardBadge}>{getConnectionStatusLabel(status)}</span>
                 {hasActiveMatchConnection ? (
                   <button
-                    className={styles.compactButton}
+                    className={`${styles.compactButton} ${styles.matchControlToggle}`.trim()}
                     type="button"
                     onClick={() => setShowConnectionControls((current) => !current)}
                   >
-                    {showConnectionControls ? 'Свернуть' : 'Развернуть'}
+                    {showConnectionControls ? 'Скрыть управление' : 'Открыть управление'}
                   </button>
                 ) : null}
               </div>
@@ -3303,10 +3303,10 @@ export const PlayPvpPage = () => {
                   {`Сессия с ${inviteEntrySummary.peerLabel}`}
                 </strong>
                 <div className={styles.inviteEntryMeta}>
-                  <span className={styles.hudStatusPill}>
+                  <span className={`${styles.hudStatusPill} ${styles.technicalPill}`.trim()}>
                     Session: <strong>{inviteEntrySummary.sessionId}</strong>
                   </span>
-                  <span className={styles.hudStatusPill}>
+                  <span className={`${styles.hudStatusPill} ${styles.technicalPill}`.trim()}>
                     Seed: <strong>{inviteEntrySummary.seed}</strong>
                   </span>
                 </div>

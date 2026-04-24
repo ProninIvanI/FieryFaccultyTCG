@@ -101,6 +101,7 @@
 
 .controlColumn {
   grid-area: control;
+  min-width: 0;
 }
 
 .boardColumn {
@@ -128,6 +129,7 @@
 
 .themedCard,
 .boardCard {
+  min-width: 0;
   color: var(--pvp-text);
   border-radius: 20px;
   border: 1px solid var(--pvp-border);
@@ -193,6 +195,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .compactButton {
@@ -210,6 +213,18 @@
 .compactButton:hover {
   transform: translateY(-1px);
   border-color: var(--pvp-border-strong);
+}
+
+.matchControlCard {
+  max-height: calc(100dvh - 120px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+
+.matchControlToggle {
+  border-color: rgba(196, 154, 90, 0.48);
+  background: rgba(196, 154, 90, 0.14);
 }
 
 .sceneBoardCard {
@@ -249,9 +264,10 @@
 }
 
 .inviteEntryMeta {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .hudPanel {
@@ -378,6 +394,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   min-height: 34px;
   padding: 7px 11px;
   border-radius: 999px;
@@ -389,7 +406,21 @@
 }
 
 .hudStatusPill strong {
+  min-width: 0;
   color: var(--pvp-text);
+}
+
+.technicalPill {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 12px;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+.technicalPill strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .hudStatusPillAlert {
