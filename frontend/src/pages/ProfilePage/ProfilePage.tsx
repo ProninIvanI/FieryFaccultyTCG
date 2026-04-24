@@ -162,12 +162,34 @@ export const ProfilePage = () => {
     setNoticeDismissed(false);
   }, [noticeTitle, noticeMessage]);
 
+  useEffect(() => {
+    if (!noticeTitle || !noticeMessage || noticeDismissed) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setNoticeDismissed(true);
+    }, 7000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [noticeDismissed, noticeTitle, noticeMessage]);
+
   return (
     <PageShell
       title="Кабинет мага"
       subtitle="Ваш путь, рабочие колоды и хроника последних дуэлей."
       actions={
         <div className={styles.headerActions}>
+          {noticeTitle && noticeMessage && !noticeDismissed ? (
+            <ProfileNotice
+              title={noticeTitle}
+              message={noticeMessage}
+              tone={noticeTone}
+              onDismiss={() => setNoticeDismissed(true)}
+            />
+          ) : null}
           <HomeLinkButton />
         </div>
       }
@@ -183,14 +205,6 @@ export const ProfilePage = () => {
               <span>В академии с {joinedAtLabel}</span>
             </div>
             <div className={styles.metaHint}>{profileHint}</div>
-            {noticeTitle && noticeMessage && !noticeDismissed ? (
-              <ProfileNotice
-                title={noticeTitle}
-                message={noticeMessage}
-                tone={noticeTone}
-                onDismiss={() => setNoticeDismissed(true)}
-              />
-            ) : null}
           </div>
         </div>
       </Card>

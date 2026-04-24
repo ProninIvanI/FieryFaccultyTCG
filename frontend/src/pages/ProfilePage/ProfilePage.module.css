@@ -38,16 +38,21 @@
 
 .noticeToast {
   width: min(560px, 100%);
+  position: fixed;
+  top: 14px;
+  right: 18px;
+  z-index: 40;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: start;
-  margin-top: 4px;
+  margin-top: 0;
   padding: 9px 11px;
   border-radius: 8px;
   border: 1px solid var(--theme-line);
-  box-shadow: none;
-  backdrop-filter: none;
+  box-shadow: var(--theme-shadow-float);
+  backdrop-filter: blur(14px);
+  animation: noticeSlideIn 0.22s ease-out;
 }
 
 .noticeToastWarning {
@@ -315,6 +320,20 @@
   }
 
   .noticeToast {
-    width: 100%;
+    width: calc(100vw - 32px);
+    top: 12px;
+    right: 16px;
+  }
+}
+
+@keyframes noticeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

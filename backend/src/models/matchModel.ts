@@ -492,7 +492,7 @@ export const matchModel = {
     return withClient(async (client) => {
       const result = await client.query<MatchDbRow>(
         `
-          SELECT DISTINCT
+          SELECT
             m.id,
             m.match_id,
             m.status,
