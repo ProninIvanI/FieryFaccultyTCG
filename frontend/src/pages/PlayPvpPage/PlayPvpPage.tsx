@@ -3274,7 +3274,14 @@ export const PlayPvpPage = () => {
 
       <div className={styles.workbench}>
         <div className={styles.controlColumn}>
-          <Card className={`${styles.themedCard} ${styles.scenePanel} ${styles.matchControlCard}`.trim()}>
+          <Card
+            className={[
+              styles.themedCard,
+              styles.scenePanel,
+              styles.matchControlCard,
+              showConnectionControls ? styles.matchControlCardExpanded : '',
+            ].filter(Boolean).join(' ')}
+          >
             <div className={styles.panelSectionHeader}>
               <div className={styles.panelSectionHeading}>
                 <span className={styles.panelSectionKicker}>Контроль матча</span>
@@ -3288,28 +3295,40 @@ export const PlayPvpPage = () => {
                     type="button"
                     onClick={() => setShowConnectionControls((current) => !current)}
                   >
-                    {showConnectionControls ? 'Скрыть управление' : 'Открыть управление'}
+                    {showConnectionControls ? 'К бою' : 'Управление'}
                   </button>
                 ) : null}
               </div>
             </div>
             {inviteEntrySummary ? (
-              <div className={styles.inviteEntryBanner} data-testid="invite-entry-banner">
+              <div
+                className={[
+                  styles.inviteEntryBanner,
+                  hasActiveMatchConnection && !showConnectionControls ? styles.inviteEntryBannerCompact : '',
+                ].filter(Boolean).join(' ')}
+                data-testid="invite-entry-banner"
+              >
                 <div className={styles.inviteEntryHeader}>
                   <span className={styles.summaryLabel}>Матч по приглашению</span>
                   <span className={styles.cardBadge}>{inviteEntrySummary.statusLabel}</span>
                 </div>
                 <strong className={styles.inviteEntryTitle}>
-                  {`Сессия с ${inviteEntrySummary.peerLabel}`}
+                  {hasActiveMatchConnection && !showConnectionControls
+                    ? `Матч с ${inviteEntrySummary.peerLabel}`
+                    : `Сессия с ${inviteEntrySummary.peerLabel}`}
                 </strong>
-                <div className={styles.inviteEntryMeta}>
-                  <span className={`${styles.hudStatusPill} ${styles.technicalPill}`.trim()}>
-                    Session: <strong>{inviteEntrySummary.sessionId}</strong>
-                  </span>
-                  <span className={`${styles.hudStatusPill} ${styles.technicalPill}`.trim()}>
-                    Seed: <strong>{inviteEntrySummary.seed}</strong>
-                  </span>
-                </div>
+                {!hasActiveMatchConnection || showConnectionControls ? (
+                  <dl className={styles.inviteEntryMeta}>
+                    <div className={styles.technicalRow}>
+                      <dt>Session: </dt>
+                      <dd>{inviteEntrySummary.sessionId}</dd>
+                    </div>
+                    <div className={styles.technicalRow}>
+                      <dt>Seed: </dt>
+                      <dd>{inviteEntrySummary.seed}</dd>
+                    </div>
+                  </dl>
+                ) : null}
               </div>
             ) : null}
             {hasActiveMatchConnection && !showConnectionControls ? (
@@ -3379,7 +3398,7 @@ export const PlayPvpPage = () => {
                 </div>
               </div>
             ) : (
-              <form className={styles.formGrid} onSubmit={submitJoin}>
+              <form className={`${styles.formGrid} ${hasActiveMatchConnection ? styles.matchControlDetails : ''}`.trim()} onSubmit={submitJoin}>
                 <div className={styles.segmentedRow}>
                   <button
                     className={mode === 'create' ? styles.segmentActive : styles.segmentButton}

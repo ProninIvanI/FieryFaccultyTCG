@@ -216,7 +216,11 @@
 }
 
 .matchControlCard {
-  max-height: calc(100dvh - 120px);
+  overflow: visible;
+}
+
+.matchControlCardExpanded {
+  max-height: calc(100dvh - 112px);
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
@@ -240,13 +244,36 @@
 
 .inviteEntryBanner {
   display: grid;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 9px;
+  padding: 12px;
   border-radius: 16px;
   border: 1px solid rgba(196, 154, 90, 0.34);
   background:
     linear-gradient(180deg, rgba(196, 154, 90, 0.12), rgba(255, 248, 236, 0.04)),
     var(--pvp-panel-deep);
+}
+
+.inviteEntryBannerCompact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.inviteEntryBannerCompact .inviteEntryHeader {
+  display: contents;
+}
+
+.inviteEntryBannerCompact .summaryLabel {
+  grid-column: 1;
+}
+
+.inviteEntryBannerCompact .cardBadge {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.inviteEntryBannerCompact .inviteEntryTitle {
+  grid-column: 1;
 }
 
 .inviteEntryHeader {
@@ -267,12 +294,50 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+  margin: 0;
   min-width: 0;
+}
+
+.technicalRow {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--pvp-border);
+  background: rgba(255, 248, 236, 0.045);
+}
+
+.technicalRow dt,
+.technicalRow dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.technicalRow dt {
+  color: var(--pvp-soft);
+}
+
+.technicalRow dd {
+  color: var(--pvp-text);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .hudPanel {
   display: grid;
   gap: 12px;
+}
+
+.matchControlDetails {
+  max-height: min(64dvh, 720px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
 }
 
 .sceneInspectPanel {
