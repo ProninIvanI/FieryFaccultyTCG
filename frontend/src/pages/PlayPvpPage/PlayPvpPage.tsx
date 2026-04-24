@@ -2031,6 +2031,9 @@ export const PlayPvpPage = () => {
 
     try {
       gameWsService.lockRound(currentRoundNumber);
+      setSelection(null);
+      setSceneInspectTarget(null);
+      setDraftTarget(null);
       setRoundDraftRejected(null);
       setError('');
     } catch (sendError) {
@@ -2064,10 +2067,17 @@ export const PlayPvpPage = () => {
   };
 
   const handleHandCardClick = (card: HandCardSummary) => {
+    if (!canActFromHand) {
+      setSelection(null);
+      setDraftTarget(null);
+      setError('');
+      return;
+    }
+
     setSelection({ kind: 'hand', instanceId: card.instanceId });
     setError('');
 
-    if (!localPlayer || !currentRoundNumber || !canActFromHand) {
+    if (!localPlayer || !currentRoundNumber) {
       return;
     }
 
@@ -2956,6 +2966,16 @@ export const PlayPvpPage = () => {
             <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
           </div>
         )) ?? null;
+
+  useEffect(() => {
+    if (!roundSync?.selfLocked) {
+      return;
+    }
+
+    setSelection(null);
+    setSceneInspectTarget(null);
+    setDraftTarget(null);
+  }, [roundSync?.selfLocked]);
 
   useEffect(() => {
     if (!selection) {

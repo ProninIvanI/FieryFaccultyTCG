@@ -620,42 +620,38 @@ export function FriendsPanel({
           }}
           actions={
             <>
-              <Tooltip
-                content={
+              <button
+                className={styles.friendActionIconButtonPrimary}
+                type="button"
+                aria-label={
+                  friendPresence === "in_match"
+                    ? "В матче"
+                    : friendPresence === "offline"
+                      ? "Не в сети"
+                      : "Пригласить"
+                }
+                title={
                   friendPresence === "in_match"
                     ? "Друг уже в матче"
                     : friendPresence === "offline"
                       ? "Друг сейчас не в сети"
                       : "Пригласить в матч"
                 }
-                side="bottom"
-              >
-                <button
-                  className={styles.friendActionIconButtonPrimary}
-                  type="button"
-                  aria-label={
-                    friendPresence === "in_match"
-                      ? "В матче"
-                      : friendPresence === "offline"
-                        ? "Не в сети"
-                        : "Пригласить"
+                disabled={isInviteDisabled}
+                onClick={async () => {
+                  setFriendActionError(null);
+                  setActiveFriendUserId(friend.userId);
+                  try {
+                    await socialWsService.sendMatchInvite(friend.userId);
+                  } catch {
+                    setFriendActionError("Не удалось отправить приглашение в матч");
+                  } finally {
+                    setActiveFriendUserId(null);
                   }
-                  disabled={isInviteDisabled}
-                  onClick={async () => {
-                    setFriendActionError(null);
-                    setActiveFriendUserId(friend.userId);
-                    try {
-                      await socialWsService.sendMatchInvite(friend.userId);
-                    } catch {
-                      setFriendActionError("Не удалось отправить приглашение в матч");
-                    } finally {
-                      setActiveFriendUserId(null);
-                    }
-                  }}
-                >
-                  <FriendInviteGlyph />
-                </button>
-              </Tooltip>
+                }}
+              >
+                <FriendInviteGlyph />
+              </button>
               <div className={styles.friendTechMenu}>
                 <button
                   className={styles.friendActionIconButtonGhost}

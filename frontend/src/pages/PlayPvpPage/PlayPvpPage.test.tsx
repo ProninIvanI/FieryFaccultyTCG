@@ -894,6 +894,64 @@ describe('PlayPvpPage', () => {
     });
   });
 
+  it('clears hand scene inspect after locking the round', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_scene_inspect_lock_clear', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {},
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '1', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundStatus',
+        roundNumber: 1,
+        selfLocked: false,
+        opponentLocked: false,
+        selfDraftCount: 0,
+        opponentDraftCount: 0,
+      });
+      await flushMicrotasks();
+    });
+
+    const spellCardButton = (await screen.findByText('Огненный шар')).closest('button');
+    expect(spellCardButton).toBeTruthy();
+
+    expect(await hoverSceneTarget(spellCardButton!)).toHaveTextContent('Огненный шар');
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Завершить ход/i }));
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(socket.sent).toContain(JSON.stringify({ type: 'roundDraft.lock', roundNumber: 1 }));
+      expect(screen.queryByTestId('scene-inspect-panel')).not.toBeInTheDocument();
+    });
+  });
+
   it('clears hand scene inspect when the hovered card moves into the battle ribbon', async () => {
     await renderPage('char_1', 'user_1');
 

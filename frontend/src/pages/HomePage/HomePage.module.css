@@ -554,24 +554,6 @@
     transform 0.2s ease;
 }
 
-.socialTabButton::after,
-.socialTabButtonActive::after,
-.socialTabButtonAttention::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -9px;
-  width: 54%;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(196, 154, 90, 0), rgba(196, 154, 90, 0.92), rgba(196, 154, 90, 0));
-  opacity: 0;
-  transform: translateX(-50%) scaleX(0.7);
-  transform-origin: center;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  pointer-events: none;
-}
-
 .socialTabButton:hover,
 .socialTabButton:focus-visible,
 .socialTabButtonAttention:hover,
@@ -580,15 +562,6 @@
   border-color: var(--theme-line-strong);
   background: rgba(255, 248, 236, 0.06);
   transform: translateY(-1px);
-}
-
-.socialTabButton:hover::after,
-.socialTabButton:focus-visible::after,
-.socialTabButtonAttention:hover::after,
-.socialTabButtonAttention:focus-visible::after,
-.socialTabButtonActive::after {
-  opacity: 1;
-  transform: translateX(-50%) scaleX(1);
 }
 
 .socialTabButtonActive {
