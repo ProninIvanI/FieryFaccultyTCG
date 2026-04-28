@@ -39,7 +39,6 @@ import {
   RoundActionIntentDraft,
   RoundDraftRejectedServerMessage,
   TransportRejectedServerMessage,
-  UserDeck,
 } from '@/types';
 import { buildMatchFeedRounds, type MatchFeedEntrySummary, type MatchFeedRoundSummary } from './matchFeed';
 import {
@@ -1149,6 +1148,13 @@ const handleServiceEvent = (
   }
 };
 
+const ExitDoorIcon = () => (
+  <span className={styles.exitDoorIcon} aria-hidden="true">
+    <span className={styles.exitDoorPanel} />
+    <span className={styles.exitDoorHandle} />
+  </span>
+);
+
 export const PlayPvpPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1156,7 +1162,6 @@ export const PlayPvpPage = () => {
   const invitedSessionId = searchParams.get('sessionId')?.trim() ?? '';
   const invitedSeed = searchParams.get('seed')?.trim() ?? '';
   const shouldAutoJoinInvite = searchParams.get('autojoin') === '1';
-  const invitedPeerLabel = searchParams.get('peer')?.trim() ?? '';
   const [session, setSession] = useState<AuthSession | null>(() => authService.getSession());
   const playerId = session?.userId ?? '';
   const authToken = session?.token ?? '';
@@ -1164,7 +1169,6 @@ export const PlayPvpPage = () => {
   const [sessionId, setSessionId] = useState(() => invitedSessionId || buildSessionId());
   const [seed, setSeed] = useState(invitedSeed || '1');
   const [deckId, setDeckId] = useState('');
-  const [savedDecks, setSavedDecks] = useState<UserDeck[]>([]);
   const [isDecksLoading, setIsDecksLoading] = useState(false);
   const [status, setStatus] = useState<PvpConnectionStatus>(gameWsService.getStatus());
   const [matchState, setMatchState] = useState<GameStateSnapshot | null>(null);
@@ -1309,7 +1313,6 @@ export const PlayPvpPage = () => {
         return;
       }
 
-      setSavedDecks(result.decks);
       if (!deckId && result.decks[0]) {
         setDeckId(result.decks[0].id);
       }
@@ -3176,10 +3179,7 @@ export const PlayPvpPage = () => {
             aria-label="Выйти из матча"
             title="Выйти из матча"
           >
-            <span className={styles.exitDoorIcon} aria-hidden="true">
-              <span className={styles.exitDoorPanel} />
-              <span className={styles.exitDoorHandle} />
-            </span>
+            <ExitDoorIcon />
           </button>
         </div>
       </div>
@@ -4043,7 +4043,7 @@ export const PlayPvpPage = () => {
                   <span className={styles.summaryLabel}>Игровое поле</span>
                   <strong className={styles.spotlightValue}>Ожидание матча</strong>
                   <p className={styles.paragraph}>
-                    Подключись через боковую панель. После входа сюда развернётся арена и рука игрока.
+                    Матч откроется автоматически после подключения к PvP-сессии.
                   </p>
                 </div>
               </div>

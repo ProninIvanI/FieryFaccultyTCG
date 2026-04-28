@@ -288,7 +288,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Арена открыта/i)).toBeInTheDocument();
+      expect(screen.getByTestId('pvp-scene-stage')).toBeInTheDocument();
       expect(screen.queryByText(/Контроль матча/i)).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Завершить ход/i })).toBeEnabled();
     });
@@ -568,7 +568,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Арена открыта/i)).toBeInTheDocument();
+      expect(screen.getByTestId('pvp-scene-stage')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Показать диагностику/i })).not.toBeInTheDocument();
       expect(screen.queryByText(/Диагностика включена/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/PvP audit/i)).not.toBeInTheDocument();
@@ -579,11 +579,6 @@ describe('PlayPvpPage', () => {
 
   it('joins existing match as second player without sending seed', async () => {
     await renderPage('char_2', 'user_2');
-
-    await act(async () => {
-      fireEvent.click(screen.getAllByRole('button', { name: /Войти/i })[0]);
-      await flushMicrotasks();
-    });
 
     const socket = await submitJoin('session_alpha', /Войти/i);
 
@@ -604,9 +599,8 @@ describe('PlayPvpPage', () => {
       '/play/pvp?mode=create&sessionId=invite_match_invite_1&seed=77&autojoin=1&peer=Bravo',
     );
 
-    expect(screen.getByTestId('invite-entry-banner')).toHaveTextContent('Сессия с Bravo');
-    expect(screen.getByTestId('invite-entry-banner')).toHaveTextContent('Session: invite_match_invite_1');
-    expect(screen.getByTestId('invite-entry-banner')).toHaveTextContent('Seed: 77');
+    expect(screen.queryByTestId('invite-entry-banner')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Контроль матча/i)).not.toBeInTheDocument();
 
     const socket = FakeWebSocket.instances[0];
     expect(socket).toBeDefined();
@@ -661,7 +655,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Арена открыта/i)).toBeInTheDocument();
+      expect(screen.getByTestId('pvp-scene-stage')).toBeInTheDocument();
       expect(screen.queryByText(/Контроль матча/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/Создать матч/i)).not.toBeInTheDocument();
     });
@@ -3620,7 +3614,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/session_full/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/В матче уже заняты оба PvP-слота/i)).toBeInTheDocument();
       expect(screen.getByText(/Сервер отклонил вход в сессию session_full/i)).toBeInTheDocument();
-      expect(screen.getByText(/^Матч:/i)).toHaveTextContent('ещё не подключено');
+      expect(screen.queryByText(/Контроль матча/i)).not.toBeInTheDocument();
       expect(screen.getByText('Ожидание матча')).toBeInTheDocument();
     });
   });
@@ -3644,7 +3638,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/Character is already taken in this session/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/Этот персонаж уже занят в матче. Выберите колоду с другим магом/i)).toBeInTheDocument();
       expect(screen.getByText(/Сервер отклонил вход в сессию session_duplicate_character/i)).toBeInTheDocument();
-      expect(screen.getByText(/^Матч:/i)).toHaveTextContent('ещё не подключено');
+      expect(screen.queryByText(/Контроль матча/i)).not.toBeInTheDocument();
     });
   });
 
@@ -3675,7 +3669,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Матч по приглашению/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Матч по приглашению/i)).not.toBeInTheDocument();
       expect(screen.getByText(/Эта invite-сессия уже занята/i)).toBeInTheDocument();
       expect(screen.getByText(/Скорее всего матч был запущен раньше или ссылка устарела/i)).toBeInTheDocument();
     });
@@ -3701,7 +3695,7 @@ describe('PlayPvpPage', () => {
       expect(screen.getAllByText(/unknown_message_type/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/Тип WS-сообщения не поддерживается сервером/i)).toBeInTheDocument();
       expect(screen.getByText(/Сервер отклонил сообщение для action/i)).toBeInTheDocument();
-      expect(screen.getByText(/^Матч:/i)).toHaveTextContent('ещё не подключено');
+      expect(screen.queryByText(/Контроль матча/i)).not.toBeInTheDocument();
       expect(screen.getByText('Ожидание матча')).toBeInTheDocument();
     });
   });

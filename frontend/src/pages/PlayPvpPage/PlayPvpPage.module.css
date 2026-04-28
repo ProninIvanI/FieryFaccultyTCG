@@ -90,6 +90,7 @@
   background: rgba(255, 248, 236, 0.05);
   color: var(--pvp-text);
   cursor: pointer;
+  text-decoration: none;
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -302,130 +303,11 @@
   border-color: var(--pvp-border-strong);
 }
 
-.matchControlCard {
-  overflow: visible;
-}
-
-.matchControlCardExpanded {
-  max-height: calc(100dvh - 112px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
-}
-
-.matchControlToggle {
-  border-color: rgba(196, 154, 90, 0.48);
-  background: rgba(196, 154, 90, 0.14);
-}
-
 .sceneBoardCard {
   position: relative;
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
-}
-
-.formGrid {
-  display: grid;
-  gap: 16px;
-}
-
-.inviteEntryBanner {
-  display: grid;
-  gap: 9px;
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(196, 154, 90, 0.34);
-  background:
-    linear-gradient(180deg, rgba(196, 154, 90, 0.12), rgba(255, 248, 236, 0.04)),
-    var(--pvp-panel-deep);
-}
-
-.inviteEntryBannerCompact {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.inviteEntryBannerCompact .inviteEntryHeader {
-  display: contents;
-}
-
-.inviteEntryBannerCompact .summaryLabel {
-  grid-column: 1;
-}
-
-.inviteEntryBannerCompact .cardBadge {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-}
-
-.inviteEntryBannerCompact .inviteEntryTitle {
-  grid-column: 1;
-}
-
-.inviteEntryHeader {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.inviteEntryTitle {
-  color: var(--pvp-text);
-  font-size: 15px;
-  line-height: 1.2;
-}
-
-.inviteEntryMeta {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-  margin: 0;
-  min-width: 0;
-}
-
-.technicalRow {
-  display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
-  gap: 8px;
-  align-items: start;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid var(--pvp-border);
-  background: rgba(255, 248, 236, 0.045);
-}
-
-.technicalRow dt,
-.technicalRow dd {
-  margin: 0;
-  min-width: 0;
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.technicalRow dt {
-  color: var(--pvp-soft);
-}
-
-.technicalRow dd {
-  color: var(--pvp-text);
-  font-weight: 700;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.hudPanel {
-  display: grid;
-  gap: 12px;
-}
-
-.matchControlDetails {
-  max-height: min(64dvh, 720px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 4px;
 }
 
 .sceneInspectPanel {
