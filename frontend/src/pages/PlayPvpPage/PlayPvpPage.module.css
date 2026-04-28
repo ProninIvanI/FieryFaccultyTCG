@@ -289,7 +289,6 @@
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
-  overflow: hidden;
 }
 
 .matchFeedToggleButton {
@@ -754,6 +753,8 @@
 
 .boardShell {
   display: grid;
+  position: relative;
+  isolation: isolate;
   min-height: 0;
   grid-template-columns: minmax(178px, 206px) minmax(0, 1fr);
   gap: 14px;
@@ -764,6 +765,8 @@
 
 .boardSideColumn {
   display: grid;
+  position: relative;
+  z-index: 5;
   gap: 12px;
   grid-template-rows: auto auto auto;
   min-height: 0;
@@ -1173,7 +1176,10 @@
   gap: 8px;
   padding: 10px 12px 0;
   position: relative;
+  z-index: 1;
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
   border-radius: 24px;
   border: none;
   background:
