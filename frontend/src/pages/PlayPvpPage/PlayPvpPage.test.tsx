@@ -189,6 +189,13 @@ const submitJoin = async (sessionId: string, buttonName: RegExp | string): Promi
   return socket;
 };
 
+const openMatchFeed = async (): Promise<void> => {
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /Открыть историю раундов/i }));
+    await flushMicrotasks();
+  });
+};
+
 const hoverSceneTarget = async (target: Element): Promise<HTMLElement> => {
   await act(async () => {
     fireEvent.mouseEnter(target);
@@ -328,12 +335,21 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
+    await openMatchFeed();
+
     await waitFor(() => {
       const matchFeed = within(screen.getByTestId('match-feed'));
       expect(screen.getAllByText(/Огненный шар нанёс урон/i).length).toBeGreaterThan(0);
       expect(screen.getByRole('button', { name: /Раунд 1/i })).toHaveAttribute('aria-expanded', 'false');
       expect(matchFeed.queryAllByText(/^Ты$/i)).toHaveLength(0);
     });
+
+    await act(async () => {
+      fireEvent.pointerDown(document.body);
+      await flushMicrotasks();
+    });
+
+    expect(screen.getByRole('button', { name: /Открыть историю раундов/i })).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('builds round-based match feed history, deduplicates by roundNumber and toggles expanded round', async () => {
@@ -422,6 +438,8 @@ describe('PlayPvpPage', () => {
       });
       await flushMicrotasks();
     });
+
+    await openMatchFeed();
 
     await waitFor(() => {
       const matchFeed = within(screen.getByTestId('match-feed'));
@@ -530,6 +548,8 @@ describe('PlayPvpPage', () => {
       });
       await flushMicrotasks();
     });
+
+    await openMatchFeed();
 
     await waitFor(() => {
       const matchFeed = within(screen.getByTestId('match-feed'));

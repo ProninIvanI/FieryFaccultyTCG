@@ -1155,6 +1155,15 @@ const ExitDoorIcon = () => (
   </span>
 );
 
+const MatchFeedScrollIcon = () => (
+  <span className={styles.matchFeedScrollIcon} aria-hidden="true">
+    <span className={styles.matchFeedScrollRollTop} />
+    <span className={styles.matchFeedScrollSheet} />
+    <span className={styles.matchFeedScrollLine} />
+    <span className={styles.matchFeedScrollLine} />
+  </span>
+);
+
 export const PlayPvpPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1194,7 +1203,7 @@ export const PlayPvpPage = () => {
   const [isResolvedReplayOpen, setIsResolvedReplayOpen] = useState(false);
   const [isResolvedReplayPinned, setIsResolvedReplayPinned] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const [isMatchFeedOpen, setIsMatchFeedOpen] = useState(true);
+  const [isMatchFeedOpen, setIsMatchFeedOpen] = useState(false);
   const [, setRoundAuditEvents] = useState<RoundAuditEvent[]>([]);
   const hasLiveStateRef = useRef(false);
   const autoJoinAttemptedRef = useRef(false);
@@ -1203,10 +1212,34 @@ export const PlayPvpPage = () => {
   const currentRoundRef = useRef<number | null>(null);
   const roundDraftRef = useRef<RoundActionIntentDraft[]>([]);
   const resolvedReplayItemRefs = useRef<Record<string, HTMLElement | null>>({});
+  const matchFeedPanelRef = useRef<HTMLDivElement | null>(null);
+  const matchFeedToggleRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     roundDraftRef.current = roundDraft;
   }, [roundDraft]);
+
+  useEffect(() => {
+    if (!isMatchFeedOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (matchFeedPanelRef.current?.contains(target) || matchFeedToggleRef.current?.contains(target)) {
+        return;
+      }
+
+      setIsMatchFeedOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [isMatchFeedOpen]);
 
   useEffect(() => {
     if (!error) {
@@ -3251,96 +3284,6 @@ export const PlayPvpPage = () => {
       ) : null}
 
       <div className={styles.workbench}>
-        <div className={styles.controlColumn}>
-          <Card
-            className={`${styles.themedCard} ${styles.sidebarFeedCard} ${styles.scenePanel}`.trim()}
-            contentClassName={styles.sidebarFeedCardContent}
-          >
-            <div className={styles.panelSectionHeader}>
-              <div className={styles.panelSectionHeading}>
-                <span className={styles.panelSectionKicker}>История матча</span>
-                <strong className={styles.panelSectionTitle}>Летопись раундов</strong>
-              </div>
-              <div className={styles.panelSectionMeta}>
-                <span className={styles.cardBadge}>
-                  {matchFeedRounds.length > 0 ? `${matchFeedRounds.length} раунд${matchFeedRounds.length === 1 ? '' : matchFeedRounds.length < 5 ? 'а' : 'ов'}` : 'Пока пусто'}
-                </span>
-                <button
-                  className={styles.compactButton}
-                  type="button"
-                  onClick={() => setIsMatchFeedOpen((current) => !current)}
-                >
-                  {isMatchFeedOpen ? 'Свернуть' : 'Развернуть'}
-                </button>
-              </div>
-            </div>
-            {isMatchFeedOpen && matchFeedRounds.length > 0 ? (
-              <div className={styles.matchFeed} data-testid="match-feed">
-                {matchFeedRounds.map((round) => {
-                  const isExpanded = round.roundNumber === expandedFeedRoundNumber;
-
-                  return (
-                    <section key={round.roundNumber} className={styles.matchFeedRound}>
-                      <button
-                        type="button"
-                        className={styles.matchFeedRoundToggle}
-                        onClick={() =>
-                          setExpandedFeedRoundNumber((current) => (current === round.roundNumber ? null : round.roundNumber))
-                        }
-                        aria-expanded={isExpanded}
-                      >
-                        <div className={styles.matchFeedRoundHeading}>
-                          <strong>{round.title}</strong>
-                          <span>{round.subtitle}</span>
-                        </div>
-                        <span className={styles.matchFeedRoundChevron}>{isExpanded ? 'Свернуть' : 'Раскрыть'}</span>
-                      </button>
-
-                      {isExpanded ? (
-                        <div className={styles.matchFeedEntries}>
-                          {round.entries.map((entry) => (
-                            <article
-                              key={entry.id}
-                              className={`${styles.matchFeedEntry} ${
-                                entry.tone === 'success'
-                                  ? styles.matchFeedEntryToneSuccess
-                                  : entry.tone === 'warning'
-                                    ? styles.matchFeedEntryToneWarning
-                                    : entry.tone === 'danger'
-                                      ? styles.matchFeedEntryToneDanger
-                                      : styles.matchFeedEntryToneNeutral
-                              }`}
-                            >
-                              <div className={styles.matchFeedEntryMain}>
-                                <strong>{entry.actorLabel}</strong>
-                                <span>{entry.actionLabel}</span>
-                              </div>
-                              {entry.targetLabel ? <div className={styles.matchFeedEntryMeta}>Цель: {entry.targetLabel}</div> : null}
-                              <div className={styles.matchFeedEntryOutcome}>{entry.outcomeLabel}</div>
-                              {entry.detailText ? <div className={styles.matchFeedEntryDetail}>{entry.detailText}</div> : null}
-                              {entry.detailItems?.length ? (
-                                <div className={styles.matchFeedEntryDetails}>
-                                  {entry.detailItems.map((detailItem) => (
-                                    <div key={detailItem} className={styles.matchFeedEntryDetailItem}>
-                                      {detailItem}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </article>
-                          ))}
-                        </div>
-                      ) : null}
-                    </section>
-                  );
-                })}
-              </div>
-            ) : isMatchFeedOpen ? (
-              <div className={styles.emptyState}>Раунды появятся после первого резолва.</div>
-            ) : null}
-          </Card>
-        </div>
-
         <div className={styles.boardColumn}>
           <Card
             className={`${styles.boardCard} ${styles.sceneBoardCard}`.trim()}
@@ -3351,6 +3294,98 @@ export const PlayPvpPage = () => {
                 {error}
               </div>
             ) : null}
+            <button
+              ref={matchFeedToggleRef}
+              className={`${styles.matchFeedToggleButton} ${isMatchFeedOpen ? styles.matchFeedToggleButtonActive : ''}`.trim()}
+              type="button"
+              onClick={() => setIsMatchFeedOpen((current) => !current)}
+              aria-label={isMatchFeedOpen ? 'Скрыть историю раундов' : 'Открыть историю раундов'}
+              aria-expanded={isMatchFeedOpen}
+            >
+              <MatchFeedScrollIcon />
+              {matchFeedRounds.length > 0 ? <span className={styles.matchFeedToggleCount}>{matchFeedRounds.length}</span> : null}
+            </button>
+            <div
+              ref={matchFeedPanelRef}
+              className={`${styles.matchFeedDrawer} ${isMatchFeedOpen ? styles.matchFeedDrawerOpen : ''}`.trim()}
+              aria-hidden={!isMatchFeedOpen}
+            >
+              <div className={styles.matchFeedDrawerHeader}>
+                <div className={styles.panelSectionHeading}>
+                  <span className={styles.panelSectionKicker}>История матча</span>
+                  <strong className={styles.panelSectionTitle}>Летопись раундов</strong>
+                </div>
+                <span className={styles.cardBadge}>
+                  {matchFeedRounds.length > 0 ? `${matchFeedRounds.length} раунд${matchFeedRounds.length === 1 ? '' : matchFeedRounds.length < 5 ? 'а' : 'ов'}` : 'Пока пусто'}
+                </span>
+              </div>
+              <div className={styles.matchFeedDrawerBody}>
+                {matchFeedRounds.length > 0 ? (
+                  <div className={styles.matchFeed} data-testid="match-feed">
+                    {matchFeedRounds.map((round) => {
+                      const isExpanded = round.roundNumber === expandedFeedRoundNumber;
+
+                      return (
+                        <section key={round.roundNumber} className={styles.matchFeedRound}>
+                          <button
+                            type="button"
+                            className={styles.matchFeedRoundToggle}
+                            onClick={() =>
+                              setExpandedFeedRoundNumber((current) => (current === round.roundNumber ? null : round.roundNumber))
+                            }
+                            aria-expanded={isExpanded}
+                          >
+                            <div className={styles.matchFeedRoundHeading}>
+                              <strong>{round.title}</strong>
+                              <span>{round.subtitle}</span>
+                            </div>
+                            <span className={styles.matchFeedRoundChevron}>{isExpanded ? 'Свернуть' : 'Раскрыть'}</span>
+                          </button>
+
+                          {isExpanded ? (
+                            <div className={styles.matchFeedEntries}>
+                              {round.entries.map((entry) => (
+                                <article
+                                  key={entry.id}
+                                  className={`${styles.matchFeedEntry} ${
+                                    entry.tone === 'success'
+                                      ? styles.matchFeedEntryToneSuccess
+                                      : entry.tone === 'warning'
+                                        ? styles.matchFeedEntryToneWarning
+                                        : entry.tone === 'danger'
+                                          ? styles.matchFeedEntryToneDanger
+                                          : styles.matchFeedEntryToneNeutral
+                                  }`}
+                                >
+                                  <div className={styles.matchFeedEntryMain}>
+                                    <strong>{entry.actorLabel}</strong>
+                                    <span>{entry.actionLabel}</span>
+                                  </div>
+                                  {entry.targetLabel ? <div className={styles.matchFeedEntryMeta}>Цель: {entry.targetLabel}</div> : null}
+                                  <div className={styles.matchFeedEntryOutcome}>{entry.outcomeLabel}</div>
+                                  {entry.detailText ? <div className={styles.matchFeedEntryDetail}>{entry.detailText}</div> : null}
+                                  {entry.detailItems?.length ? (
+                                    <div className={styles.matchFeedEntryDetails}>
+                                      {entry.detailItems.map((detailItem) => (
+                                        <div key={detailItem} className={styles.matchFeedEntryDetailItem}>
+                                          {detailItem}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </article>
+                              ))}
+                            </div>
+                          ) : null}
+                        </section>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className={styles.emptyState}>Раунды появятся после первого резолва.</div>
+                )}
+              </div>
+            </div>
             {matchSummary ? (
               <div className={styles.matchOverview}>
                 <div className={styles.battlefield}>

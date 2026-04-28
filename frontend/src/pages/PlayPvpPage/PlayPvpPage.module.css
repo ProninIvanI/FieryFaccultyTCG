@@ -179,40 +179,21 @@
 .workbench {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
-  grid-template-areas: "board control";
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "board";
   gap: 16px;
   align-items: stretch;
 }
 
-.controlColumn,
 .boardColumn {
   display: grid;
   gap: 14px;
   min-height: 0;
 }
 
-.controlColumn {
-  grid-area: control;
-  min-width: 0;
-}
-
 .boardColumn {
   grid-area: board;
   min-width: 0;
-}
-
-.sidebarFeedCard {
-  display: grid;
-  min-height: 0;
-}
-
-.sidebarFeedCardContent {
-  min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  align-content: start;
-  overflow: hidden;
 }
 
 .themedCard,
@@ -305,6 +286,149 @@
 
 .sceneBoardCard {
   position: relative;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.matchFeedToggleButton {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 45;
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--pvp-border);
+  border-radius: 999px;
+  background: rgba(29, 23, 20, 0.82);
+  color: var(--pvp-text);
+  cursor: pointer;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.32);
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.matchFeedToggleButton:hover,
+.matchFeedToggleButtonActive {
+  transform: translateY(-1px);
+  border-color: var(--pvp-border-strong);
+  background: rgba(255, 248, 236, 0.1);
+}
+
+.matchFeedToggleCount {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(24, 18, 15, 0.78);
+  background: rgba(196, 154, 90, 0.98);
+  color: #130f0c;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.matchFeedScrollIcon {
+  position: relative;
+  width: 22px;
+  height: 24px;
+  display: block;
+}
+
+.matchFeedScrollRollTop,
+.matchFeedScrollSheet {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border: 2px solid currentColor;
+}
+
+.matchFeedScrollRollTop {
+  top: 2px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 248, 236, 0.08);
+}
+
+.matchFeedScrollSheet {
+  top: 6px;
+  bottom: 2px;
+  border-top: 0;
+  border-radius: 0 0 4px 4px;
+}
+
+.matchFeedScrollLine {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.68;
+}
+
+.matchFeedScrollLine:nth-child(3) {
+  top: 12px;
+}
+
+.matchFeedScrollLine:nth-child(4) {
+  top: 17px;
+}
+
+.matchFeedDrawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 35;
+  width: min(440px, 46%);
+  height: min(58%, 520px);
+  min-height: 280px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 18px 18px 18px 20px;
+  border-left: 1px solid var(--pvp-border-strong);
+  border-bottom: 1px solid var(--pvp-border-strong);
+  border-radius: 0 20px 0 44px;
+  background:
+    linear-gradient(180deg, rgba(42, 33, 29, 0.98), rgba(20, 16, 15, 0.98)),
+    var(--pvp-panel);
+  box-shadow:
+    -22px 24px 54px rgba(0, 0, 0, 0.42),
+    inset 1px -1px 0 rgba(255, 248, 236, 0.08);
+  transform: translateX(calc(100% + 18px));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.26s ease,
+    opacity 0.2s ease;
+}
+
+.matchFeedDrawerOpen {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.matchFeedDrawerHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  padding-right: 54px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--theme-line-soft);
+}
+
+.matchFeedDrawerBody {
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
@@ -1696,8 +1820,8 @@
   gap: 12px;
 }
 
-.sidebarFeedCardContent .matchFeed {
-  height: min(34vh, 420px);
+.matchFeedDrawerBody .matchFeed {
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
@@ -3340,10 +3464,6 @@
     padding: 16px 18px 18px;
   }
 
-  .workbench {
-    grid-template-columns: minmax(0, 1fr) minmax(264px, 296px);
-  }
-
   .boardShell {
     grid-template-columns: minmax(164px, 186px) minmax(0, 1fr);
   }
@@ -3352,9 +3472,7 @@
 @media (max-width: 1180px) {
   .workbench {
     grid-template-columns: 1fr;
-    grid-template-areas:
-      "board"
-      "control";
+    grid-template-areas: "board";
   }
 
   .boardShell {
@@ -3400,9 +3518,9 @@
     display: none;
   }
 
-  .sidebarFeedCard,
-  .sidebarFeedCardContent .matchFeed {
-    max-height: none;
+  .matchFeedDrawer {
+    width: min(440px, 88%);
+    height: min(62%, 520px);
   }
 
   .inlineField {
