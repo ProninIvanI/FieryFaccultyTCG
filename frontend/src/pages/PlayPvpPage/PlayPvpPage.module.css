@@ -403,18 +403,28 @@
   box-shadow:
     -22px 24px 54px rgba(0, 0, 0, 0.42),
     inset 1px -1px 0 rgba(255, 248, 236, 0.08);
-  transform: translateX(calc(100% + 18px));
+  clip-path: inset(0 0 0 100% round 0 20px 0 44px);
+  transform: translateX(24px);
   opacity: 0;
   pointer-events: none;
+  visibility: hidden;
   transition:
+    clip-path 0.26s ease,
     transform 0.26s ease,
-    opacity 0.2s ease;
+    opacity 0.2s ease,
+    visibility 0s linear 0.26s;
 }
 
 .matchFeedDrawerOpen {
+  clip-path: inset(0 0 0 0 round 0 20px 0 44px);
   transform: translateX(0);
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
+  transition:
+    clip-path 0.26s ease,
+    transform 0.26s ease,
+    opacity 0.2s ease;
 }
 
 .matchFeedDrawerHeader {
