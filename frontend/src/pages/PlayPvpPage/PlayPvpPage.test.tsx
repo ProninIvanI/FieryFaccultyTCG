@@ -542,7 +542,7 @@ describe('PlayPvpPage', () => {
     });
   });
 
-  it('hides diagnostics by default and reveals raw snapshot only after explicit toggle', async () => {
+  it('does not expose diagnostic controls on the player PvP page', async () => {
     await renderPage('char_1', 'user_1');
 
     const socket = await submitJoin('session_diagnostics', /Создать/i);
@@ -561,20 +561,12 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Боевой режим/i)).toBeInTheDocument();
+      expect(screen.getByText(/Матч уже идёт/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Показать диагностику/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Диагностика включена/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/PvP audit/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/Открыть JSON матча/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/Открыть JSON матча/i)).not.toBeInTheDocument();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
-      await flushMicrotasks();
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText(/Диагностика включена/i)).toBeInTheDocument();
-      expect(screen.getByText(/Открыть JSON матча/i)).toBeInTheDocument();
-      expect(screen.getByText(/Состояние сторон/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Состояние сторон/i)).not.toBeInTheDocument();
     });
   });
 
@@ -1583,11 +1575,6 @@ describe('PlayPvpPage', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
-      await flushMicrotasks();
-    });
-
-    await act(async () => {
       socket.emitMessage({
         type: 'roundDraft.snapshot',
         roundNumber: 1,
@@ -1714,11 +1701,6 @@ describe('PlayPvpPage', () => {
           ],
         },
       });
-      await flushMicrotasks();
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
       await flushMicrotasks();
     });
 
@@ -2623,11 +2605,6 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
-      await flushMicrotasks();
-    });
-
     await waitFor(() => {
       expect(screen.getAllByText(/Огненный шар/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Сфера воды/i).length).toBeGreaterThan(0);
@@ -3481,11 +3458,6 @@ describe('PlayPvpPage', () => {
     expect(await hoverSceneTarget(restoredRejectedAction)).toHaveTextContent(
       `${getTargetTypeLabel('enemyCharacter')} -> Маг user_2`,
     );
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Показать диагностику/i }));
-      await flushMicrotasks();
-    });
 
     await act(async () => {
       socket.emitMessage({

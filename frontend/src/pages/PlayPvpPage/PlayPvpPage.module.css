@@ -84,16 +84,13 @@
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
-  grid-template-areas:
-    "board control"
-    "board context";
+  grid-template-areas: "board control";
   gap: 16px;
   align-items: stretch;
 }
 
 .controlColumn,
-.boardColumn,
-.contextColumn {
+.boardColumn {
   display: grid;
   gap: 14px;
   min-height: 0;
@@ -107,11 +104,6 @@
 .boardColumn {
   grid-area: board;
   min-width: 0;
-}
-
-.contextColumn {
-  grid-area: context;
-  align-items: start;
 }
 
 .sidebarFeedCard {
@@ -406,25 +398,6 @@
   line-height: 1.5;
 }
 
-.panelModeRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid var(--pvp-border);
-  background:
-    linear-gradient(180deg, rgba(255, 248, 236, 0.06), rgba(255, 248, 236, 0.03)),
-    var(--pvp-panel-deep);
-}
-
-.panelModeSummary {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
 .hudHeader {
   display: flex;
   justify-content: space-between;
@@ -617,80 +590,11 @@
 }
 
 .hintBlock,
-.diagnosticLogPanel,
 .detailsList,
 .focusPanel,
-.debugPanel,
 .noticeBlock {
   display: grid;
   gap: 12px;
-}
-
-.diagnosticLogPanel {
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid var(--pvp-border);
-  background: rgba(14, 8, 7, 0.42);
-}
-
-.diagnosticLogHeader {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
-
-.diagnosticLogHeader > div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.auditEventList {
-  display: grid;
-  gap: 8px;
-  max-height: 190px;
-  overflow: auto;
-}
-
-.auditEventItem {
-  display: grid;
-  gap: 3px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(196, 154, 90, 0.22);
-  background: rgba(255, 248, 236, 0.045);
-}
-
-.auditEventItem strong,
-.auditEventItem span {
-  overflow-wrap: anywhere;
-}
-
-.auditEventItem strong {
-  color: var(--pvp-text);
-  font-size: 12px;
-}
-
-.auditEventItem span {
-  color: var(--pvp-muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.diagnosticTextArea {
-  width: 100%;
-  min-height: 180px;
-  resize: vertical;
-  padding: 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(196, 154, 90, 0.24);
-  background: rgba(14, 8, 7, 0.82);
-  color: #f1dac0;
-  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  font-size: 11px;
-  line-height: 1.45;
 }
 
 .hint,
@@ -3425,24 +3329,6 @@
   min-height: 24px;
 }
 
-.debugSummary {
-  cursor: pointer;
-  color: var(--pvp-text);
-  font-weight: 700;
-}
-
-.rawState {
-  margin: 0;
-  max-height: 420px;
-  overflow: auto;
-  padding: 14px;
-  border-radius: 14px;
-  background: rgba(14, 8, 7, 0.88);
-  color: #f1dac0;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 @media (max-width: 1920px), (max-height: 1100px) {
   .fieldFrameLive {
     --scene-scale: 0.95;
@@ -3472,8 +3358,7 @@
     grid-template-columns: 1fr;
     grid-template-areas:
       "board"
-      "control"
-      "context";
+      "control";
   }
 
   .boardShell {
@@ -3507,8 +3392,7 @@
     font-size: clamp(1.6rem, 7vw, 2.2rem);
   }
 
-  .workbench,
-  .contextColumn {
+  .workbench {
     grid-template-columns: 1fr;
   }
 
@@ -3518,10 +3402,6 @@
 
   .resolveFlowArrow {
     display: none;
-  }
-
-  .panelModeRow {
-    grid-template-columns: 1fr;
   }
 
   .sidebarFeedCard,

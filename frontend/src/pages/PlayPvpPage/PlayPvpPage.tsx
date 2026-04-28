@@ -1057,55 +1057,6 @@ const buildSessionId = (): string => {
   return `session_${Date.now()}`;
 };
 
-const buildPvpDiagnosticDump = (params: {
-  generatedAt: string;
-  sessionId: string;
-  playerId: string;
-  status: PvpConnectionStatus;
-  roundSync: RoundSyncSummary | null;
-  roundDraft: RoundActionIntentDraft[];
-  roundDraftRejected: RoundDraftRejectedSummary | null;
-  lastResolvedRound: RoundResolutionResult | null;
-  resolvedRoundHistory: RoundResolutionResult[];
-  roundAuditEvents: RoundAuditEvent[];
-  matchState: GameStateSnapshot | null;
-}): string => JSON.stringify(
-  {
-    generatedAt: params.generatedAt,
-    sessionId: params.sessionId,
-    playerId: params.playerId,
-    connectionStatus: params.status,
-    roundSync: params.roundSync,
-    localRoundDraft: params.roundDraft,
-    roundDraftRejected: params.roundDraftRejected,
-    lastResolvedRound: params.lastResolvedRound,
-    resolvedRoundHistory: params.resolvedRoundHistory,
-    roundAuditEvents: params.roundAuditEvents,
-    matchStateSummary: params.matchState
-      ? {
-          round: params.matchState.round,
-          players: params.matchState.players,
-          hands: params.matchState.hands,
-          decks: params.matchState.decks
-            ? Object.fromEntries(
-                Object.entries(params.matchState.decks).map(([id, deck]) => [
-                  id,
-                  { ownerId: deck.ownerId, cards: deck.cards.length },
-                ]),
-              )
-            : undefined,
-          discardPiles: params.matchState.discardPiles,
-          actionLogCount: params.matchState.actionLog?.length ?? 0,
-          lastActionLogEntries: params.matchState.actionLog?.slice(-12),
-          logCount: params.matchState.log?.length ?? 0,
-          lastLogEntries: params.matchState.log?.slice(-24),
-        }
-      : null,
-  },
-  null,
-  2,
-);
-
 const handleServiceEvent = (
   event: PvpServiceEvent,
   setStatus: (status: PvpConnectionStatus) => void,
@@ -1267,11 +1218,9 @@ export const PlayPvpPage = () => {
   const [resolvedPlaybackComplete, setResolvedPlaybackComplete] = useState(true);
   const [isResolvedReplayOpen, setIsResolvedReplayOpen] = useState(false);
   const [isResolvedReplayPinned, setIsResolvedReplayPinned] = useState(false);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showConnectionControls, setShowConnectionControls] = useState(false);
   const [isMatchFeedOpen, setIsMatchFeedOpen] = useState(true);
-  const [roundAuditEvents, setRoundAuditEvents] = useState<RoundAuditEvent[]>([]);
-  const [copyDiagnosticsStatus, setCopyDiagnosticsStatus] = useState('');
+  const [, setRoundAuditEvents] = useState<RoundAuditEvent[]>([]);
   const hasLiveStateRef = useRef(false);
   const autoJoinAttemptedRef = useRef(false);
   const pendingSessionIdRef = useRef('');
@@ -1453,7 +1402,6 @@ export const PlayPvpPage = () => {
     setResolvedRoundHistory([]);
     setExpandedFeedRoundNumber(null);
     setRoundAuditEvents([]);
-    setCopyDiagnosticsStatus('');
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = normalizedSessionId;
     currentRoundRef.current = null;
@@ -2102,7 +2050,6 @@ export const PlayPvpPage = () => {
     setResolvedRoundHistory([]);
     setExpandedFeedRoundNumber(null);
     setRoundAuditEvents([]);
-    setCopyDiagnosticsStatus('');
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = '';
     currentRoundRef.current = null;
@@ -2957,49 +2904,6 @@ export const PlayPvpPage = () => {
   const hasReplayAvailable = Boolean(lastResolvedRound && resolvedTimelineEntries.length > 0);
   const hasCurrentRoundAdvancedPastReplay =
     Boolean(lastResolvedRound) && currentRoundNumber > (lastResolvedRound?.roundNumber ?? 0);
-  const diagnosticDump = useMemo(
-    () => buildPvpDiagnosticDump({
-      generatedAt: new Date().toISOString(),
-      sessionId: joinedSessionId || sessionId,
-      playerId,
-      status,
-      roundSync,
-      roundDraft,
-      roundDraftRejected,
-      lastResolvedRound,
-      resolvedRoundHistory,
-      roundAuditEvents,
-      matchState,
-    }),
-    [
-      joinedSessionId,
-      lastResolvedRound,
-      matchState,
-      playerId,
-      resolvedRoundHistory,
-      roundAuditEvents,
-      roundDraft,
-      roundDraftRejected,
-      roundSync,
-      sessionId,
-      status,
-    ],
-  );
-
-  const handleCopyDiagnostics = useCallback(async () => {
-    try {
-      if (!navigator.clipboard?.writeText) {
-        setCopyDiagnosticsStatus('Clipboard API недоступен, скопируй текст из поля ниже.');
-        return;
-      }
-
-      await navigator.clipboard.writeText(diagnosticDump);
-      setCopyDiagnosticsStatus('Диагностический дамп скопирован.');
-    } catch {
-      setCopyDiagnosticsStatus('Не удалось скопировать автоматически, скопируй текст из поля ниже.');
-    }
-  }, [diagnosticDump]);
-
   const restartResolvedReplay = useCallback(
     (pinned: boolean) => {
       const totalSteps = lastResolvedRound?.orderedActions.length ?? 0;
@@ -3102,7 +3006,7 @@ export const PlayPvpPage = () => {
   );
   const visibleRoundDraftRejected = shouldShowRoundDraftRejected ? roundDraftRejected : null;
   const renderIntentValidationErrors = (intentId: string) =>
-    !showDiagnostics && !shouldShowRoundDraftRejected
+    !shouldShowRoundDraftRejected
       ? null
       : draftRejectionErrorsByIntentId.get(intentId)?.map((entry) => (
           <div key={`${intentId}_${entry.code}_${entry.message}`} className={styles.roundQueueError}>
@@ -3417,19 +3321,6 @@ export const PlayPvpPage = () => {
                     Отключиться
                   </button>
                 </div>
-                <div className={styles.panelModeRow}>
-                  <div className={styles.panelModeSummary}>
-                    <span className={styles.summaryLabel}>Режим экрана</span>
-                    <strong>{showDiagnostics ? 'Диагностика включена' : 'Боевой режим'}</strong>
-                  </div>
-                  <button
-                    className={styles.secondaryButton}
-                    type="button"
-                    onClick={() => setShowDiagnostics((current) => !current)}
-                  >
-                    {showDiagnostics ? 'Скрыть диагностику' : 'Показать диагностику'}
-                  </button>
-                </div>
               </div>
             ) : (
               <form className={`${styles.formGrid} ${hasActiveMatchConnection ? styles.matchControlDetails : ''}`.trim()} onSubmit={submitJoin}>
@@ -3528,19 +3419,6 @@ export const PlayPvpPage = () => {
                     Матч: {joinedSessionId || 'ещё не подключено'}
                   </div>
                   <div className={styles.hint}>Колода: {selectedDeckName}</div>
-                  <div className={styles.panelModeRow}>
-                    <div className={styles.panelModeSummary}>
-                      <span className={styles.summaryLabel}>Режим экрана</span>
-                      <strong>{showDiagnostics ? 'Диагностика включена' : 'Боевой режим'}</strong>
-                    </div>
-                    <button
-                      className={styles.secondaryButton}
-                      type="button"
-                      onClick={() => setShowDiagnostics((current) => !current)}
-                    >
-                      {showDiagnostics ? 'Скрыть диагностику' : 'Показать диагностику'}
-                    </button>
-                  </div>
                   {mode === 'join' ? (
                     <div className={styles.hint}>В режиме входа seed не отправляется — используется seed создателя матча.</div>
                   ) : null}
@@ -3548,53 +3426,6 @@ export const PlayPvpPage = () => {
                     <div className={styles.hint}>Загружаем доступные колоды...</div>
                   ) : null}
                 </div>
-
-                {hasActiveMatchConnection ? (
-                  <div className={styles.diagnosticLogPanel}>
-                    <div className={styles.diagnosticLogHeader}>
-                      <div>
-                        <span className={styles.summaryLabel}>PvP audit</span>
-                        <strong>Журнал диагностики</strong>
-                      </div>
-                      <button className={styles.secondaryButton} type="button" onClick={handleCopyDiagnostics}>
-                        Скопировать всё
-                      </button>
-                    </div>
-                    <div className={styles.auditEventList}>
-                      {roundAuditEvents.length > 0 ? (
-                        roundAuditEvents.slice(-12).map((auditEvent, index) => (
-                          <div
-                            key={`${auditEvent.timestamp}_${auditEvent.event}_${index}`}
-                            className={styles.auditEventItem}
-                          >
-                            <strong>
-                              {auditEvent.event}
-                              {auditEvent.roundNumber ? ` R${auditEvent.roundNumber}` : ''}
-                            </strong>
-                            <span>
-                              {[
-                                auditEvent.result,
-                                auditEvent.playerId ? `player=${auditEvent.playerId}` : null,
-                                auditEvent.socketId ? `socket=${auditEvent.socketId}` : null,
-                                typeof auditEvent.intentCount === 'number' ? `intents=${auditEvent.intentCount}` : null,
-                                auditEvent.code ? `code=${auditEvent.code}` : null,
-                              ].filter(Boolean).join(' | ')}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className={styles.emptyState}>Audit-события появятся после join, replace, lock и resolve.</div>
-                      )}
-                    </div>
-                    {copyDiagnosticsStatus ? <div className={styles.hint}>{copyDiagnosticsStatus}</div> : null}
-                    <textarea
-                      className={styles.diagnosticTextArea}
-                      value={diagnosticDump}
-                      readOnly
-                      aria-label="Диагностический дамп PvP"
-                    />
-                  </div>
-                ) : null}
               </form>
             )}
 
@@ -4254,7 +4085,6 @@ export const PlayPvpPage = () => {
                                       </strong>
                                       <div className={styles.ribbonBadgeRow}>
                                         {action.cardSpeed ? <span className={styles.handStatPill}>SPD {action.cardSpeed}</span> : null}
-                                        {showDiagnostics ? <span className={styles.cardBadge}>Шаг #{action.orderIndex + 1}</span> : null}
                                       </div>
                                     </div>
                                     {renderIntentValidationErrors(action.id)}
@@ -4413,58 +4243,6 @@ export const PlayPvpPage = () => {
           </Card>
         </div>
 
-        {showDiagnostics ? (
-        <div className={styles.contextColumn}>
-            <Card className={`${styles.themedCard} ${styles.scenePanel}`.trim()}>
-              <div className={styles.panelSectionHeader}>
-                <div className={styles.panelSectionHeading}>
-                  <span className={styles.panelSectionKicker}>Служебный слой</span>
-                  <strong className={styles.panelSectionTitle}>Состояние сторон</strong>
-                </div>
-              </div>
-              {playerBoards.length > 0 ? (
-                <div className={styles.playerBoardList}>
-                  {playerBoards.map((playerBoard) => (
-                    <div
-                      key={playerBoard.playerId}
-                      className={`${styles.playerBoard} ${playerBoard.locked ? styles.playerBoardActive : ''}`.trim()}
-                    >
-                      <div className={styles.playerBoardHeader}>
-                        <strong>{getPlayerDisplayName(playerBoard.playerId)}</strong>
-                        <span>{playerBoard.locked ? 'Готово' : 'Выбор'}</span>
-                      </div>
-                      <div className={styles.zoneGrid}>
-                        <span>Колода: {playerBoard.deckSize}</span>
-                        <span>Рука: {playerBoard.handSize}</span>
-                        <span>Сброс: {playerBoard.discardSize}</span>
-                        <span>
-                          Мана: {playerBoard.mana}/{playerBoard.maxMana}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className={styles.emptyState}>Состояние сторон появится после первого обновления матча.</div>
-              )}
-            </Card>
-
-          <Card className={`${styles.themedCard} ${styles.scenePanel}`.trim()}>
-            <div className={styles.panelSectionHeader}>
-              <div className={styles.panelSectionHeading}>
-                <span className={styles.panelSectionKicker}>Служебный слой</span>
-                <strong className={styles.panelSectionTitle}>Снимок состояния</strong>
-              </div>
-            </div>
-            <details className={styles.debugPanel}>
-              <summary className={styles.debugSummary}>Открыть JSON матча</summary>
-              <pre className={styles.rawState}>
-                {matchState ? JSON.stringify(matchState, null, 2) : 'Ожидание данных матча...'}
-              </pre>
-            </details>
-          </Card>
-        </div>
-        ) : null}
       </div>
     </div>
   );
