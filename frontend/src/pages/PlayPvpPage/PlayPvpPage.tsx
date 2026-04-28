@@ -1212,6 +1212,7 @@ export const PlayPvpPage = () => {
   const currentRoundRef = useRef<number | null>(null);
   const roundDraftRef = useRef<RoundActionIntentDraft[]>([]);
   const resolvedReplayItemRefs = useRef<Record<string, HTMLElement | null>>({});
+  const resolvedReplayTrackRef = useRef<HTMLDivElement | null>(null);
   const matchFeedPanelRef = useRef<HTMLDivElement | null>(null);
   const matchFeedToggleRef = useRef<HTMLButtonElement | null>(null);
 
@@ -2961,11 +2962,34 @@ export const PlayPvpPage = () => {
       return;
     }
 
-    resolvedReplayItemRefs.current[activeResolvedTimelineEntry.action.intentId]?.scrollIntoView?.({
-      behavior: 'smooth',
-      block: 'nearest',
-      inline: 'center',
-    });
+    const replayTrack = resolvedReplayTrackRef.current;
+    const replayItem = resolvedReplayItemRefs.current[activeResolvedTimelineEntry.action.intentId];
+
+    if (!replayTrack || !replayItem) {
+      return;
+    }
+
+    const nextScrollLeft =
+      replayItem.offsetLeft - Math.max(0, (replayTrack.clientWidth - replayItem.clientWidth) / 2);
+    const boundedScrollLeft = Math.max(0, nextScrollLeft);
+
+    if (typeof replayTrack.scrollTo === 'function') {
+      replayTrack.scrollTo({
+        left: boundedScrollLeft,
+        behavior: 'smooth',
+      });
+    } else {
+      replayTrack.scrollLeft = boundedScrollLeft;
+    }
+
+    if (typeof document.scrollingElement?.scrollTo === 'function') {
+      document.scrollingElement.scrollTo({
+        left: 0,
+        top: document.scrollingElement.scrollTop,
+      });
+    } else if (document.scrollingElement) {
+      document.scrollingElement.scrollLeft = 0;
+    }
   }, [activeResolvedTimelineEntry, isResolvedReplayOpen]);
 
   const draftRejectionErrorsByIntentId = useMemo(() => {
@@ -3519,6 +3543,7 @@ export const PlayPvpPage = () => {
                       {isResolvedReplayOpen ? (
                         <section className={styles.resolveReplayScene} data-testid="resolution-replay-strip">
                           <div
+                            ref={resolvedReplayTrackRef}
                             className={[
                               styles.resolveReplayTrack,
                               resolvedTimelineEntries.length === 1
