@@ -1,5 +1,5 @@
 ﻿import { FocusEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCallback } from 'react';
 import {
   buildCatalogCharacterSummaries,
@@ -511,21 +511,6 @@ const getActionToneBadgeClassName = (layer: ResolutionLayer): string => {
   }
 };
 
-const getConnectionStatusLabel = (status: PvpConnectionStatus): string => {
-  switch (status) {
-    case 'connected':
-      return 'Подключено';
-    case 'connecting':
-      return 'Подключение';
-    case 'disconnected':
-      return 'Отключено';
-    case 'idle':
-      return 'Не подключено';
-    default:
-      return status;
-  }
-};
-
 const getTargetButtonAriaLabel = (label: string, selectable: boolean): string =>
   selectable ? `Выбрать цель: ${label}` : label;
 
@@ -620,22 +605,6 @@ const toInviteMode = (value: string | null): 'create' | 'join' | null => {
   }
 
   return null;
-};
-
-const getInviteEntryStatusLabel = (
-  hasActiveMatchConnection: boolean,
-  isSubmitting: boolean,
-  shouldAutoJoinInvite: boolean,
-): string => {
-  if (hasActiveMatchConnection) {
-    return 'Подключение подтверждено';
-  }
-
-  if (isSubmitting || shouldAutoJoinInvite) {
-    return 'Подключаем бой';
-  }
-
-  return 'Матч подготовлен';
 };
 
 const getIntentPreviewLayer = (
@@ -1181,6 +1150,7 @@ const handleServiceEvent = (
 };
 
 export const PlayPvpPage = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const invitedMode = toInviteMode(searchParams.get('mode'));
   const invitedSessionId = searchParams.get('sessionId')?.trim() ?? '';
@@ -1206,6 +1176,7 @@ export const PlayPvpPage = () => {
   const [joinRejected, setJoinRejected] = useState<JoinRejectedSummary | null>(null);
   const [selection, setSelection] = useState<BattlefieldSelection>(null);
   const [sceneInspectTarget, setSceneInspectTarget] = useState<SceneInspectTarget | null>(null);
+  const [manaRejectedHandCardId, setManaRejectedHandCardId] = useState<string | null>(null);
   const [draftTarget, setDraftTarget] = useState<TargetDraft | null>(null);
   const [roundDraft, setRoundDraft] = useState<RoundActionIntentDraft[]>([]);
   const [roundSync, setRoundSync] = useState<RoundSyncSummary | null>(null);
@@ -1218,7 +1189,7 @@ export const PlayPvpPage = () => {
   const [resolvedPlaybackComplete, setResolvedPlaybackComplete] = useState(true);
   const [isResolvedReplayOpen, setIsResolvedReplayOpen] = useState(false);
   const [isResolvedReplayPinned, setIsResolvedReplayPinned] = useState(false);
-  const [showConnectionControls, setShowConnectionControls] = useState(false);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [isMatchFeedOpen, setIsMatchFeedOpen] = useState(true);
   const [, setRoundAuditEvents] = useState<RoundAuditEvent[]>([]);
   const hasLiveStateRef = useRef(false);
@@ -2029,11 +2000,6 @@ export const PlayPvpPage = () => {
     [appendRoundIntent, syncRoundDraft]
   );
 
-  const submitJoin = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await submitJoinRequest();
-  };
-
   const handleDisconnect = () => {
     gameWsService.disconnect();
     setJoinedSessionId('');
@@ -2053,6 +2019,13 @@ export const PlayPvpPage = () => {
     hasLiveStateRef.current = false;
     pendingSessionIdRef.current = '';
     currentRoundRef.current = null;
+  };
+
+  const handleConfirmExit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    handleDisconnect();
+    setIsExitConfirmOpen(false);
+    navigate(ROUTES.HOME);
   };
 
   const handleLockRound = () => {
@@ -2113,15 +2086,17 @@ export const PlayPvpPage = () => {
     );
   };
 
-  const handleHandCardClick = (card: HandCardSummary) => {
+  const handleHandCardClick = (card: HandCardSummary, event?: { currentTarget: HTMLButtonElement }) => {
     if (!canActFromHand) {
       setSelection(null);
       setDraftTarget(null);
       setSceneInspectTarget(null);
+      setManaRejectedHandCardId(null);
       setError('');
       return;
     }
 
+    setManaRejectedHandCardId(null);
     setSelection({ kind: 'hand', instanceId: card.instanceId });
     setError('');
 
@@ -2148,9 +2123,11 @@ export const PlayPvpPage = () => {
     }
 
     if (localPlayer.mana < roundDraftManaCost + card.mana) {
+      event?.currentTarget.blur();
       setSelection(null);
       setDraftTarget(null);
       setSceneInspectTarget(null);
+      setManaRejectedHandCardId(card.instanceId);
       setError(`Не хватает маны: доступно ${remainingDraftMana}, карта стоит ${card.mana}.`);
       return;
     }
@@ -2882,24 +2859,10 @@ export const PlayPvpPage = () => {
     localBoardItemIdByRuntimeId,
     localBoardItems,
   );
-  const hasActiveMatchConnection = Boolean(joinedSessionId || matchState);
   const inviteJoinRejectHint =
     invitedSessionId && joinRejected?.sessionId === invitedSessionId
       ? getInviteJoinRejectHint(joinRejected.code)
       : null;
-  const inviteEntrySummary = invitedSessionId
-    ? {
-        peerLabel: invitedPeerLabel || 'другом',
-        sessionId: invitedSessionId,
-        seed: invitedSeed || seed,
-        statusLabel: getInviteEntryStatusLabel(
-          hasActiveMatchConnection,
-          isSubmitting,
-          shouldAutoJoinInvite,
-        ),
-      }
-    : null;
-  const selectedDeckName = savedDecks.find((deck) => deck.id === deckId)?.name ?? 'не выбрана';
   const visibleLocalPlaybackSourceBoardItemId = isResolvedReplayOpen ? activeLocalPlaybackSourceBoardItemId : null;
   const hasReplayAvailable = Boolean(lastResolvedRound && resolvedTimelineEntries.length > 0);
   const hasCurrentRoundAdvancedPastReplay =
@@ -3206,256 +3169,89 @@ export const PlayPvpPage = () => {
           ) : null}
         </div>
         <div className={styles.sceneActions}>
-          <HomeLinkButton />
+          <button
+            className={styles.exitMatchButton}
+            type="button"
+            onClick={() => setIsExitConfirmOpen(true)}
+            aria-label="Выйти из матча"
+            title="Выйти из матча"
+          >
+            <span className={styles.exitDoorIcon} aria-hidden="true">
+              <span className={styles.exitDoorPanel} />
+              <span className={styles.exitDoorHandle} />
+            </span>
+          </button>
         </div>
       </div>
 
+      <div className={styles.sceneAlerts}>
+        {transportRejected || joinRejected ? (
+          <>
+          {transportRejected ? (
+            <div className={styles.roundRejectBox}>
+              <strong>
+                Сервер отклонил сообщение {transportRejected.requestType ? `для ${transportRejected.requestType}` : 'без типа'}
+              </strong>
+              <div className={styles.roundQueueError}>
+                <span className={styles.cardBadge}>{transportRejected.code}</span>
+                <span>{getTransportRejectCodeLabel(transportRejected.code)}</span>
+              </div>
+              <span>{transportRejected.error}</span>
+            </div>
+          ) : null}
+          {joinRejected ? (
+            <div className={styles.roundRejectBox}>
+              <strong>
+                Сервер отклонил вход {joinRejected.sessionId ? `в сессию ${joinRejected.sessionId}` : 'в матч'}
+              </strong>
+              <div className={styles.roundQueueError}>
+                <span className={styles.cardBadge}>{joinRejected.code}</span>
+                <span>{getJoinRejectCodeLabel(joinRejected.code)}</span>
+              </div>
+              <span>{joinRejected.error}</span>
+              {inviteJoinRejectHint ? <span>{inviteJoinRejectHint}</span> : null}
+            </div>
+          ) : null}
+          </>
+        ) : null}
+      </div>
+
+      {isExitConfirmOpen ? (
+        <div className={styles.exitConfirmOverlay}>
+          <form
+            className={styles.exitConfirmDialog}
+            onSubmit={handleConfirmExit}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="exit-confirm-title"
+          >
+            <div className={styles.exitConfirmHeader}>
+              <span className={styles.panelSectionKicker}>Выход из матча</span>
+              <strong id="exit-confirm-title" className={styles.panelSectionTitle}>
+                Покинуть дуэль?
+              </strong>
+            </div>
+            <p className={styles.paragraph}>
+              Ты выйдешь на главную страницу, а текущее PvP-соединение будет закрыто.
+            </p>
+            <div className={styles.formActions}>
+              <button className={styles.primaryButton} type="submit">
+                Выйти из матча
+              </button>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={() => setIsExitConfirmOpen(false)}
+              >
+                Остаться
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
       <div className={styles.workbench}>
         <div className={styles.controlColumn}>
-          <Card
-            className={[
-              styles.themedCard,
-              styles.scenePanel,
-              styles.matchControlCard,
-              showConnectionControls ? styles.matchControlCardExpanded : '',
-            ].filter(Boolean).join(' ')}
-          >
-            <div className={styles.panelSectionHeader}>
-              <div className={styles.panelSectionHeading}>
-                <span className={styles.panelSectionKicker}>Контроль матча</span>
-                <strong className={styles.panelSectionTitle}>Статус дуэли</strong>
-              </div>
-              <div className={styles.panelSectionMeta}>
-                <span className={styles.cardBadge}>{getConnectionStatusLabel(status)}</span>
-                {hasActiveMatchConnection ? (
-                  <button
-                    className={`${styles.compactButton} ${styles.matchControlToggle}`.trim()}
-                    type="button"
-                    onClick={() => setShowConnectionControls((current) => !current)}
-                  >
-                    {showConnectionControls ? 'К бою' : 'Управление'}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            {inviteEntrySummary ? (
-              <div
-                className={[
-                  styles.inviteEntryBanner,
-                  hasActiveMatchConnection && !showConnectionControls ? styles.inviteEntryBannerCompact : '',
-                ].filter(Boolean).join(' ')}
-                data-testid="invite-entry-banner"
-              >
-                <div className={styles.inviteEntryHeader}>
-                  <span className={styles.summaryLabel}>Матч по приглашению</span>
-                  <span className={styles.cardBadge}>{inviteEntrySummary.statusLabel}</span>
-                </div>
-                <strong className={styles.inviteEntryTitle}>
-                  {hasActiveMatchConnection && !showConnectionControls
-                    ? `Матч с ${inviteEntrySummary.peerLabel}`
-                    : `Сессия с ${inviteEntrySummary.peerLabel}`}
-                </strong>
-                {!hasActiveMatchConnection || showConnectionControls ? (
-                  <dl className={styles.inviteEntryMeta}>
-                    <div className={styles.technicalRow}>
-                      <dt>Session: </dt>
-                      <dd>{inviteEntrySummary.sessionId}</dd>
-                    </div>
-                    <div className={styles.technicalRow}>
-                      <dt>Seed: </dt>
-                      <dd>{inviteEntrySummary.seed}</dd>
-                    </div>
-                  </dl>
-                ) : null}
-              </div>
-            ) : null}
-            {hasActiveMatchConnection && !showConnectionControls ? (
-              <div className={styles.hudPanel}>
-                <div className={styles.hudHeader}>
-                  <div>
-                    <span className={styles.summaryLabel}>Матч уже идёт</span>
-                    <strong className={styles.spotlightValue}>Арена открыта</strong>
-                  </div>
-                </div>
-                <div className={styles.hudGrid}>
-                  <div className={styles.hudTile}>
-                    <span className={styles.summaryLabel}>Колода</span>
-                    <strong>{selectedDeckName}</strong>
-                  </div>
-                  <div className={styles.hudTile}>
-                    <span className={styles.summaryLabel}>Рука</span>
-                    <strong>{localBoard?.handSize ?? localHandCards.length} карт</strong>
-                  </div>
-                  <div className={styles.hudTile}>
-                    <span className={styles.summaryLabel}>Мана</span>
-                    <strong>{localPlayer ? `${localPlayer.mana}/${localPlayer.maxMana}` : 'Ожидание'}</strong>
-                  </div>
-                  <div className={styles.hudTile}>
-                    <span className={styles.summaryLabel}>Лента</span>
-                    <strong>{roundDraft.length > 0 ? `${roundDraft.length} действий` : 'Пока пуста'}</strong>
-                  </div>
-                </div>
-                <div className={styles.hudStatusStrip}>
-                  <span className={styles.hudStatusPill}>
-                    Ты: <strong>{roundSync?.selfLocked ? 'готов' : 'собираешь ход'}</strong>
-                  </span>
-                  <span className={styles.hudStatusPill}>
-                    Соперник: <strong>{roundSync?.opponentLocked ? 'готов' : 'выбирает'}</strong>
-                  </span>
-                  {pendingTargetSelectionCount > 0 ? (
-                    <span className={`${styles.hudStatusPill} ${styles.hudStatusPillAlert}`.trim()}>
-                      Осталось выбрать цель: <strong>{pendingTargetSelectionCount}</strong>
-                    </span>
-                  ) : null}
-                </div>
-                <div className={styles.inlineActions}>
-                  <button className={styles.primaryButton} type="button" onClick={() => setShowConnectionControls(true)}>
-                    Управление матчем
-                  </button>
-                  <button
-                    className={styles.secondaryButton}
-                    type="button"
-                    onClick={handleDisconnect}
-                    disabled={status === 'idle' || status === 'disconnected'}
-                  >
-                    Отключиться
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <form className={`${styles.formGrid} ${hasActiveMatchConnection ? styles.matchControlDetails : ''}`.trim()} onSubmit={submitJoin}>
-                <div className={styles.segmentedRow}>
-                  <button
-                    className={mode === 'create' ? styles.segmentActive : styles.segmentButton}
-                    type="button"
-                    onClick={() => setMode('create')}
-                  >
-                    Создать матч
-                  </button>
-                  <button
-                    className={mode === 'join' ? styles.segmentActive : styles.segmentButton}
-                    type="button"
-                    onClick={() => setMode('join')}
-                  >
-                    Войти в матч
-                  </button>
-                </div>
-
-                <label className={styles.formRow}>
-                  <span className={styles.label}>Игрок</span>
-                  <input className={styles.input} type="text" value={localDisplayName} readOnly />
-                </label>
-
-                <label className={styles.formRow}>
-                  <span className={styles.label}>Сессия</span>
-                  <div className={styles.inlineField}>
-                    <input
-                      className={styles.input}
-                      type="text"
-                      value={sessionId}
-                      onChange={(event) => setSessionId(event.target.value)}
-                      placeholder="session_..."
-                    />
-                    <button
-                      className={styles.secondaryButton}
-                      type="button"
-                      onClick={() => setSessionId(buildSessionId())}
-                    >
-                      Сгенерировать
-                    </button>
-                  </div>
-                </label>
-
-                <label className={styles.formRow}>
-                  <span className={styles.label}>Seed матча</span>
-                  <input
-                    className={styles.input}
-                    type="number"
-                    value={seed}
-                    onChange={(event) => setSeed(event.target.value)}
-                    disabled={mode === 'join'}
-                  />
-                </label>
-
-                <label className={styles.formRow}>
-                  <span className={styles.label}>Колода</span>
-                  <select
-                    className={styles.input}
-                    value={deckId}
-                    onChange={(event) => setDeckId(event.target.value)}
-                    disabled={isDecksLoading || savedDecks.length === 0}
-                  >
-                    <option value="">Выбери колоду</option>
-                    {savedDecks.map((deck) => (
-                      <option key={deck.id} value={deck.id}>
-                        {deck.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <div className={styles.formActions}>
-                  <button className={styles.primaryButton} type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Подключаемся...' : mode === 'create' ? 'Создать и подключиться' : 'Войти в матч'}
-                  </button>
-                  <button
-                    className={styles.secondaryButton}
-                    type="button"
-                    onClick={handleDisconnect}
-                    disabled={status === 'idle' || status === 'disconnected'}
-                  >
-                    Отключиться
-                  </button>
-                  {hasActiveMatchConnection ? (
-                    <button className={styles.secondaryButton} type="button" onClick={() => setShowConnectionControls(false)}>
-                      Свернуть в HUD
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className={styles.hintBlock}>
-                  <div className={styles.hint}>Соединение: {getConnectionStatusLabel(status)}</div>
-                  <div className={styles.hint}>
-                    Матч: {joinedSessionId || 'ещё не подключено'}
-                  </div>
-                  <div className={styles.hint}>Колода: {selectedDeckName}</div>
-                  {mode === 'join' ? (
-                    <div className={styles.hint}>В режиме входа seed не отправляется — используется seed создателя матча.</div>
-                  ) : null}
-                  {isDecksLoading ? (
-                    <div className={styles.hint}>Загружаем доступные колоды...</div>
-                  ) : null}
-                </div>
-              </form>
-            )}
-
-            {transportRejected ? (
-              <div className={styles.roundRejectBox}>
-                <strong>
-                  Сервер отклонил сообщение {transportRejected.requestType ? `для ${transportRejected.requestType}` : 'без типа'}
-                </strong>
-                <div className={styles.roundQueueError}>
-                  <span className={styles.cardBadge}>{transportRejected.code}</span>
-                  <span>{getTransportRejectCodeLabel(transportRejected.code)}</span>
-                </div>
-                <span>{transportRejected.error}</span>
-              </div>
-            ) : null}
-            {joinRejected ? (
-              <div className={styles.roundRejectBox}>
-                <strong>
-                  Сервер отклонил вход {joinRejected.sessionId ? `в сессию ${joinRejected.sessionId}` : 'в матч'}
-                </strong>
-                <div className={styles.roundQueueError}>
-                  <span className={styles.cardBadge}>{joinRejected.code}</span>
-                  <span>{getJoinRejectCodeLabel(joinRejected.code)}</span>
-                </div>
-                <span>{joinRejected.error}</span>
-                {inviteJoinRejectHint ? <span>{inviteJoinRejectHint}</span> : null}
-              </div>
-            ) : null}
-          </Card>
-
           <Card
             className={`${styles.themedCard} ${styles.sidebarFeedCard} ${styles.scenePanel}`.trim()}
             contentClassName={styles.sidebarFeedCardContent}
@@ -4144,10 +3940,22 @@ export const PlayPvpPage = () => {
                           {availableHandCards.map((card) => (
                             <div
                               key={card.instanceId}
-                              className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''} ${getCardAccentClassName(card.cardType)} ${inspectedHandCardId === card.instanceId ? styles.handCardInspected : ''} ${selection?.kind === 'hand' && selection.instanceId === card.instanceId ? styles.handCardSelected : ''}`.trim()}
-                              onMouseEnter={() => setSceneInspectTarget({ kind: 'hand', id: card.instanceId })}
-                              onMouseLeave={() => handleSceneInspectLeave({ kind: 'hand', id: card.instanceId })}
-                              onFocusCapture={() => setSceneInspectTarget({ kind: 'hand', id: card.instanceId })}
+                              className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''} ${getCardAccentClassName(card.cardType)} ${inspectedHandCardId === card.instanceId ? styles.handCardInspected : ''} ${selection?.kind === 'hand' && selection.instanceId === card.instanceId ? styles.handCardSelected : ''} ${manaRejectedHandCardId === card.instanceId ? styles.handCardManaRejected : ''}`.trim()}
+                              data-mana-rejected={manaRejectedHandCardId === card.instanceId ? 'true' : undefined}
+                              onMouseEnter={() => {
+                                if (manaRejectedHandCardId !== card.instanceId) {
+                                  setSceneInspectTarget({ kind: 'hand', id: card.instanceId });
+                                }
+                              }}
+                              onMouseLeave={() => {
+                                handleSceneInspectLeave({ kind: 'hand', id: card.instanceId });
+                                setManaRejectedHandCardId((current) => (current === card.instanceId ? null : current));
+                              }}
+                              onFocusCapture={() => {
+                                if (manaRejectedHandCardId !== card.instanceId) {
+                                  setSceneInspectTarget({ kind: 'hand', id: card.instanceId });
+                                }
+                              }}
                               onBlurCapture={(event) =>
                                 handleSceneInspectBlur(event, { kind: 'hand', id: card.instanceId })
                               }
@@ -4155,7 +3963,7 @@ export const PlayPvpPage = () => {
                               <button
                                 className={`${styles.selectionSurface} ${selection?.kind === 'hand' && selection.instanceId === card.instanceId ? styles.selectionSurfaceActive : ''}`.trim()}
                                 type="button"
-                                onClick={() => handleHandCardClick(card)}
+                                onClick={(event) => handleHandCardClick(card, event)}
                               >
                                 <div
                                   className={`${styles.handCardArtwork} ${getCardSchoolAccentClassName(card.school)}`.trim()}

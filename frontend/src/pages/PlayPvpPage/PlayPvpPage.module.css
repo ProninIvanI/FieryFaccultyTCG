@@ -13,7 +13,7 @@
   height: 100dvh;
   overflow: hidden;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 16px;
   padding: 18px 22px 22px;
   background: var(--theme-bg-stage);
@@ -78,6 +78,101 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.exitMatchButton {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--pvp-border);
+  border-radius: 999px;
+  background: rgba(255, 248, 236, 0.05);
+  color: var(--pvp-text);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.exitMatchButton:hover {
+  transform: translateY(-1px);
+  border-color: var(--pvp-border-strong);
+  background: rgba(255, 248, 236, 0.09);
+}
+
+.exitDoorIcon {
+  position: relative;
+  width: 20px;
+  height: 24px;
+  display: block;
+}
+
+.exitDoorIcon::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  width: 14px;
+  height: 22px;
+  border: 2px solid currentColor;
+  border-radius: 3px 2px 2px 3px;
+  opacity: 0.7;
+}
+
+.exitDoorPanel {
+  position: absolute;
+  left: 7px;
+  top: 3px;
+  width: 11px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+  background: rgba(196, 154, 90, 0.24);
+  transform: skewY(-8deg);
+  transform-origin: left center;
+}
+
+.exitDoorHandle {
+  position: absolute;
+  right: 4px;
+  top: 11px;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.sceneAlerts {
+  display: grid;
+  gap: 10px;
+  max-width: min(760px, 100%);
+}
+
+.exitConfirmOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(8, 6, 5, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+.exitConfirmDialog {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--pvp-border-strong);
+  background: var(--pvp-panel);
+  color: var(--pvp-text);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
+}
+
+.exitConfirmHeader {
+  display: grid;
+  gap: 5px;
 }
 
 .workbench {
@@ -2892,6 +2987,25 @@
 .localHandTray .handFanGrid > .handCardSelected:hover,
 .localHandTray .handFanGrid > .handCardSelected:focus-within {
   z-index: 28;
+}
+
+.localHandTray .handFanGrid > .handCardManaRejected,
+.localHandTray .handFanGrid > .handCardManaRejected:hover,
+.localHandTray .handFanGrid > .handCardManaRejected:focus-within {
+  transform: translateY(var(--hand-offset-y, 12px)) rotate(var(--hand-rotation, 0deg)) scale(1);
+  margin-left: calc(var(--hand-card-width) * -0.23);
+  margin-right: 0;
+  z-index: 1;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(226, 153, 127, 0.12);
+  filter: saturate(0.88) brightness(0.94);
+}
+
+.localHandTray .handFanGrid > .handCardManaRejected:first-child,
+.localHandTray .handFanGrid > .handCardManaRejected:first-child:hover,
+.localHandTray .handFanGrid > .handCardManaRejected:first-child:focus-within {
+  margin-left: 0;
 }
 
 .handCard {

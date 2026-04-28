@@ -159,15 +159,21 @@ const renderPage = async (
 };
 
 const submitJoin = async (sessionId: string, buttonName: RegExp | string): Promise<FakeWebSocket> => {
-  const sessionInput = await screen.findByDisplayValue(/session_/i);
-  fireEvent.change(sessionInput, { target: { value: sessionId } });
-  const matchingButtons = screen.getAllByRole('button', { name: buttonName });
-  const submitButton = matchingButtons[matchingButtons.length - 1];
+  const rawSession = localStorage.getItem('fftcg_session');
+  const session = rawSession ? JSON.parse(rawSession) as { token: string } : null;
+  const buttonText = typeof buttonName === 'string' ? buttonName : buttonName.source;
+  const shouldJoinExisting = /Войти/i.test(buttonText) && !/Создать/i.test(buttonText);
 
-  expect(submitButton).toBeDefined();
+  expect(session?.token).toBeDefined();
+
+  const joinPayload = shouldJoinExisting
+    ? { type: 'join' as const, sessionId, token: session!.token, deckId: 'deck_1' }
+    : { type: 'join' as const, sessionId, token: session!.token, deckId: 'deck_1', seed: 1 };
+
+  let joinPromise: Promise<void> | null = null;
 
   await act(async () => {
-    fireEvent.click(submitButton!);
+    joinPromise = gameWsService.joinSession(joinPayload);
     await flushMicrotasks();
   });
 
@@ -176,6 +182,7 @@ const submitJoin = async (sessionId: string, buttonName: RegExp | string): Promi
 
   await act(async () => {
     socket.emitOpen();
+    await joinPromise;
     await flushMicrotasks();
   });
 
@@ -282,7 +289,7 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Арена открыта/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Управление матчем/i })).toBeInTheDocument();
+      expect(screen.queryByText(/Контроль матча/i)).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Завершить ход/i })).toBeEnabled();
     });
 
@@ -561,7 +568,7 @@ describe('PlayPvpPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Матч уже идёт/i)).toBeInTheDocument();
+      expect(screen.getByText(/Арена открыта/i)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Показать диагностику/i })).not.toBeInTheDocument();
       expect(screen.queryByText(/Диагностика включена/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/PvP audit/i)).not.toBeInTheDocument();
@@ -622,10 +629,10 @@ describe('PlayPvpPage', () => {
     });
   });
 
-  it('collapses connection form into compact hud after match connection', async () => {
+  it('opens an exit confirmation before leaving the PvP page', async () => {
     await renderPage('char_1', 'user_1');
 
-    const socket = await submitJoin('session_hud_compact', /Создать/i);
+    const socket = await submitJoin('session_exit_confirm', /Создать/i);
 
     await act(async () => {
       socket.emitMessage({
@@ -655,18 +662,36 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Арена открыта/i)).toBeInTheDocument();
-      expect(screen.getByText(/Матч уже идёт/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Управление матчем/i })).toBeInTheDocument();
-      expect(screen.queryByDisplayValue('session_hud_compact')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Контроль матча/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Создать матч/i)).not.toBeInTheDocument();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Управление матчем/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Выйти из матча/i }));
       await flushMicrotasks();
     });
 
-    expect(screen.getByDisplayValue('session_hud_compact')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Свернуть в HUD/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /Покинуть дуэль/i })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Остаться/i }));
+      await flushMicrotasks();
+    });
+
+    expect(screen.queryByRole('dialog', { name: /Покинуть дуэль/i })).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Выйти из матча/i }));
+      await flushMicrotasks();
+    });
+
+    const exitDialog = screen.getByRole('dialog', { name: /Покинуть дуэль/i });
+    await act(async () => {
+      fireEvent.click(within(exitDialog).getByRole('button', { name: /^Выйти из матча$/i }));
+      await flushMicrotasks();
+    });
+
+    expect(socket.readyState).toBe(FakeWebSocket.CLOSED);
   });
 
   it('sends roundDraft.replace with Summon intent for summon card from hand', async () => {
@@ -881,6 +906,9 @@ describe('PlayPvpPage', () => {
     expect(screen.getByText(/Не хватает маны/i)).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(/Не хватает маны/i);
     expect(screen.queryByTestId('scene-inspect-panel')).not.toBeInTheDocument();
+    expect(spellCardButton).not.toHaveFocus();
+    const rejectedHandCard = spellCardButton.closest('[data-mana-rejected="true"]');
+    expect(rejectedHandCard).toBeTruthy();
     expect(
       socket.sent.some((payload) => {
         const message = JSON.parse(payload) as { type?: string; intents?: Array<Record<string, unknown>> };
@@ -891,6 +919,12 @@ describe('PlayPvpPage', () => {
         );
       }),
     ).toBe(false);
+
+    await act(async () => {
+      fireEvent.mouseLeave(rejectedHandCard!);
+      await flushMicrotasks();
+    });
+    expect(rejectedHandCard).not.toHaveAttribute('data-mana-rejected');
 
     act(() => {
       vi.advanceTimersByTime(5000);
