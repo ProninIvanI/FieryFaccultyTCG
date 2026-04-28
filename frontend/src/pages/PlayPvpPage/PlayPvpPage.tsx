@@ -740,15 +740,6 @@ const getCharacterAccentClassName = (
   }
 };
 
-const getCharacterStatusLabel = (
-  character: CatalogCharacterSummary | null,
-  mana: number,
-  maxMana: number
-): string => {
-  const schoolLabel = character ? getCatalogSchoolLabel(character.faculty) : 'Персонаж не выбран';
-  return `${schoolLabel} · мана ${mana}/${maxMana}`;
-};
-
 const getMatchSummary = (state: GameStateSnapshot | null): MatchSummary | null => {
   if (!state || !isRecord(state.round) || !isRecord(state.players)) {
     return null;
@@ -1292,6 +1283,18 @@ export const PlayPvpPage = () => {
   useEffect(() => {
     roundDraftRef.current = roundDraft;
   }, [roundDraft]);
+
+  useEffect(() => {
+    if (!error) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setError('');
+    }, 5000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [error]);
 
   useEffect(() => {
     if (!invitedSessionId) {
@@ -2167,6 +2170,7 @@ export const PlayPvpPage = () => {
     if (!canActFromHand) {
       setSelection(null);
       setDraftTarget(null);
+      setSceneInspectTarget(null);
       setError('');
       return;
     }
@@ -2197,6 +2201,9 @@ export const PlayPvpPage = () => {
     }
 
     if (localPlayer.mana < roundDraftManaCost + card.mana) {
+      setSelection(null);
+      setDraftTarget(null);
+      setSceneInspectTarget(null);
       setError(`Не хватает маны: доступно ${remainingDraftMana}, карта стоит ${card.mana}.`);
       return;
     }
@@ -3616,7 +3623,6 @@ export const PlayPvpPage = () => {
                 {inviteJoinRejectHint ? <span>{inviteJoinRejectHint}</span> : null}
               </div>
             ) : null}
-            {error ? <div className={styles.errorBox}>{error}</div> : null}
           </Card>
 
           <Card
@@ -3713,6 +3719,11 @@ export const PlayPvpPage = () => {
             className={`${styles.boardCard} ${styles.sceneBoardCard}`.trim()}
             contentClassName={styles.boardCardContent}
           >
+            {error ? (
+              <div className={styles.boardErrorToast} role="alert">
+                {error}
+              </div>
+            ) : null}
             {matchSummary ? (
               <div className={styles.matchOverview}>
                 <div className={styles.battlefield}>
@@ -3743,11 +3754,6 @@ export const PlayPvpPage = () => {
                           <div className={styles.playerIdentity}>
                             <strong>{enemyCharacter?.name ?? 'Ожидание соперника'}</strong>
                             <span>{primaryEnemyDisplayName || 'Подключится позже'}</span>
-                            <span>
-                              {primaryEnemyBoard
-                                ? getCharacterStatusLabel(enemyCharacter, primaryEnemyBoard.mana, primaryEnemyBoard.maxMana)
-                                : 'Персонаж появится после подключения'}
-                            </span>
                             {primaryEnemyBoard && enemyCharacterState ? (
                               <div className={styles.playerIdentityStats}>
                                 <span className={styles.playerIdentityStat}>
@@ -3824,11 +3830,6 @@ export const PlayPvpPage = () => {
                           <div className={styles.playerIdentity}>
                             <strong>{localCharacter?.name ?? 'Твой персонаж'}</strong>
                             <span>{localDisplayName}</span>
-                            <span>
-                              {localPlayer
-                                ? getCharacterStatusLabel(localCharacter, localPlayer.mana, localPlayer.maxMana)
-                                : 'Данные ещё не пришли'}
-                            </span>
                             {localPlayer && localCharacterState ? (
                               <div className={styles.playerIdentityStats}>
                                 <span className={styles.playerIdentityStat}>
@@ -3940,13 +3941,14 @@ export const PlayPvpPage = () => {
                               className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}
                               data-testid="opponent-hand-tray"
                             >
-                              <div className={styles.battleLaneHeader}>
-                                <span className={styles.battleCount}>{visibleEnemyHandCount} карт</span>
-                              </div>
                               {visibleEnemyHandCount > 0 ? (
                                 <div className={styles.opponentHandFanGrid} aria-hidden="true">
                                   {Array.from({ length: visibleEnemyHandCount }).map((_, index) => (
-                                    <div key={`enemy-hand-${index}`} className={styles.opponentHandCard}>
+                                    <div
+                                      key={`enemy-hand-${index}`}
+                                      className={styles.opponentHandCard}
+                                      data-testid="opponent-hand-card"
+                                    >
                                       <span className={styles.opponentHandCardBack} />
                                     </div>
                                   ))}

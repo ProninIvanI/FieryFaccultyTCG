@@ -878,12 +878,17 @@ describe('PlayPvpPage', () => {
       await flushMicrotasks();
     });
 
+    const spellCardButton = (await screen.findByText('Огненный шар')).closest('button')!;
+    vi.useFakeTimers();
     await act(async () => {
-      fireEvent.click((await screen.findByText('Огненный шар')).closest('button')!);
+      fireEvent.mouseEnter(spellCardButton);
+      fireEvent.click(spellCardButton);
       await flushMicrotasks();
     });
 
     expect(screen.getByText(/Не хватает маны/i)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/Не хватает маны/i);
+    expect(screen.queryByTestId('scene-inspect-panel')).not.toBeInTheDocument();
     expect(
       socket.sent.some((payload) => {
         const message = JSON.parse(payload) as { type?: string; intents?: Array<Record<string, unknown>> };
@@ -894,6 +899,12 @@ describe('PlayPvpPage', () => {
         );
       }),
     ).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it('shows scene inspect panel for hovered hand card without expanding the card body inline', async () => {
@@ -2501,7 +2512,8 @@ describe('PlayPvpPage', () => {
     await waitFor(() => {
       const enemyHandSection = screen.getByTestId('opponent-hand-tray');
       expect(enemyHandSection).toBeTruthy();
-      expect(within(enemyHandSection!).getByText(/2 карт/i)).toBeInTheDocument();
+      expect(within(enemyHandSection!).queryByText(/2 карт/i)).not.toBeInTheDocument();
+      expect(within(enemyHandSection!).getAllByTestId('opponent-hand-card')).toHaveLength(2);
     });
   });
 
