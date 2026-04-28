@@ -762,11 +762,12 @@
 }
 
 .boardShell {
+  --pvp-side-rail-width: 176px;
   display: grid;
   position: relative;
   isolation: isolate;
   min-height: 0;
-  grid-template-columns: minmax(178px, 206px) minmax(0, 1fr);
+  grid-template-columns: var(--pvp-side-rail-width) minmax(0, 1fr);
   gap: 14px;
   align-items: stretch;
   height: 100%;
@@ -777,6 +778,9 @@
   display: grid;
   position: relative;
   z-index: 5;
+  width: var(--pvp-side-rail-width);
+  min-width: 0;
+  max-width: var(--pvp-side-rail-width);
   gap: 12px;
   grid-template-rows: auto auto auto;
   min-height: 0;
@@ -1560,6 +1564,7 @@
   display: grid;
   align-content: start;
   gap: 6px;
+  min-width: 0;
 }
 
 .playerSideCardActive {
@@ -1676,6 +1681,7 @@
 .playerIdentity {
   display: grid;
   gap: 4px;
+  min-width: 0;
   text-align: center;
 }
 
@@ -1721,6 +1727,7 @@
   align-content: center;
   justify-items: stretch;
   padding: 12px 10px;
+  min-width: 0;
   min-height: 0;
   text-align: center;
   background:
@@ -1733,6 +1740,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
+  min-width: 0;
 }
 
 .turnActionRail::before,
@@ -1744,12 +1752,12 @@
   width: 100%;
   min-width: 0;
   justify-content: center;
+  white-space: normal;
 }
 
 .turnActionReplayButton {
   width: 42px;
   height: 42px;
-  flex: 0 0 42px;
   padding: 0;
 }
 
@@ -3481,7 +3489,7 @@
   }
 
   .boardShell {
-    grid-template-columns: minmax(164px, 186px) minmax(0, 1fr);
+    --pvp-side-rail-width: 164px;
   }
 }
 
@@ -3492,10 +3500,13 @@
   }
 
   .boardShell {
+    --pvp-side-rail-width: auto;
     grid-template-columns: 1fr;
   }
 
   .boardSideColumn {
+    width: auto;
+    max-width: none;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: auto auto;
     align-content: stretch;
