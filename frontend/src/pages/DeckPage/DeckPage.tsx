@@ -32,6 +32,9 @@ type DeckPreset = {
   cards: DeckCardItem[];
 };
 
+type DeckBuilderTab = "own" | "presets";
+type SaveDeckMode = "default" | "create-new";
+
 const CARD_POOL: CardSummary[] = buildCatalogCardSummaries(rawCardData);
 const CHARACTERS: CharacterSummary[] = buildCatalogCharacterSummaries(rawCardData);
 
@@ -233,6 +236,9 @@ export const DeckPage = () => {
   const [deckName, setDeckName] = useState("Новая колода");
   const [deck, setDeck] = useState<Record<string, number>>(DEFAULT_DECK);
   const [savedDecks, setSavedDecks] = useState<UserDeck[]>([]);
+  const [activeBuilderTab, setActiveBuilderTab] = useState<DeckBuilderTab>("own");
+  const [saveDialogMode, setSaveDialogMode] = useState<SaveDeckMode | null>(null);
+  const [saveDialogName, setSaveDialogName] = useState(deckName);
   const [isSavedDeckMenuOpen, setIsSavedDeckMenuOpen] = useState(false);
   const [isDecksLoading, setIsDecksLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -448,6 +454,7 @@ export const DeckPage = () => {
   const createDeckCopyLabel = "Сохранить как новую";
   const createDraftLabel = "Новый черновик";
   const deleteDeckLabel = deckId ? "Удалить колоду" : "Сбросить";
+  const isSaveDialogOpen = saveDialogMode !== null;
 
   const countsByType = deckCards.reduce<Record<CardType, number>>(
     (acc, card) => {
@@ -709,9 +716,38 @@ export const DeckPage = () => {
     );
     setDeckRequestError(null);
     setDeckRequestInfo(`Пресет ${preset.name} загружен в черновик.`);
+    setActiveBuilderTab("own");
   };
 
-  const handleSaveDeck = async (mode: "default" | "create-new" = "default") => {
+  const openSaveDialog = (mode: SaveDeckMode) => {
+    if (!session?.token) {
+      setDeckRequestError("Для сохранения колод нужно войти в аккаунт.");
+      return;
+    }
+
+    if (!selectedCharacter?.id) {
+      setDeckRequestError("Для сохранения колоды нужно выбрать персонажа.");
+      return;
+    }
+
+    if (!deckValidation.ok) {
+      setDeckRequestError(deckValidation.issues[0]?.message ?? "Колода не прошла проверку.");
+      return;
+    }
+
+    setSaveDialogMode(mode);
+    setSaveDialogName(deckName);
+    setDeckRequestError(null);
+  };
+
+  const closeSaveDialog = () => {
+    if (isSaving) {
+      return;
+    }
+    setSaveDialogMode(null);
+  };
+
+  const handleSaveDeck = async (mode: SaveDeckMode, nextDeckName: string) => {
     if (!session?.token) {
       setDeckRequestError("Для сохранения колод нужно войти в аккаунт.");
       return;
@@ -732,7 +768,7 @@ export const DeckPage = () => {
     setDeckRequestInfo(null);
 
     const payload = {
-      name: deckName.trim() || "Новая колода",
+      name: nextDeckName.trim() || "Новая колода",
       characterId: selectedCharacter.id,
       cards: serializedDeckCards,
     };
@@ -750,6 +786,7 @@ export const DeckPage = () => {
 
     setDeckId(result.deck.id);
     setDeckName(result.deck.name);
+    setSaveDialogMode(null);
     setSavedDecks((prev) => {
       const rest = prev.filter((item) => item.id !== result.deck.id);
       return [result.deck, ...rest];
@@ -759,6 +796,14 @@ export const DeckPage = () => {
         ? "Колода создана и сохранена."
         : "Колода сохранена.",
     );
+  };
+
+  const handleSaveDialogSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!saveDialogMode) {
+      return;
+    }
+    void handleSaveDeck(saveDialogMode, saveDialogName);
   };
 
   const handleDeleteDeck = async () => {
@@ -1008,90 +1053,112 @@ export const DeckPage = () => {
               allowOverflow
             >
               <div className={styles.deckManager}>
-                <div className={styles.deckManagerHeader}>
-                  <div>
-                    <div className={styles.deckManagerTitle}>
-                      {deckId ? "Редактирование сохранённой колоды" : "Новый черновик"}
-                    </div>
-                    <p className={styles.deckManagerSubtitle}>
-                      Выберите сохранённую колоду или соберите новую и сохраните её здесь же.
-                    </p>
-                  </div>
+                <div className={styles.builderTabs} role="tablist" aria-label="Разделы конструктора колоды">
+                  <button
+                    className={activeBuilderTab === "own" ? styles.builderTabActive : styles.builderTab}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeBuilderTab === "own"}
+                    onClick={() => setActiveBuilderTab("own")}
+                  >
+                    Своя колода
+                  </button>
+                  <button
+                    className={activeBuilderTab === "presets" ? styles.builderTabActive : styles.builderTab}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeBuilderTab === "presets"}
+                    onClick={() => setActiveBuilderTab("presets")}
+                  >
+                    Пресеты для тестов
+                  </button>
                 </div>
 
-                <div className={styles.deckManagerGrid}>
-                  <div>
-                    <label className={styles.filterLabel} htmlFor="saved-deck">
-                      Сохранённые колоды
-                    </label>
-                    <div className={styles.deckSelectWrap} ref={savedDeckMenuRef}>
-                      <button
-                        id="saved-deck"
-                        className={styles.deckSelectButton}
-                        type="button"
-                        disabled={isDecksLoading || savedDecks.length === 0}
-                        aria-haspopup="listbox"
-                        aria-expanded={isSavedDeckMenuOpen}
-                        aria-label="Сохранённые колоды"
-                        onClick={() => setIsSavedDeckMenuOpen((value) => !value)}
-                      >
-                        <span className={styles.deckSelectValue}>{selectedSavedDeckLabel}</span>
-                        <span className={styles.deckSelectChevron} aria-hidden="true">
-                          <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
-                            <path
-                              d="m7 10 5 5 5-5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </span>
-                      </button>
-                      {isSavedDeckMenuOpen ? (
-                        <div className={styles.deckSelectMenu} role="listbox" aria-labelledby="saved-deck">
-                          <button
-                            className={`${styles.deckSelectOption} ${!deckId ? styles.deckSelectOptionActive : ""}`.trim()}
-                            type="button"
-                            role="option"
-                            aria-selected={!deckId}
-                            onClick={() => handleDeckSelection("")}
-                          >
-                            Черновик
-                          </button>
-                          {savedDecks.map((savedDeck) => (
+                {activeBuilderTab === "own" ? (
+                  <>
+                    {selectedCharacter ? (
+                      <div className={styles.selectedCharacterMini}>
+                        <div className={styles.selectedCharacterPortrait}>
+                          <span aria-hidden="true">
+                            {selectedCharacter.name.slice(0, 1)}
+                          </span>
+                        </div>
+                        <div className={styles.selectedCharacterNameBlock}>
+                          <div className={styles.selectedCharacterName}>
+                            {selectedCharacter.name}
+                          </div>
+                          <div className={styles.selectedCharacterSchool}>
+                            {getCatalogSchoolLabel(selectedCharacter.faculty)}
+                          </div>
+                        </div>
+                        <div className={styles.selectedCharacterStats}>
+                          <span>HP {selectedCharacter.hp}</span>
+                          <span>Mana {selectedCharacter.mana}</span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className={styles.savedDeckLine}>
+                      <label className={styles.filterLabel} htmlFor="saved-deck">
+                        Сохранённые колоды
+                      </label>
+                      <div className={styles.deckSelectWrap} ref={savedDeckMenuRef}>
+                        <button
+                          id="saved-deck"
+                          className={styles.deckSelectButton}
+                          type="button"
+                          disabled={isDecksLoading || savedDecks.length === 0}
+                          aria-haspopup="listbox"
+                          aria-expanded={isSavedDeckMenuOpen}
+                          aria-label="Сохранённые колоды"
+                          onClick={() => setIsSavedDeckMenuOpen((value) => !value)}
+                        >
+                          <span className={styles.deckSelectValue}>{selectedSavedDeckLabel}</span>
+                          <span className={styles.deckSelectChevron} aria-hidden="true">
+                            <svg viewBox="0 0 24 24" className={styles.deckActionGlyph}>
+                              <path
+                                d="m7 10 5 5 5-5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </span>
+                        </button>
+                        {isSavedDeckMenuOpen ? (
+                          <div className={styles.deckSelectMenu} role="listbox" aria-labelledby="saved-deck">
                             <button
-                              key={savedDeck.id}
-                              className={`${styles.deckSelectOption} ${deckId === savedDeck.id ? styles.deckSelectOptionActive : ""}`.trim()}
+                              className={`${styles.deckSelectOption} ${!deckId ? styles.deckSelectOptionActive : ""}`.trim()}
                               type="button"
                               role="option"
-                              aria-selected={deckId === savedDeck.id}
-                              onClick={() => handleDeckSelection(savedDeck.id)}
+                              aria-selected={!deckId}
+                              onClick={() => handleDeckSelection("")}
                             >
-                              {savedDeck.name}
+                              Черновик
                             </button>
-                          ))}
-                        </div>
-                      ) : null}
+                            {savedDecks.map((savedDeck) => (
+                              <button
+                                key={savedDeck.id}
+                                className={`${styles.deckSelectOption} ${deckId === savedDeck.id ? styles.deckSelectOptionActive : ""}`.trim()}
+                                type="button"
+                                role="option"
+                                aria-selected={deckId === savedDeck.id}
+                                onClick={() => handleDeckSelection(savedDeck.id)}
+                              >
+                                {savedDeck.name}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
+                  </>
+                ) : null}
 
-                  <div>
-                    <label className={styles.filterLabel} htmlFor="deck-name">
-                      Название колоды
-                    </label>
-                    <input
-                      id="deck-name"
-                      className={styles.deckNameInput}
-                      type="text"
-                      value={deckName}
-                      maxLength={128}
-                      onChange={(event) => setDeckName(event.target.value)}
-                    />
-                  </div>
-                </div>
-
+                {activeBuilderTab === "own" ? (
+                  <>
                 <div className={styles.deckManagerActions}>
                   <Tooltip
                     content={saveDisabled ? saveActionTooltip : saveDeckLabel}
@@ -1101,7 +1168,7 @@ export const DeckPage = () => {
                     <button
                       className={styles.deckActionButton}
                       type="button"
-                      onClick={() => void handleSaveDeck()}
+                      onClick={() => openSaveDialog("default")}
                       disabled={saveDisabled}
                       aria-label={saveDeckLabel}
                     >
@@ -1140,7 +1207,7 @@ export const DeckPage = () => {
                     <button
                       className={styles.deckActionButton}
                       type="button"
-                      onClick={() => void handleSaveDeck("create-new")}
+                      onClick={() => openSaveDialog("create-new")}
                       disabled={saveDisabled}
                       aria-label={createDeckCopyLabel}
                     >
@@ -1287,7 +1354,10 @@ export const DeckPage = () => {
                     </Tooltip>
                   </div>
                 ) : null}
+                  </>
+                ) : null}
               </div>
+              {activeBuilderTab === "own" ? (
               <div className={styles.deckWorkspaceBody}>
                 <div className={styles.deckSummary}>
                   <div>
@@ -1361,14 +1431,12 @@ export const DeckPage = () => {
                   )}
                 </div>
               </div>
-            </Card>
-
-            <Card
-              title="Пресеты для тестов"
-              className={styles.presetWorkspaceCard}
-              allowOverflow
-            >
-              <div className={styles.presetGrid}>
+              ) : (
+              <div className={styles.presetTabPanel}>
+                <p className={styles.presetHint}>
+                  Выберите тестовый пресет, чтобы загрузить его как новый черновик.
+                </p>
+                <div className={styles.presetGrid}>
                 {DECK_PRESETS.map((preset) => (
                   <Tooltip
                     key={preset.id}
@@ -1385,11 +1453,56 @@ export const DeckPage = () => {
                     </button>
                   </Tooltip>
                 ))}
+                </div>
               </div>
+              )}
             </Card>
           </div>
         </section>
       </div>
+      {isSaveDialogOpen ? (
+        <div className={styles.saveDialogBackdrop} role="presentation">
+          <form className={styles.saveDialog} onSubmit={handleSaveDialogSubmit}>
+            <div>
+              <div className={styles.saveDialogTitle}>
+                {saveDialogMode === "create-new" ? "Сохранить как новую" : saveDeckLabel}
+              </div>
+              <p className={styles.saveDialogText}>
+                Назовите колоду перед сохранением.
+              </p>
+            </div>
+            <label className={styles.filterLabel} htmlFor="save-deck-name">
+              Название колоды
+            </label>
+            <input
+              id="save-deck-name"
+              className={styles.deckNameInput}
+              type="text"
+              value={saveDialogName}
+              maxLength={128}
+              autoFocus
+              onChange={(event) => setSaveDialogName(event.target.value)}
+            />
+            <div className={styles.saveDialogActions}>
+              <button
+                className={styles.saveDialogSecondary}
+                type="button"
+                onClick={closeSaveDialog}
+                disabled={isSaving}
+              >
+                Отмена
+              </button>
+              <button
+                className={styles.saveDialogPrimary}
+                type="submit"
+                disabled={isSaving}
+              >
+                {isSaving ? "Сохраняем..." : "Сохранить"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </PageShell>
   );
 };

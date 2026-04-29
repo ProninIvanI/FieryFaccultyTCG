@@ -87,18 +87,21 @@ describe("DeckPage", () => {
       expect(getSpy).toHaveBeenCalled();
     });
 
-    const deckNameInput = await screen.findByLabelText("Название колоды");
     const savedDeckTrigger = await screen.findByRole("button", {
       name: "Сохранённые колоды",
     });
 
-    expect(deckNameInput).toHaveValue("Aggro Fire");
     expect(savedDeckTrigger).toHaveTextContent("Aggro Fire");
+
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить изменения" }));
+
+    const deckNameInput = await screen.findByLabelText("Название колоды");
+    expect(deckNameInput).toHaveValue("Aggro Fire");
 
     fireEvent.change(deckNameInput, {
       target: { value: "Aggro Fire Updated" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить изменения" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
 
     await waitFor(() => {
       expect(putSpy).toHaveBeenCalled();
@@ -140,10 +143,12 @@ describe("DeckPage", () => {
       </MemoryRouter>,
     );
 
+    fireEvent.click(screen.getByRole("tab", { name: "Пресеты для тестов" }));
     fireEvent.click(screen.getByRole("button", { name: /Aggro Fire/i }));
 
-    expect(screen.getByLabelText("Название колоды")).toHaveValue("Aggro Fire");
     expect(screen.getByText("Пресет Aggro Fire загружен в черновик.")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Своя колода" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Сохранённые колоды" })).toHaveTextContent("Черновик");
     expect(screen.getAllByText("30/30").length).toBeGreaterThan(0);
     expect(screen.queryByText("Сохранить нельзя")).not.toBeInTheDocument();
   });

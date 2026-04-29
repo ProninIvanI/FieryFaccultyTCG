@@ -1,5 +1,7 @@
 # Changelog
 
+> 2026-04-29 update: reworked `DeckPage` so the deck workshop keeps presets inside the constructor instead of a separate lower card. The constructor now has `Own deck / Test presets` tabs, shows a compact selected-character badge with HP and mana, loads presets as unsaved drafts, and asks for the deck name only in the save dialog so the deck list gets more vertical room.
+
 > 2026-04-24 update: added PvP round diagnostics for reconnect and multi-round desync investigation. `server` now emits typed `roundAudit` WebSocket events for join, draft replace, lock, and resolve checkpoints without exposing private opponent intents; `PlayPvpPage` collects them into a collapsible match-control diagnostic dump with copy-all support, and the round chronicle plus match-control technical panel can now be collapsed while testing.
 
 > 2026-04-24 update: replaced the player profile placeholders with live account/deck/match data. `ProfilePage` now loads real account info plus derived match/deck summary, shows recent decks and readable recent-match cards with opponent names, timestamps, matchup deck snapshots, and quick `all / wins / losses` filtering. Backend match-player payloads now include optional usernames so the frontend can render human-readable opponent history without changing `game-core`.
