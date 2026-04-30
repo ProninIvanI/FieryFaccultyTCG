@@ -3105,8 +3105,10 @@ describe('PlayPvpPage', () => {
 
     await waitFor(
       () => {
-        expect(screen.getByTestId('resolution-playback-frame')).toHaveTextContent('Твой маг: 20 -> 16 HP');
+        expect(screen.queryByTestId('resolution-playback-frame')).not.toBeInTheDocument();
         expect(screen.getByText('HP 16/20')).toBeInTheDocument();
+        expect(screen.getByText('-4')).toBeInTheDocument();
+        expect(screen.queryByText('Твой маг: 20 -> 16 HP')).not.toBeInTheDocument();
       },
       { timeout: 2500 },
     );

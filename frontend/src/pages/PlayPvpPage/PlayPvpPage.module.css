@@ -1362,29 +1362,6 @@
   scroll-snap-type: x proximity;
 }
 
-.resolvePlaybackFramePanel {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 8px;
-  align-content: start;
-  justify-self: center;
-  width: min(100%, 560px);
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(196, 154, 90, 0.24);
-  background: rgba(255, 248, 236, 0.08);
-  color: var(--pvp-text);
-  text-align: center;
-}
-
-.resolvePlaybackFrameChanges {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-}
-
 .resolveReplayTrackSparse {
   grid-auto-columns: minmax(224px, 248px);
   max-width: max-content;
@@ -1610,6 +1587,177 @@
   margin: 0 auto;
   background: radial-gradient(circle at 50% 35%, #eff6ff, #dbeafe);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.avatarTargetPlaybackDamage .playerPortraitFrame {
+  animation: heroDamageHit 760ms ease-out;
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.26),
+    0 0 24px rgba(239, 68, 68, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.avatarTargetPlaybackHeal .playerPortraitFrame {
+  animation: heroHealPulse 900ms ease-out;
+  box-shadow:
+    0 0 0 3px rgba(74, 222, 128, 0.22),
+    0 0 26px rgba(34, 197, 94, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.avatarTargetPlaybackShield .heroShieldBadge {
+  animation: heroShieldHit 820ms ease-out;
+}
+
+.avatarTargetPlaybackShieldBreak .heroShieldBadge {
+  animation: heroShieldBreak 1100ms ease-out forwards;
+}
+
+.heroShieldBadge {
+  position: absolute;
+  right: -8px;
+  bottom: 8px;
+  z-index: 2;
+  min-width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px 9px 12px 12px;
+  border: 1px solid rgba(186, 230, 253, 0.95);
+  background:
+    linear-gradient(180deg, rgba(224, 242, 254, 0.92), rgba(14, 116, 144, 0.88));
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow:
+    0 8px 18px rgba(8, 47, 73, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68);
+}
+
+.heroShieldBadge::before {
+  content: "";
+  position: absolute;
+  inset: 4px 6px 7px;
+  border-radius: 5px 5px 9px 9px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.54);
+  pointer-events: none;
+}
+
+.avatarTargetPlaybackShieldBreak .heroShieldBadge::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  width: 2px;
+  height: 19px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow:
+    -4px 5px 0 -0.5px rgba(255, 255, 255, 0.72),
+    4px 10px 0 -0.5px rgba(255, 255, 255, 0.64);
+  transform: translateX(-50%) rotate(18deg);
+}
+
+.heroFloatingNumber {
+  position: absolute;
+  left: 50%;
+  top: -14px;
+  z-index: 3;
+  min-width: 34px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(20, 16, 15, 0.86);
+  color: #fecaca;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  transform: translateX(-50%);
+  animation: heroFloatingNumber 1100ms ease-out forwards;
+  pointer-events: none;
+}
+
+.avatarTargetPlaybackHeal .heroFloatingNumber {
+  color: #bbf7d0;
+}
+
+@keyframes heroDamageHit {
+  0% {
+    transform: translateY(0);
+    filter: brightness(1);
+  }
+  22% {
+    transform: translateY(7px);
+    filter: brightness(1.18) saturate(1.2);
+  }
+  42% {
+    transform: translateY(2px);
+  }
+  100% {
+    transform: translateY(0);
+    filter: brightness(1);
+  }
+}
+
+@keyframes heroHealPulse {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  32% {
+    transform: scale(1.04);
+    filter: brightness(1.14) saturate(1.18);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes heroFloatingNumber {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -22px);
+  }
+}
+
+@keyframes heroShieldHit {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.18);
+    box-shadow:
+      0 0 0 5px rgba(125, 211, 252, 0.2),
+      0 12px 22px rgba(8, 47, 73, 0.32);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes heroShieldBreak {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.16) rotate(-4deg);
+    filter: brightness(1.35);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.72) rotate(8deg);
+  }
 }
 
 .playerPortraitNeutral {

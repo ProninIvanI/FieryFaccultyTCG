@@ -70,6 +70,12 @@ interface LocalPlayerSummary {
 }
 
 type PlaybackFieldValue = string | number | boolean | null;
+type HeroPlaybackEffectTone = 'damage' | 'heal' | 'shield' | 'shieldBreak';
+
+interface HeroPlaybackEffect {
+  tone: HeroPlaybackEffectTone;
+  floatingText?: string;
+}
 
 interface PlayerBoardSummary extends LocalPlayerSummary {
   deckSize: number;
@@ -135,51 +141,63 @@ const getPlaybackNumberOverride = (
   return typeof value === 'number' ? value : null;
 };
 
-const getPlaybackFrameChangeText = (
-  frame: ResolvePlaybackFrame,
-  knownTargetLabelsById: ReadonlyMap<string, string>,
-): string | null => {
-  const primaryChange = frame.changes.find((change) => change.field === 'hp' || change.field === 'shield');
-  if (!primaryChange) {
-    return null;
+const getPlaybackValueOverride = (
+  values: ReadonlyMap<string, PlaybackFieldValue>,
+  entityType: string,
+  entityId: string | undefined,
+  field: string,
+): PlaybackFieldValue | undefined => {
+  if (!entityId) {
+    return undefined;
   }
 
-  const targetLabel = knownTargetLabelsById.get(primaryChange.entity.id) ?? 'Цель';
-
-  if (primaryChange.field === 'hp') {
-    return `${targetLabel}: ${primaryChange.from} -> ${primaryChange.to} HP`;
-  }
-
-  return `${targetLabel}: щит ${primaryChange.from ?? 0} -> ${primaryChange.to ?? 0}`;
+  return values.get(getPlaybackFieldKey(entityType, entityId, field));
 };
 
-const getPlaybackFrameDisplayText = (
+const getActiveHeroPlaybackEffect = (
   frame: ResolvePlaybackFrame | null,
-  activeEntry: ResolvedTimelineEntrySummary | null,
-  knownTargetLabelsById: ReadonlyMap<string, string>,
-): string | null => {
-  if (!frame) {
+  characterId: string | undefined,
+): HeroPlaybackEffect | null => {
+  if (!frame || !characterId) {
     return null;
   }
 
-  const changeText = getPlaybackFrameChangeText(frame, knownTargetLabelsById);
-  if (changeText) {
-    return changeText;
+  const hpChange = frame.changes.find(
+    (change) => change.entity.type === 'character' && change.entity.id === characterId && change.field === 'hp',
+  );
+  if (hpChange && typeof hpChange.from === 'number' && typeof hpChange.to === 'number') {
+    const amount = Math.abs(hpChange.to - hpChange.from);
+    return hpChange.to < hpChange.from
+      ? { tone: 'damage', floatingText: `-${amount}` }
+      : { tone: 'heal', floatingText: `+${amount}` };
   }
 
-  if (frame.kind === 'summon') {
-    return activeEntry?.title ?? 'Существо выходит на поле';
+  const shieldChange = frame.changes.find(
+    (change) => change.entity.type === 'character' && change.entity.id === characterId && change.field === 'shield',
+  );
+  if (shieldChange) {
+    const shieldTo = typeof shieldChange.to === 'number' ? shieldChange.to : 0;
+    return shieldTo <= 0 ? { tone: 'shieldBreak' } : { tone: 'shield' };
   }
 
-  if (frame.kind === 'destroy') {
-    return 'Существо покидает поле';
+  return null;
+};
+
+const getHeroPlaybackEffectClassName = (effect: HeroPlaybackEffect | null): string => {
+  if (!effect) {
+    return '';
   }
 
-  if (frame.kind === 'fizzle') {
-    return activeEntry ? getResolvedActionOutcomeLabelBase(activeEntry.action) : 'Действие сорвалось';
+  switch (effect.tone) {
+    case 'damage':
+      return styles.avatarTargetPlaybackDamage;
+    case 'heal':
+      return styles.avatarTargetPlaybackHeal;
+    case 'shield':
+      return styles.avatarTargetPlaybackShield;
+    case 'shieldBreak':
+      return styles.avatarTargetPlaybackShieldBreak;
   }
-
-  return activeEntry?.title ?? null;
 };
 
 interface HandCardSummary {
@@ -2986,10 +3004,37 @@ export const PlayPvpPage = () => {
   const enemyDisplayMana =
     getPlaybackNumberOverride(playbackFieldValues, 'player', primaryEnemyBoard?.playerId, 'mana') ??
     primaryEnemyBoard?.mana;
-  const activeResolvePlaybackText = getPlaybackFrameDisplayText(
+  const localShieldOverride = getPlaybackValueOverride(
+    playbackFieldValues,
+    'character',
+    localPlayer?.characterId,
+    'shield',
+  );
+  const enemyShieldOverride = getPlaybackValueOverride(
+    playbackFieldValues,
+    'character',
+    primaryEnemyBoard?.characterId,
+    'shield',
+  );
+  const localDisplayShield =
+    typeof localShieldOverride === 'number'
+      ? localShieldOverride
+      : localShieldOverride === null
+        ? null
+        : localCharacterState?.shield?.energy ?? null;
+  const enemyDisplayShield =
+    typeof enemyShieldOverride === 'number'
+      ? enemyShieldOverride
+      : enemyShieldOverride === null
+        ? null
+        : enemyCharacterState?.shield?.energy ?? null;
+  const localHeroPlaybackEffect = getActiveHeroPlaybackEffect(
     activeResolvePlaybackFrame,
-    activeResolvedTimelineEntry,
-    knownTargetLabelsById,
+    localPlayer?.characterId,
+  );
+  const enemyHeroPlaybackEffect = getActiveHeroPlaybackEffect(
+    activeResolvePlaybackFrame,
+    primaryEnemyBoard?.characterId,
   );
   const enemyPreparationCount = Math.max(0, roundSync?.opponentDraftCount ?? 0);
   const visibleEnemyHandCount = Math.max(0, (primaryEnemyBoard?.handSize ?? 0) - enemyPreparationCount);
@@ -3558,7 +3603,18 @@ export const PlayPvpPage = () => {
                       <div className={`${styles.playerSideCard} ${isEnemySideActive ? styles.playerSideCardActive : ''}`.trim()}>
                         <span className={styles.playerSideLabel}>Соперник</span>
                         <button
-                          className={`${styles.avatarTargetButton} ${primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetable : ''} ${primaryEnemyBoard?.characterId && isDraftTargetActive(primaryEnemyBoard.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                          className={[
+                            styles.avatarTargetButton,
+                            getHeroPlaybackEffectClassName(enemyHeroPlaybackEffect),
+                            primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId)
+                              ? styles.selectionSurfaceTargetable
+                              : '',
+                            primaryEnemyBoard?.characterId && isDraftTargetActive(primaryEnemyBoard.characterId)
+                              ? styles.selectionSurfaceTargetActive
+                              : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
                           aria-label={getTargetButtonAriaLabel(`Маг ${primaryEnemyDisplayName || 'соперника'}`, Boolean(primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId)))}
                           type="button"
                           onClick={() => {
@@ -3576,6 +3632,14 @@ export const PlayPvpPage = () => {
                             >
                               {getCharacterInitials(enemyCharacter?.name ?? 'P1')}
                             </div>
+                            {typeof enemyDisplayShield === 'number' && enemyDisplayShield > 0 ? (
+                              <span className={styles.heroShieldBadge} aria-label={`Щит ${enemyDisplayShield}`}>
+                                {enemyDisplayShield}
+                              </span>
+                            ) : null}
+                            {enemyHeroPlaybackEffect?.floatingText ? (
+                              <span className={styles.heroFloatingNumber}>{enemyHeroPlaybackEffect.floatingText}</span>
+                            ) : null}
                           </div>
                           <div className={styles.playerIdentity}>
                             <strong>{enemyCharacter?.name ?? 'Ожидание соперника'}</strong>
@@ -3635,7 +3699,14 @@ export const PlayPvpPage = () => {
                       <div className={`${styles.playerSideCard} ${isLocalSideActive ? styles.playerSideCardActive : ''}`.trim()}>
                         <span className={styles.playerSideLabel}>Ты</span>
                         <button
-                          className={`${styles.avatarTargetButton} ${localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : ''} ${localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
+                          className={[
+                            styles.avatarTargetButton,
+                            getHeroPlaybackEffectClassName(localHeroPlaybackEffect),
+                            localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : '',
+                            localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
                           aria-label={getTargetButtonAriaLabel('Твой маг', Boolean(localPlayer && isSelectableTarget(localPlayer.characterId)))}
                           type="button"
                           onClick={() => {
@@ -3652,6 +3723,14 @@ export const PlayPvpPage = () => {
                             >
                               {getCharacterInitials(localCharacter?.name ?? 'P2')}
                             </div>
+                            {typeof localDisplayShield === 'number' && localDisplayShield > 0 ? (
+                              <span className={styles.heroShieldBadge} aria-label={`Щит ${localDisplayShield}`}>
+                                {localDisplayShield}
+                              </span>
+                            ) : null}
+                            {localHeroPlaybackEffect?.floatingText ? (
+                              <span className={styles.heroFloatingNumber}>{localHeroPlaybackEffect.floatingText}</span>
+                            ) : null}
                           </div>
                           <div className={styles.playerIdentity}>
                             <strong>{localCharacter?.name ?? 'Твой персонаж'}</strong>
@@ -3682,12 +3761,6 @@ export const PlayPvpPage = () => {
                     >
                       {isResolvedReplayOpen ? (
                         <section className={styles.resolveReplayScene} data-testid="resolution-replay-strip">
-                          {activeResolvePlaybackFrame ? (
-                            <div className={styles.resolvePlaybackFramePanel} data-testid="resolution-playback-frame">
-                              <span className={styles.summaryLabel}>Resolve</span>
-                              <strong>{activeResolvePlaybackText ?? activeResolvePlaybackFrame.label}</strong>
-                            </div>
-                          ) : null}
                           <div
                             ref={resolvedReplayTrackRef}
                             className={[
@@ -3755,11 +3828,6 @@ export const PlayPvpPage = () => {
                                   </div>
                                   {entry.summary ? (
                                     <span className={styles.resolveReplayItemSummary}>{entry.summary}</span>
-                                  ) : null}
-                                  {isReplayItemActive && activeResolvePlaybackFrame ? (
-                                    <span className={styles.resolveReplayItemSummary}>
-                                      {activeResolvePlaybackText ?? activeResolvePlaybackFrame.label}
-                                    </span>
                                   ) : null}
                                   {entry.detailItems.length ? (
                                     <div className={styles.resolveReplayItemDetails}>
