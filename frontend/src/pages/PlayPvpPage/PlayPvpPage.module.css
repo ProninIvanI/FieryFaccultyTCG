@@ -1461,6 +1461,20 @@
   animation: resolveReplayPulse 1.2s ease-in-out infinite alternate;
 }
 
+.resolveReplayItemAttack {
+  border-color: rgba(248, 113, 113, 0.62);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 236, 0.08),
+    0 20px 38px rgba(127, 29, 29, 0.22),
+    0 0 0 2px rgba(248, 113, 113, 0.14);
+}
+
+.resolveReplayItemFizzle {
+  animation: resolveReplayFizzle 680ms ease-out;
+  border-color: rgba(251, 191, 36, 0.58);
+  opacity: 0.86;
+}
+
 .resolveReplayItemResolved {
   opacity: 0.72;
 }
@@ -1710,6 +1724,31 @@
   pointer-events: none;
 }
 
+.playerResourceFloatingNumber {
+  display: inline-flex;
+  width: max-content;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(20, 16, 15, 0.82);
+  color: #fde68a;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  animation: heroFloatingNumber 1100ms ease-out forwards;
+  pointer-events: none;
+}
+
+.playerResourceGain {
+  color: #bbf7d0;
+}
+
+.playerResourceSpend {
+  color: #fde68a;
+}
+
 .avatarTargetPlaybackHeal .heroFloatingNumber {
   color: #bbf7d0;
 }
@@ -1857,6 +1896,58 @@
     opacity: 0;
     transform: translateY(14px) scale(0.88) rotate(2deg);
     filter: grayscale(0.8) brightness(0.72);
+  }
+}
+
+@keyframes creatureAttackLunge {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  28% {
+    transform: translateY(-10px) scale(1.04) rotate(-1deg);
+    filter: brightness(1.14) saturate(1.18);
+  }
+  58% {
+    transform: translateY(5px) scale(0.99) rotate(1deg);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes speedStreak {
+  0% {
+    opacity: 0;
+    transform: translateX(-12px) skewX(-18deg);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(14px) skewX(-18deg);
+  }
+}
+
+@keyframes resolveReplayFizzle {
+  0% {
+    filter: brightness(1);
+    transform: translateX(0);
+  }
+  18% {
+    transform: translateX(-4px);
+  }
+  36% {
+    transform: translateX(4px);
+    filter: brightness(1.18) saturate(0.82);
+  }
+  58% {
+    transform: translateX(-2px);
+  }
+  100% {
+    filter: brightness(1);
+    transform: translateX(0);
   }
 }
 
@@ -2388,6 +2479,34 @@
 
 .ribbonCardPlaybackHeal .ribbonFloatingNumber {
   color: #bbf7d0;
+}
+
+.ribbonCardPlaybackAttack {
+  animation: creatureAttackLunge 720ms ease-out;
+  border-color: rgba(248, 113, 113, 0.68);
+  box-shadow:
+    0 0 0 2px rgba(248, 113, 113, 0.16),
+    0 18px 34px rgba(127, 29, 29, 0.22);
+}
+
+.ribbonCardPlaybackSpeed .ribbonArtwork::after {
+  content: "";
+  position: absolute;
+  inset: 10px 8px auto auto;
+  width: 34px;
+  height: 18px;
+  border-top: 3px solid rgba(224, 242, 254, 0.9);
+  border-right: 3px solid rgba(224, 242, 254, 0.78);
+  border-radius: 0 999px 0 0;
+  transform: skewX(-18deg);
+  filter: drop-shadow(0 0 8px rgba(125, 211, 252, 0.48));
+  animation: speedStreak 780ms ease-out;
+  pointer-events: none;
+}
+
+.ribbonCardPlaybackFizzle {
+  animation: resolveReplayFizzle 680ms ease-out;
+  border-color: rgba(251, 191, 36, 0.58);
 }
 
 .ribbonCardLocal {

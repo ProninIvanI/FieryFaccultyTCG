@@ -72,6 +72,7 @@ interface LocalPlayerSummary {
 type PlaybackFieldValue = string | number | boolean | null;
 type HeroPlaybackEffectTone = 'damage' | 'heal' | 'shield' | 'shieldBreak';
 type BoardItemPlaybackEffectTone = 'summon' | 'destroy' | 'damage' | 'heal';
+type PlayerResourcePlaybackEffectTone = 'gain' | 'spend';
 
 interface HeroPlaybackEffect {
   tone: HeroPlaybackEffectTone;
@@ -81,6 +82,11 @@ interface HeroPlaybackEffect {
 interface BoardItemPlaybackEffect {
   tone: BoardItemPlaybackEffectTone;
   floatingText?: string;
+}
+
+interface PlayerResourcePlaybackEffect {
+  tone: PlayerResourcePlaybackEffectTone;
+  floatingText: string;
 }
 
 interface PlayerBoardSummary extends LocalPlayerSummary {
@@ -98,6 +104,7 @@ const getPlaybackFrames = (round: RoundResolutionResult | null): ResolvePlayback
       frame.kind === 'shield' ||
       frame.kind === 'summon' ||
       frame.kind === 'destroy' ||
+      frame.kind === 'resource' ||
       frame.kind === 'fizzle',
   ) ?? [];
 
@@ -249,6 +256,45 @@ const getBoardItemPlaybackEffectClassName = (effect: BoardItemPlaybackEffect | n
     case 'heal':
       return styles.ribbonCardPlaybackHeal;
   }
+};
+
+const getActivePlayerResourcePlaybackEffect = (
+  frame: ResolvePlaybackFrame | null,
+  playerId: string | undefined,
+): PlayerResourcePlaybackEffect | null => {
+  if (!frame || !playerId) {
+    return null;
+  }
+
+  const manaChange = frame.changes.find(
+    (change) => change.entity.type === 'player' && change.entity.id === playerId && change.field === 'mana',
+  );
+  if (manaChange && typeof manaChange.from === 'number' && typeof manaChange.to === 'number') {
+    const amount = Math.abs(manaChange.to - manaChange.from);
+    return manaChange.to < manaChange.from
+      ? { tone: 'spend', floatingText: `-${amount} маны` }
+      : { tone: 'gain', floatingText: `+${amount} мана` };
+  }
+
+  const actionPointChange = frame.changes.find(
+    (change) => change.entity.type === 'player' && change.entity.id === playerId && change.field === 'actionPoints',
+  );
+  if (actionPointChange && typeof actionPointChange.from === 'number' && typeof actionPointChange.to === 'number') {
+    const amount = Math.abs(actionPointChange.to - actionPointChange.from);
+    return actionPointChange.to < actionPointChange.from
+      ? { tone: 'spend', floatingText: `-${amount} AP` }
+      : { tone: 'gain', floatingText: `+${amount} AP` };
+  }
+
+  return null;
+};
+
+const getPlayerResourcePlaybackEffectClassName = (effect: PlayerResourcePlaybackEffect | null): string => {
+  if (!effect) {
+    return '';
+  }
+
+  return effect.tone === 'gain' ? styles.playerResourceGain : styles.playerResourceSpend;
 };
 
 interface HandCardSummary {
@@ -3101,6 +3147,14 @@ export const PlayPvpPage = () => {
     activeResolvePlaybackFrame,
     primaryEnemyBoard?.characterId,
   );
+  const localResourcePlaybackEffect = getActivePlayerResourcePlaybackEffect(
+    activeResolvePlaybackFrame,
+    localPlayer?.playerId,
+  );
+  const enemyResourcePlaybackEffect = getActivePlayerResourcePlaybackEffect(
+    activeResolvePlaybackFrame,
+    primaryEnemyBoard?.playerId,
+  );
   const enemyPreparationCount = Math.max(0, roundSync?.opponentDraftCount ?? 0);
   const visibleEnemyHandCount = Math.max(0, (primaryEnemyBoard?.handSize ?? 0) - enemyPreparationCount);
   const isEnemyHandEmpty = visibleEnemyHandCount === 0;
@@ -3725,6 +3779,13 @@ export const PlayPvpPage = () => {
                                 </span>
                               </div>
                             ) : null}
+                            {enemyResourcePlaybackEffect ? (
+                              <span
+                                className={`${styles.playerResourceFloatingNumber} ${getPlayerResourcePlaybackEffectClassName(enemyResourcePlaybackEffect)}`.trim()}
+                              >
+                                {enemyResourcePlaybackEffect.floatingText}
+                              </span>
+                            ) : null}
                           </div>
                         </button>
                       </div>
@@ -3816,6 +3877,13 @@ export const PlayPvpPage = () => {
                                 </span>
                               </div>
                             ) : null}
+                            {localResourcePlaybackEffect ? (
+                              <span
+                                className={`${styles.playerResourceFloatingNumber} ${getPlayerResourcePlaybackEffectClassName(localResourcePlaybackEffect)}`.trim()}
+                              >
+                                {localResourcePlaybackEffect.floatingText}
+                              </span>
+                            ) : null}
                           </div>
                         </button>
                       </div>
@@ -3866,6 +3934,12 @@ export const PlayPvpPage = () => {
                                       ? styles.resolveReplayItemLocal
                                       : styles.resolveReplayItemEnemy,
                                     isReplayItemActive ? styles.resolveReplayItemActive : '',
+                                    isReplayItemActive && entry.action.status === 'fizzled'
+                                      ? styles.resolveReplayItemFizzle
+                                      : '',
+                                    isReplayItemActive && entry.action.layer === 'attacks'
+                                      ? styles.resolveReplayItemAttack
+                                      : '',
                                     isReplayItemResolved ? styles.resolveReplayItemResolved : '',
                                   ]
                                     .filter(Boolean)
@@ -3999,12 +4073,18 @@ export const PlayPvpPage = () => {
                                 selection?.kind === 'creature' &&
                                 selection.creatureId === item.runtimeId;
                               const isPlaybackBoardItemActive = visibleLocalPlaybackSourceBoardItemId === item.id;
+                              const activeBoardItemAction =
+                                isPlaybackBoardItemActive && activeResolvedTimelineEntry?.action.playerId === playerId
+                                  ? activeResolvedTimelineEntry.action
+                                  : null;
                               const boardItemInspectTarget: SceneInspectTarget = { kind: 'boardItem', id: item.id };
                               const localCardClassName = [
                                 styles.ribbonCard,
                                 item.subtype === 'effect' ? styles.ribbonCardEffect : styles.ribbonCardLocal,
                                 attachedActions.length > 0 ? styles.ribbonCardActive : '',
                                 isPlaybackBoardItemActive ? styles.ribbonCardPlaybackActive : '',
+                                activeBoardItemAction?.layer === 'attacks' ? styles.ribbonCardPlaybackAttack : '',
+                                isPlaybackBoardItemActive && item.speed ? styles.ribbonCardPlaybackSpeed : '',
                                 getBoardItemPlaybackEffectClassName(boardItemPlaybackEffect),
                                 inspectedBoardItemId === item.id ? styles.ribbonCardInspected : '',
                               ]
@@ -4227,9 +4307,24 @@ export const PlayPvpPage = () => {
                             const roundActionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
 
                             return (
+                              (() => {
+                                const activeDetachedAction =
+                                  activeLocalPlaybackIntentId === action.id ? activeResolvedTimelineEntry?.action ?? null : null;
+                                return (
                               <div
                                 key={entry.id}
-                                className={`${styles.ribbonCard} ${styles.ribbonCardAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonCardPlaybackActive : ''} ${inspectedRoundActionId === action.id ? styles.ribbonCardInspected : ''}`.trim()}
+                                className={[
+                                  styles.ribbonCard,
+                                  styles.ribbonCardAction,
+                                  getRibbonActionToneClassName(action.layer),
+                                  activeLocalPlaybackIntentId === action.id ? styles.ribbonCardPlaybackActive : '',
+                                  activeDetachedAction?.layer === 'attacks' ? styles.ribbonCardPlaybackAttack : '',
+                                  activeLocalPlaybackIntentId === action.id && action.cardSpeed ? styles.ribbonCardPlaybackSpeed : '',
+                                  activeDetachedAction?.status === 'fizzled' ? styles.ribbonCardPlaybackFizzle : '',
+                                  inspectedRoundActionId === action.id ? styles.ribbonCardInspected : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
                                 data-testid={
                                   activeLocalPlaybackIntentId === action.id
                                     ? 'local-playback-action-card'
@@ -4287,6 +4382,8 @@ export const PlayPvpPage = () => {
                                   </div>
                                 </div>
                               </div>
+                                );
+                              })()
                             );
                           })}
                         </div>
