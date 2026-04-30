@@ -1076,28 +1076,6 @@ export const DeckPage = () => {
 
                 {activeBuilderTab === "own" ? (
                   <>
-                    {selectedCharacter ? (
-                      <div className={styles.selectedCharacterMini}>
-                        <div className={styles.selectedCharacterPortrait}>
-                          <span aria-hidden="true">
-                            {selectedCharacter.name.slice(0, 1)}
-                          </span>
-                        </div>
-                        <div className={styles.selectedCharacterNameBlock}>
-                          <div className={styles.selectedCharacterName}>
-                            {selectedCharacter.name}
-                          </div>
-                          <div className={styles.selectedCharacterSchool}>
-                            {getCatalogSchoolLabel(selectedCharacter.faculty)}
-                          </div>
-                        </div>
-                        <div className={styles.selectedCharacterStats}>
-                          <span>HP {selectedCharacter.hp}</span>
-                          <span>Mana {selectedCharacter.mana}</span>
-                        </div>
-                      </div>
-                    ) : null}
-
                     <div className={styles.savedDeckLine}>
                       <label className={styles.filterLabel} htmlFor="saved-deck">
                         Сохранённые колоды
@@ -1379,6 +1357,27 @@ export const DeckPage = () => {
                     <div className={styles.summaryLabel}>заклинания</div>
                   </div>
                 </div>
+                {selectedCharacter ? (
+                  <div className={styles.selectedCharacterMini}>
+                    <div className={styles.selectedCharacterPortrait}>
+                      <span aria-hidden="true">
+                        {selectedCharacter.name.slice(0, 1)}
+                      </span>
+                    </div>
+                    <div className={styles.selectedCharacterNameBlock}>
+                      <div className={styles.selectedCharacterName}>
+                        {selectedCharacter.name}
+                      </div>
+                      <div className={styles.selectedCharacterSchool}>
+                        {getCatalogSchoolLabel(selectedCharacter.faculty)}
+                      </div>
+                    </div>
+                    <div className={styles.selectedCharacterStats}>
+                      <span>HP {selectedCharacter.hp}</span>
+                      <span>Mana {selectedCharacter.mana}</span>
+                    </div>
+                  </div>
+                ) : null}
                 <div className={styles.deckList}>
                   {deckCards.length === 0 ? (
                     <div className={styles.emptyState}>
