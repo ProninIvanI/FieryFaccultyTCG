@@ -79,7 +79,15 @@ interface PlayerBoardSummary extends LocalPlayerSummary {
 }
 
 const getPlaybackFrames = (round: RoundResolutionResult | null): ResolvePlaybackFrame[] =>
-  round?.playbackFrames ?? [];
+  round?.playbackFrames?.filter(
+    (frame) =>
+      frame.kind === 'damage' ||
+      frame.kind === 'heal' ||
+      frame.kind === 'shield' ||
+      frame.kind === 'summon' ||
+      frame.kind === 'destroy' ||
+      frame.kind === 'fizzle',
+  ) ?? [];
 
 const getPlaybackStepCount = (round: RoundResolutionResult | null): number => {
   const playbackFrameCount = getPlaybackFrames(round).length;
@@ -125,6 +133,53 @@ const getPlaybackNumberOverride = (
 
   const value = values.get(getPlaybackFieldKey(entityType, entityId, field));
   return typeof value === 'number' ? value : null;
+};
+
+const getPlaybackFrameChangeText = (
+  frame: ResolvePlaybackFrame,
+  knownTargetLabelsById: ReadonlyMap<string, string>,
+): string | null => {
+  const primaryChange = frame.changes.find((change) => change.field === 'hp' || change.field === 'shield');
+  if (!primaryChange) {
+    return null;
+  }
+
+  const targetLabel = knownTargetLabelsById.get(primaryChange.entity.id) ?? 'Цель';
+
+  if (primaryChange.field === 'hp') {
+    return `${targetLabel}: ${primaryChange.from} -> ${primaryChange.to} HP`;
+  }
+
+  return `${targetLabel}: щит ${primaryChange.from ?? 0} -> ${primaryChange.to ?? 0}`;
+};
+
+const getPlaybackFrameDisplayText = (
+  frame: ResolvePlaybackFrame | null,
+  activeEntry: ResolvedTimelineEntrySummary | null,
+  knownTargetLabelsById: ReadonlyMap<string, string>,
+): string | null => {
+  if (!frame) {
+    return null;
+  }
+
+  const changeText = getPlaybackFrameChangeText(frame, knownTargetLabelsById);
+  if (changeText) {
+    return changeText;
+  }
+
+  if (frame.kind === 'summon') {
+    return activeEntry?.title ?? 'Существо выходит на поле';
+  }
+
+  if (frame.kind === 'destroy') {
+    return 'Существо покидает поле';
+  }
+
+  if (frame.kind === 'fizzle') {
+    return activeEntry ? getResolvedActionOutcomeLabelBase(activeEntry.action) : 'Действие сорвалось';
+  }
+
+  return activeEntry?.title ?? null;
 };
 
 interface HandCardSummary {
@@ -2931,6 +2986,11 @@ export const PlayPvpPage = () => {
   const enemyDisplayMana =
     getPlaybackNumberOverride(playbackFieldValues, 'player', primaryEnemyBoard?.playerId, 'mana') ??
     primaryEnemyBoard?.mana;
+  const activeResolvePlaybackText = getPlaybackFrameDisplayText(
+    activeResolvePlaybackFrame,
+    activeResolvedTimelineEntry,
+    knownTargetLabelsById,
+  );
   const enemyPreparationCount = Math.max(0, roundSync?.opponentDraftCount ?? 0);
   const visibleEnemyHandCount = Math.max(0, (primaryEnemyBoard?.handSize ?? 0) - enemyPreparationCount);
   const isEnemyHandEmpty = visibleEnemyHandCount === 0;
@@ -3625,19 +3685,7 @@ export const PlayPvpPage = () => {
                           {activeResolvePlaybackFrame ? (
                             <div className={styles.resolvePlaybackFramePanel} data-testid="resolution-playback-frame">
                               <span className={styles.summaryLabel}>Resolve</span>
-                              <strong>{activeResolvePlaybackFrame.label}</strong>
-                              {activeResolvePlaybackFrame.changes.length > 0 ? (
-                                <div className={styles.resolvePlaybackFrameChanges}>
-                                  {activeResolvePlaybackFrame.changes.map((change) => (
-                                    <span
-                                      key={`${change.entity.type}-${change.entity.id}-${change.field}-${change.from}-${change.to}`}
-                                      className={styles.cardBadge}
-                                    >
-                                      {change.field}: {String(change.from ?? 0)} {'->'} {String(change.to ?? 0)}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : null}
+                              <strong>{activeResolvePlaybackText ?? activeResolvePlaybackFrame.label}</strong>
                             </div>
                           ) : null}
                           <div
@@ -3709,7 +3757,9 @@ export const PlayPvpPage = () => {
                                     <span className={styles.resolveReplayItemSummary}>{entry.summary}</span>
                                   ) : null}
                                   {isReplayItemActive && activeResolvePlaybackFrame ? (
-                                    <span className={styles.resolveReplayItemSummary}>{activeResolvePlaybackFrame.label}</span>
+                                    <span className={styles.resolveReplayItemSummary}>
+                                      {activeResolvePlaybackText ?? activeResolvePlaybackFrame.label}
+                                    </span>
                                   ) : null}
                                   {entry.detailItems.length ? (
                                     <div className={styles.resolveReplayItemDetails}>
