@@ -3175,6 +3175,7 @@ describe('PlayPvpPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('resolution-replay-strip')).toBeInTheDocument();
+      expect(screen.getByTestId('local-playback-board')).toBeInTheDocument();
       expect(screen.queryByText(/Твоя рука/i)).not.toBeInTheDocument();
       expect(screen.queryByTestId('opponent-hidden-draft-zone')).not.toBeInTheDocument();
       expect(screen.queryByTestId('local-draft-workspace')).not.toBeInTheDocument();

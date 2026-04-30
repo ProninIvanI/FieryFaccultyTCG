@@ -71,9 +71,15 @@ interface LocalPlayerSummary {
 
 type PlaybackFieldValue = string | number | boolean | null;
 type HeroPlaybackEffectTone = 'damage' | 'heal' | 'shield' | 'shieldBreak';
+type BoardItemPlaybackEffectTone = 'summon' | 'destroy' | 'damage' | 'heal';
 
 interface HeroPlaybackEffect {
   tone: HeroPlaybackEffectTone;
+  floatingText?: string;
+}
+
+interface BoardItemPlaybackEffect {
+  tone: BoardItemPlaybackEffectTone;
   floatingText?: string;
 }
 
@@ -197,6 +203,51 @@ const getHeroPlaybackEffectClassName = (effect: HeroPlaybackEffect | null): stri
       return styles.avatarTargetPlaybackShield;
     case 'shieldBreak':
       return styles.avatarTargetPlaybackShieldBreak;
+  }
+};
+
+const getActiveBoardItemPlaybackEffect = (
+  frame: ResolvePlaybackFrame | null,
+  runtimeId: string | undefined,
+): BoardItemPlaybackEffect | null => {
+  if (!frame || !runtimeId) {
+    return null;
+  }
+
+  const presenceChange = frame.changes.find(
+    (change) => change.entity.type === 'creature' && change.entity.id === runtimeId && change.field === 'presence',
+  );
+  if (presenceChange) {
+    return presenceChange.to === false ? { tone: 'destroy' } : { tone: 'summon' };
+  }
+
+  const hpChange = frame.changes.find(
+    (change) => change.entity.type === 'creature' && change.entity.id === runtimeId && change.field === 'hp',
+  );
+  if (hpChange && typeof hpChange.from === 'number' && typeof hpChange.to === 'number') {
+    const amount = Math.abs(hpChange.to - hpChange.from);
+    return hpChange.to < hpChange.from
+      ? { tone: 'damage', floatingText: `-${amount}` }
+      : { tone: 'heal', floatingText: `+${amount}` };
+  }
+
+  return null;
+};
+
+const getBoardItemPlaybackEffectClassName = (effect: BoardItemPlaybackEffect | null): string => {
+  if (!effect) {
+    return '';
+  }
+
+  switch (effect.tone) {
+    case 'summon':
+      return styles.ribbonCardPlaybackSummon;
+    case 'destroy':
+      return styles.ribbonCardPlaybackDestroy;
+    case 'damage':
+      return styles.ribbonCardPlaybackDamage;
+    case 'heal':
+      return styles.ribbonCardPlaybackHeal;
   }
 };
 
@@ -1328,12 +1379,14 @@ export const PlayPvpPage = () => {
   const [isResolvedReplayPinned, setIsResolvedReplayPinned] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [isMatchFeedOpen, setIsMatchFeedOpen] = useState(false);
+  const [resolvedPlaybackBoardItems, setResolvedPlaybackBoardItems] = useState<BoardItemSummary[]>([]);
   const [, setRoundAuditEvents] = useState<RoundAuditEvent[]>([]);
   const hasLiveStateRef = useRef(false);
   const autoJoinAttemptedRef = useRef(false);
   const pendingSessionIdRef = useRef('');
   const intentSequenceRef = useRef(0);
   const currentRoundRef = useRef<number | null>(null);
+  const previousLocalBoardItemsRef = useRef<BoardItemSummary[]>([]);
   const roundDraftRef = useRef<RoundActionIntentDraft[]>([]);
   const resolvedReplayItemRefs = useRef<Record<string, HTMLElement | null>>({});
   const resolvedReplayTrackRef = useRef<HTMLDivElement | null>(null);
@@ -1653,6 +1706,20 @@ export const PlayPvpPage = () => {
     () => new Map(localBoardItems.map((item) => [item.id, item] as const)),
     [localBoardItems],
   );
+  useEffect(() => {
+    if (!lastResolvedRound) {
+      setResolvedPlaybackBoardItems(localBoardItems);
+      return;
+    }
+
+    const mergedItems = new Map<string, BoardItemSummary>();
+    previousLocalBoardItemsRef.current.forEach((item) => mergedItems.set(item.runtimeId, item));
+    localBoardItems.forEach((item) => mergedItems.set(item.runtimeId, item));
+    setResolvedPlaybackBoardItems([...mergedItems.values()]);
+  }, [lastResolvedRound, localBoardItems]);
+  useEffect(() => {
+    previousLocalBoardItemsRef.current = localBoardItems;
+  }, [localBoardItems]);
   const allResolvedBoardItems = useMemo(
     () => playerBoards.flatMap((playerBoard) => getPlayerBoardItemSummaries(matchState, playerBoard.playerId)),
     [matchState, playerBoards],
@@ -2815,17 +2882,15 @@ export const PlayPvpPage = () => {
     () =>
       !isResolvedReplayOpen
         ? localBattleRibbonEntries
-        : localBattleRibbonEntries.flatMap((entry) =>
-            entry.kind === 'boardItem'
-              ? [
-                  {
-                    ...entry,
-                    attachedActions: [],
-                  },
-                ]
-              : [],
-          ),
-    [isResolvedReplayOpen, localBattleRibbonEntries],
+        : resolvedPlaybackBoardItems.map((item) => ({
+            id: `boardItem:${item.id}`,
+            kind: 'boardItem' as const,
+            orderIndex: item.placementOrderIndex,
+            layer: item.placementLayer,
+            item,
+            attachedActions: [],
+          })),
+    [isResolvedReplayOpen, localBattleRibbonEntries, resolvedPlaybackBoardItems],
   );
   const localRoundRibbonItemsById = useMemo(
     () => new Map(localRoundRibbonItems.map((action) => [action.id, action] as const)),
@@ -3845,9 +3910,13 @@ export const PlayPvpPage = () => {
                         </section>
                       ) : null}
 
-                      {!isResolvedReplayOpen ? (
-                        <div className={styles.sceneStage} data-testid="pvp-scene-stage">
+                      <div
+                        className={`${styles.sceneStage} ${isResolvedReplayOpen ? styles.sceneStageReplay : ''}`.trim()}
+                        data-testid="pvp-scene-stage"
+                      >
                           <div className={styles.enemyBand}>
+                            {!isResolvedReplayOpen ? (
+                            <>
                             <section
                               className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}
                               data-testid="opponent-hand-tray"
@@ -3882,16 +3951,49 @@ export const PlayPvpPage = () => {
                                 ) : null}
                               </div>
                             </section>
+                            </>
+                            ) : null}
                           </div>
                           <div className={styles.battlefieldCore} aria-hidden="true" />
                           <div className={styles.playerBand}>
-                            <section className={`${styles.battleLane} ${styles.playerBattleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()} data-testid="local-draft-workspace">
+                            <section
+                              className={`${styles.battleLane} ${styles.playerBattleLane} ${isLocalSideActive ? styles.battleLaneActive : ''} ${isLocalLaneEmpty ? styles.compactZone : ''}`.trim()}
+                              data-testid={isResolvedReplayOpen ? 'local-playback-board' : 'local-draft-workspace'}
+                            >
                     {hasLocalBattleRibbonEntries ? (
                       <div className={styles.ribbonSection}>
                         <div className={styles.ribbonGrid}>
                           {visibleLocalBattleRibbonEntries.map((entry) => {
                             if (entry.kind === 'boardItem') {
                               const { item, attachedActions } = entry;
+                              const boardItemPlaybackEffect =
+                                item.subtype === 'creature'
+                                  ? getActiveBoardItemPlaybackEffect(activeResolvePlaybackFrame, item.runtimeId)
+                                  : null;
+                              const boardItemPresenceOverride =
+                                item.subtype === 'creature'
+                                  ? getPlaybackValueOverride(
+                                      playbackFieldValues,
+                                      'creature',
+                                      item.runtimeId,
+                                      'presence',
+                                    )
+                                  : undefined;
+                              const boardItemHpOverride =
+                                item.subtype === 'creature'
+                                  ? getPlaybackNumberOverride(
+                                      playbackFieldValues,
+                                      'creature',
+                                      item.runtimeId,
+                                      'hp',
+                                    )
+                                  : null;
+                              const boardItemDisplayHp = boardItemHpOverride ?? item.hp ?? 0;
+                              const isBoardItemHiddenByPlayback =
+                                boardItemPresenceOverride === false && boardItemPlaybackEffect?.tone !== 'destroy';
+                              if (isBoardItemHiddenByPlayback) {
+                                return null;
+                              }
                               const isSelectedBoardCreature =
                                 item.subtype === 'creature' &&
                                 selection?.kind === 'creature' &&
@@ -3903,6 +4005,7 @@ export const PlayPvpPage = () => {
                                 item.subtype === 'effect' ? styles.ribbonCardEffect : styles.ribbonCardLocal,
                                 attachedActions.length > 0 ? styles.ribbonCardActive : '',
                                 isPlaybackBoardItemActive ? styles.ribbonCardPlaybackActive : '',
+                                getBoardItemPlaybackEffectClassName(boardItemPlaybackEffect),
                                 inspectedBoardItemId === item.id ? styles.ribbonCardInspected : '',
                               ]
                                 .filter(Boolean)
@@ -3938,12 +4041,15 @@ export const PlayPvpPage = () => {
                                     <div className={styles.ribbonCardBody}>
                                       <strong className={styles.ribbonCompactTitle}>{item.title}</strong>
                                       <div className={styles.ribbonStats}>
-                                        <span>HP {item.hp ?? 0}/{item.maxHp ?? 0}</span>
+                                        <span>HP {boardItemDisplayHp}/{item.maxHp ?? 0}</span>
                                         <span>ATK {item.attack ?? 0}</span>
                                         <span>SPD {item.speed ?? 0}</span>
                                       </div>
                                     </div>
                                   </button>
+                                  {boardItemPlaybackEffect?.floatingText ? (
+                                    <span className={styles.ribbonFloatingNumber}>{boardItemPlaybackEffect.floatingText}</span>
+                                  ) : null}
                                   {attachedActions.length > 0 ? (
                                     <div className={styles.ribbonActionStack}>
                                       {attachedActions.map((action) => {
@@ -4209,6 +4315,7 @@ export const PlayPvpPage = () => {
                                 ))}
                               </div>
                             ) : null}
+                            {!isResolvedReplayOpen ? (
                             <section className={`${styles.handTray} ${styles.localHandTray}`.trim()} data-testid="local-hand-tray">
                       <div className={styles.battleLaneHeader}>
                         <div>
@@ -4271,9 +4378,9 @@ export const PlayPvpPage = () => {
                         )
                       )}
                             </section>
+                            ) : null}
                           </div>
                         </div>
-                      ) : null}
                     {!isResolvedReplayOpen && sceneInspectSummary ? (
                       <aside className={styles.fieldInspectPanel} data-testid="scene-inspect-panel" aria-live="polite">
                         <div className={styles.sceneInspectPanel}>
