@@ -14,6 +14,14 @@ export class SeededRng {
     return this.nextUInt32() / 0xffffffff;
   }
 
+  nextInt(maxExclusive: number): number {
+    if (!Number.isFinite(maxExclusive) || maxExclusive <= 0) {
+      return 0;
+    }
+
+    return this.nextUInt32() % Math.floor(maxExclusive);
+  }
+
   getState(): number {
     return this.state;
   }

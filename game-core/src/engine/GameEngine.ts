@@ -85,7 +85,7 @@ export class GameEngine {
     const events = new EventBus();
     const effects = new EffectQueue();
     const ids = new IdFactory();
-    const rng = new SeededRng(state.rngSeed);
+    const rng = new SeededRng(state.rngState);
     this.ctx = new GameEngineContext(events, effects, ids, rng, cardRegistry);
     this.phaseMachine = new PhaseStateMachine(state.phase.current);
     this.commands = new Map<Action['type'], ActionCommand>([

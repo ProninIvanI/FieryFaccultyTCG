@@ -4,6 +4,7 @@ import {
   CardRegistry,
   createInitialState,
   dealOpeningHand,
+  shuffleDeck,
   STARTING_ACTION_POINTS,
   STARTING_MANA,
   toCardDefinitionFromCatalog,
@@ -95,6 +96,7 @@ const syncPlayerLoadoutIntoState = (
   nextDeck.forEach((card) => {
     state.cardInstances[card.instanceId] = card;
   });
+  shuffleDeck(state, player.playerId);
   dealOpeningHand(state, player.playerId);
 };
 

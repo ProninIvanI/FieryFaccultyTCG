@@ -84,6 +84,23 @@ const createDraftState = () => {
 describe('validateRoundDraft', () => {
   it('accepts valid round draft within mana and action budget', () => {
     const { state, registry } = createDraftState();
+    const barrierInDeck = state.decks.player_1.cards.find(
+      (instanceId) => state.cardInstances[instanceId]?.definitionId === 'barrier',
+    );
+    if (barrierInDeck) {
+      state.decks.player_1.cards = state.decks.player_1.cards.filter((instanceId) => instanceId !== barrierInDeck);
+      state.hands.player_1.push(barrierInDeck);
+      state.cardInstances[barrierInDeck].location = 'hand';
+    }
+    const summonCardId = state.hands.player_1.find(
+      (instanceId) => state.cardInstances[instanceId]?.definitionId === 'sprite',
+    );
+    const barrierCardId = state.hands.player_1.find(
+      (instanceId) => state.cardInstances[instanceId]?.definitionId === 'barrier',
+    );
+
+    expect(summonCardId).toBeDefined();
+    expect(barrierCardId).toBeDefined();
 
     const draft: PlayerRoundDraft = {
       playerId: 'player_1',
@@ -97,7 +114,7 @@ describe('validateRoundDraft', () => {
           actorId: 'char_1',
           queueIndex: 0,
           kind: 'Summon',
-          cardInstanceId: 'card_player_1_1',
+          cardInstanceId: summonCardId!,
         },
         {
           intentId: 'barrier_1',
@@ -106,7 +123,7 @@ describe('validateRoundDraft', () => {
           actorId: 'char_1',
           queueIndex: 1,
           kind: 'CastSpell',
-          cardInstanceId: 'card_player_1_2',
+          cardInstanceId: barrierCardId!,
           target: {
             targetId: 'char_1',
             targetType: 'self',

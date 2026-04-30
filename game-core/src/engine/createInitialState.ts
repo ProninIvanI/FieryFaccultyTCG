@@ -4,6 +4,7 @@ import {
   PlayerId,
   CharacterId,
 } from '../types';
+import { SeededRng } from '../rng/SeededRng';
 
 const STARTING_HAND_SIZE = 3;
 export const STARTING_MANA = 10;
@@ -48,6 +49,36 @@ export const drawCards = (
       instance.location = 'hand';
     }
   });
+};
+
+const hashPlayerDeckSeed = (
+  matchSeed: number,
+  playerId: PlayerId,
+): number => {
+  let hash = (2166136261 ^ (matchSeed >>> 0)) >>> 0;
+
+  for (let index = 0; index < playerId.length; index += 1) {
+    hash ^= playerId.charCodeAt(index);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+
+  return hash;
+};
+
+export const shuffleDeck = (
+  state: GameState,
+  playerId: PlayerId,
+): void => {
+  const deckState = state.decks[playerId];
+  if (!deckState || deckState.cards.length <= 1) {
+    return;
+  }
+
+  const rng = new SeededRng(hashPlayerDeckSeed(state.rngSeed, playerId));
+  for (let index = deckState.cards.length - 1; index > 0; index -= 1) {
+    const swapIndex = rng.nextInt(index + 1);
+    [deckState.cards[index], deckState.cards[swapIndex]] = [deckState.cards[swapIndex], deckState.cards[index]];
+  }
 };
 
 export const createInitialState = (
@@ -114,6 +145,7 @@ export const createInitialState = (
       state.cardInstances[card.instanceId] = card;
     });
 
+    shuffleDeck(state, player.playerId);
     dealOpeningHand(state, player.playerId);
   });
 

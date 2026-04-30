@@ -82,6 +82,9 @@ describe('game-core card ownership and location validation', () => {
 
     state.players.player_1.mana = 5;
     state.players.player_2.mana = 5;
+    state.hands.player_1 = state.hands.player_1.filter((instanceId) => instanceId !== 'card_4');
+    state.decks.player_1.cards = Array.from(new Set([...state.decks.player_1.cards, 'card_4']));
+    state.cardInstances.card_4.location = 'deck';
 
     const engine = new GameEngine(state, registry);
 
