@@ -1258,7 +1258,7 @@
 }
 
 .sceneStageReplay {
-  padding-bottom: 138px;
+  padding-bottom: 216px;
 }
 
 .sceneStageReplay .enemyBand,
@@ -1355,8 +1355,8 @@
   display: grid;
   gap: 10px;
   min-height: 0;
-  height: 124px;
-  padding: 16px 18px 14px;
+  height: 196px;
+  padding: 18px 18px 16px;
   border-radius: 22px;
   border: 1px solid rgba(196, 154, 90, 0.18);
   background:
@@ -1390,7 +1390,8 @@
   align-items: start;
   justify-content: center;
   overflow-x: auto;
-  padding: 10px 8px 14px;
+  overflow-y: hidden;
+  padding: 20px 8px 18px;
   scroll-snap-type: x proximity;
 }
 
