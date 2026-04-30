@@ -18,6 +18,38 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isOptionalString = (value: unknown): value is string | undefined =>
   value === undefined || typeof value === 'string';
 
+const isPlaybackEntityRef = (value: unknown): boolean =>
+  isRecord(value) &&
+  typeof value.type === 'string' &&
+  typeof value.id === 'string';
+
+const isPlaybackChange = (value: unknown): boolean =>
+  isRecord(value) &&
+  isPlaybackEntityRef(value.entity) &&
+  typeof value.field === 'string' &&
+  (typeof value.from === 'string' ||
+    typeof value.from === 'number' ||
+    typeof value.from === 'boolean' ||
+    value.from === null) &&
+  (typeof value.to === 'string' ||
+    typeof value.to === 'number' ||
+    typeof value.to === 'boolean' ||
+    value.to === null) &&
+  (value.amount === undefined || typeof value.amount === 'number');
+
+const isResolvePlaybackFrame = (value: unknown): boolean =>
+  isRecord(value) &&
+  typeof value.id === 'string' &&
+  typeof value.roundNumber === 'number' &&
+  typeof value.kind === 'string' &&
+  typeof value.label === 'string' &&
+  isOptionalString(value.actionIntentId) &&
+  (value.orderIndex === undefined || typeof value.orderIndex === 'number') &&
+  (value.source === undefined || isPlaybackEntityRef(value.source)) &&
+  (value.target === undefined || isPlaybackEntityRef(value.target)) &&
+  Array.isArray(value.changes) &&
+  value.changes.every(isPlaybackChange);
+
 const isResolvedRoundActionSource = (value: unknown): boolean =>
   isRecord(value) &&
   (
@@ -118,7 +150,9 @@ const isRoundResolvedMessage = (value: unknown): value is Extract<PvpServerMessa
   isRecord(value.result) &&
   typeof value.result.roundNumber === 'number' &&
   Array.isArray(value.result.orderedActions) &&
-  value.result.orderedActions.every(isResolvedRoundAction);
+  value.result.orderedActions.every(isResolvedRoundAction) &&
+  (value.result.playbackFrames === undefined ||
+    (Array.isArray(value.result.playbackFrames) && value.result.playbackFrames.every(isResolvePlaybackFrame)));
 
 const isRoundAuditEvent = (value: unknown): boolean =>
   isRecord(value) &&

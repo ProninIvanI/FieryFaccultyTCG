@@ -166,6 +166,8 @@ describe('game-core round resolution pipeline', () => {
       'resolved',
       'resolved',
     ]);
+    expect(result.playbackFrames.some((frame) => frame.kind === 'shield')).toBe(true);
+    expect(result.playbackFrames.some((frame) => frame.kind === 'card_move')).toBe(true);
 
     const state = engine.getState();
     expect(state.characters.char_1.hp).toBe(20);
@@ -254,7 +256,9 @@ describe('game-core round resolution pipeline', () => {
 
     expect(engine.lockRoundDraft('player_1', 1)).toEqual({ ok: true });
     expect(engine.lockRoundDraft('player_2', 1)).toEqual({ ok: true });
-    expect(engine.resolveRoundIfReady()).not.toBeNull();
+    const result = engine.resolveRoundIfReady();
+    expect(result).not.toBeNull();
+    expect(result?.playbackFrames.some((frame) => frame.kind === 'summon')).toBe(true);
 
     const resolvedState = engine.getState();
     expect(resolvedState.hands.player_1).toEqual([]);
@@ -406,7 +410,36 @@ describe('game-core round resolution pipeline', () => {
 
     expect(engine.lockRoundDraft('player_1', 1)).toEqual({ ok: true });
     expect(engine.lockRoundDraft('player_2', 1)).toEqual({ ok: true });
-    expect(engine.resolveRoundIfReady()).not.toBeNull();
+    const result = engine.resolveRoundIfReady();
+    expect(result).not.toBeNull();
+    expect(result?.playbackFrames).toContainEqual(
+      expect.objectContaining({
+        kind: 'damage',
+        changes: expect.arrayContaining([
+          expect.objectContaining({
+            entity: { type: 'character', id: 'char_1' },
+            field: 'hp',
+            from: 20,
+            to: 16,
+            amount: 4,
+          }),
+        ]),
+      }),
+    );
+    expect(result?.playbackFrames).toContainEqual(
+      expect.objectContaining({
+        kind: 'shield',
+        changes: expect.arrayContaining([
+          expect.objectContaining({
+            entity: { type: 'character', id: 'char_1' },
+            field: 'shield',
+            from: 3,
+            to: null,
+            amount: 3,
+          }),
+        ]),
+      }),
+    );
 
     expect(state.characters.char_1.hp).toBe(16);
     expect(state.characters.char_1.shield).toBeUndefined();

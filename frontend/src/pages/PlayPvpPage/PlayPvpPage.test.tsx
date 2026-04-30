@@ -2999,6 +2999,119 @@ describe('PlayPvpPage', () => {
     );
   });
 
+  it('renders resolve playback frame changes as temporary PvP HUD values', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_replay_frames', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        playerLabels: {
+          user_1: 'Игрок',
+          user_2: 'Соперник',
+        },
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          characters: {
+            char_1: {
+              characterId: 'char_1',
+              ownerId: 'user_1',
+              hp: 16,
+              maxHp: 20,
+              dexterity: 4,
+              concentration: 3,
+            },
+            char_2: {
+              characterId: 'char_2',
+              ownerId: 'user_2',
+              hp: 20,
+              maxHp: 20,
+              dexterity: 4,
+              concentration: 3,
+            },
+          },
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+        }),
+      });
+      socket.emitMessage({
+        type: 'roundResolved',
+        result: {
+          roundNumber: 1,
+          orderedActions: [
+            createResolvedRoundAction({
+              intentId: 'fireball_1',
+              playerId: 'user_2',
+              kind: 'CastSpell',
+              actorId: 'char_2',
+              layer: 'offensive_control_spells',
+              target: { targetType: 'enemyCharacter', targetId: 'char_1' },
+              status: 'resolved',
+              reasonCode: 'resolved',
+              summary: 'Огненный шар сработал',
+            }),
+          ],
+          playbackFrames: [
+            {
+              id: 'frame_fireball_action',
+              roundNumber: 1,
+              kind: 'action',
+              label: 'Огненный шар раскрыт',
+              actionIntentId: 'fireball_1',
+              orderIndex: 0,
+              source: { type: 'character', id: 'char_2' },
+              target: { type: 'character', id: 'char_1' },
+              changes: [],
+            },
+            {
+              id: 'frame_fireball_damage',
+              roundNumber: 1,
+              kind: 'damage',
+              label: 'char_1: 20 -> 16 HP',
+              actionIntentId: 'fireball_1',
+              orderIndex: 0,
+              source: { type: 'character', id: 'char_2' },
+              target: { type: 'character', id: 'char_1' },
+              changes: [
+                {
+                  entity: { type: 'character', id: 'char_1' },
+                  field: 'hp',
+                  from: 20,
+                  to: 16,
+                  amount: 4,
+                },
+              ],
+            },
+          ],
+        },
+      });
+      await flushMicrotasks();
+    });
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('resolution-playback-frame')).toHaveTextContent('char_1: 20 -> 16 HP');
+        expect(screen.getByText('HP 16/20')).toBeInTheDocument();
+      },
+      { timeout: 2500 },
+    );
+  });
+
   it('returns to the live draft after autoplay and reopens the last resolve by eye toggle', async () => {
     await renderPage('char_1', 'user_1');
 

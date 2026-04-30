@@ -9,6 +9,9 @@ import {
   PhaseType,
   PlayCardAction,
   PlayerRoundDraft,
+  ResolvePlaybackChange,
+  ResolvePlaybackEntityRef,
+  ResolvePlaybackFrame,
   ResolvedRoundAction,
   RoundActionIntent,
   RoundActionReasonCode,
@@ -63,6 +66,13 @@ import {
   buildPlayerBoardModel as buildPlayerBoardModelView,
   buildPublicRibbonEntries,
 } from '../board/buildPlayerBoardModel';
+
+type ResolvePlaybackSnapshot = {
+  players: Record<string, { mana: number; actionPoints: number }>;
+  characters: Record<string, { hp: number; shield: number | null }>;
+  creatures: Record<string, { hp: number; ownerId: string }>;
+  cards: Record<string, { location: string; ownerId: string }>;
+};
 
 export class GameEngine {
   private readonly ctx: GameEngineContext;
@@ -276,15 +286,20 @@ export class GameEngine {
       ),
     );
 
-    const orderedActions = compiled.map((compiledAction, orderIndex) =>
+    const resolvedActions = compiled.map((compiledAction, orderIndex) =>
       this.resolveCompiledRoundAction(compiledAction, orderIndex),
     );
+    const orderedActions = resolvedActions.map((entry) => entry.action);
+    const playbackFrames = resolvedActions.flatMap((entry) => entry.playbackFrames);
 
+    const cleanupSnapshot = this.captureResolvePlaybackSnapshot();
     this.cleanupDefeatedCreatures();
+    playbackFrames.push(...this.buildCleanupPlaybackFrames(cleanupSnapshot));
 
     const result: RoundResolutionResult = {
       roundNumber: this.state.round.number,
       orderedActions,
+      playbackFrames,
     };
 
     this.finishResolvedRound(result);
@@ -433,46 +448,369 @@ export class GameEngine {
   private resolveCompiledRoundAction(
     compiledAction: CompiledRoundAction,
     orderIndex: number,
-  ): ResolvedRoundAction {
+  ): { action: ResolvedRoundAction; playbackFrames: ResolvePlaybackFrame[] } {
     const { intent, layer } = compiledAction;
     const baseAction = this.buildResolvedRoundActionBase(compiledAction, orderIndex);
     const fizzleReason = this.getIntentFizzleReason(intent);
     if (fizzleReason) {
-      return {
+      const action: ResolvedRoundAction = {
         ...baseAction,
         status: 'fizzled',
         reasonCode: fizzleReason,
         summary: `${intent.kind} fizzled before resolution`,
       };
+      return { action, playbackFrames: [this.buildFizzlePlaybackFrame(action)] };
     }
 
     const action = this.buildActionFromIntent(intent);
     if (!action) {
-      return {
+      const resolvedAction: ResolvedRoundAction = {
         ...baseAction,
         status: 'fizzled',
         reasonCode: 'invalid_intent',
         summary: `${intent.kind} fizzled before resolution`,
       };
+      return { action: resolvedAction, playbackFrames: [this.buildFizzlePlaybackFrame(resolvedAction)] };
     }
 
     const command = this.commands.get(action.type);
     if (!command) {
-      return {
+      const resolvedAction: ResolvedRoundAction = {
         ...baseAction,
         status: 'fizzled',
         reasonCode: 'command_unavailable',
         summary: `${intent.kind} has no command handler`,
       };
+      return { action: resolvedAction, playbackFrames: [this.buildFizzlePlaybackFrame(resolvedAction)] };
     }
 
+    const beforeSnapshot = this.captureResolvePlaybackSnapshot();
     this.executeValidatedAction(action, command);
-    return {
+    const resolvedAction: ResolvedRoundAction = {
       ...baseAction,
       status: 'resolved',
       reasonCode: 'resolved',
       summary: `${intent.kind} resolved in layer ${layer}`,
     };
+    return {
+      action: resolvedAction,
+      playbackFrames: this.buildActionPlaybackFrames(resolvedAction, beforeSnapshot),
+    };
+  }
+
+  private captureResolvePlaybackSnapshot(): ResolvePlaybackSnapshot {
+    return {
+      players: Object.fromEntries(
+        Object.entries(this.state.players).map(([id, player]) => [
+          id,
+          {
+            mana: player.mana,
+            actionPoints: player.actionPoints,
+          },
+        ]),
+      ),
+      characters: Object.fromEntries(
+        Object.entries(this.state.characters).map(([id, character]) => [
+          id,
+          {
+            hp: character.hp,
+            shield: character.shield?.energy ?? null,
+          },
+        ]),
+      ),
+      creatures: Object.fromEntries(
+        Object.entries(this.state.creatures).map(([id, creature]) => [
+          id,
+          {
+            hp: creature.hp,
+            ownerId: creature.ownerId,
+          },
+        ]),
+      ),
+      cards: Object.fromEntries(
+        Object.entries(this.state.cardInstances).map(([id, instance]) => [
+          id,
+          {
+            location: instance.location,
+            ownerId: instance.ownerId,
+          },
+        ]),
+      ),
+    };
+  }
+
+  private buildActionPlaybackFrames(
+    action: ResolvedRoundAction,
+    beforeSnapshot: ResolvePlaybackSnapshot,
+  ): ResolvePlaybackFrame[] {
+    const afterSnapshot = this.captureResolvePlaybackSnapshot();
+    const changes = this.buildResolvePlaybackChanges(beforeSnapshot, afterSnapshot);
+    const frames: ResolvePlaybackFrame[] = [
+      {
+        id: this.createPlaybackFrameId(action, 'action', 0),
+        roundNumber: this.state.round.number,
+        kind: 'action',
+        label: action.summary,
+        actionIntentId: action.intentId,
+        orderIndex: action.orderIndex,
+        source: this.resolvePlaybackSource(action),
+        target: this.resolvePlaybackTarget(action),
+        changes: [],
+      },
+    ];
+
+    changes.forEach((change, index) => {
+      frames.push({
+        id: this.createPlaybackFrameId(action, this.resolvePlaybackFrameKind(change), index + 1),
+        roundNumber: this.state.round.number,
+        kind: this.resolvePlaybackFrameKind(change),
+        label: this.buildPlaybackChangeLabel(change),
+        actionIntentId: action.intentId,
+        orderIndex: action.orderIndex,
+        source: this.resolvePlaybackSource(action),
+        target: change.entity,
+        changes: [change],
+      });
+    });
+
+    return frames;
+  }
+
+  private buildFizzlePlaybackFrame(action: ResolvedRoundAction): ResolvePlaybackFrame {
+    return {
+      id: this.createPlaybackFrameId(action, 'fizzle', 0),
+      roundNumber: this.state.round.number,
+      kind: 'fizzle',
+      label: action.summary,
+      actionIntentId: action.intentId,
+      orderIndex: action.orderIndex,
+      source: this.resolvePlaybackSource(action),
+      target: this.resolvePlaybackTarget(action),
+      changes: [],
+    };
+  }
+
+  private buildCleanupPlaybackFrames(beforeSnapshot: ResolvePlaybackSnapshot): ResolvePlaybackFrame[] {
+    const afterSnapshot = this.captureResolvePlaybackSnapshot();
+    const removedCreatures = Object.entries(beforeSnapshot.creatures).flatMap<ResolvePlaybackFrame>(
+      ([creatureId]) => {
+        if (afterSnapshot.creatures[creatureId]) {
+          return [];
+        }
+
+        const change: ResolvePlaybackChange = {
+          entity: { type: 'creature', id: creatureId },
+          field: 'presence',
+          from: true,
+          to: false,
+        };
+
+        return [{
+          id: `round_${this.state.round.number}_cleanup_destroy_${creatureId}`,
+          roundNumber: this.state.round.number,
+          kind: 'destroy',
+          label: 'Creature left the board during cleanup',
+          target: change.entity,
+          changes: [change],
+        }];
+      },
+    );
+
+    return removedCreatures;
+  }
+
+  private buildResolvePlaybackChanges(
+    before: ResolvePlaybackSnapshot,
+    after: ResolvePlaybackSnapshot,
+  ): ResolvePlaybackChange[] {
+    const changes: ResolvePlaybackChange[] = [];
+
+    Object.entries(after.characters).forEach(([id, current]) => {
+      const previous = before.characters[id];
+      if (!previous) {
+        return;
+      }
+
+      if (previous.hp !== current.hp) {
+        changes.push({
+          entity: { type: 'character', id },
+          field: 'hp',
+          from: previous.hp,
+          to: current.hp,
+          amount: Math.abs(current.hp - previous.hp),
+        });
+      }
+
+      if (previous.shield !== current.shield) {
+        changes.push({
+          entity: { type: 'character', id },
+          field: 'shield',
+          from: previous.shield,
+          to: current.shield,
+          amount: Math.abs((current.shield ?? 0) - (previous.shield ?? 0)),
+        });
+      }
+    });
+
+    Object.entries(after.creatures).forEach(([id, current]) => {
+      const previous = before.creatures[id];
+      if (!previous) {
+        changes.push({
+          entity: { type: 'creature', id },
+          field: 'presence',
+          from: false,
+          to: true,
+        });
+        return;
+      }
+
+      if (previous.hp !== current.hp) {
+        changes.push({
+          entity: { type: 'creature', id },
+          field: 'hp',
+          from: previous.hp,
+          to: current.hp,
+          amount: Math.abs(current.hp - previous.hp),
+        });
+      }
+    });
+
+    Object.entries(after.players).forEach(([id, current]) => {
+      const previous = before.players[id];
+      if (!previous) {
+        return;
+      }
+
+      if (previous.mana !== current.mana) {
+        changes.push({
+          entity: { type: 'player', id },
+          field: 'mana',
+          from: previous.mana,
+          to: current.mana,
+          amount: Math.abs(current.mana - previous.mana),
+        });
+      }
+
+      if (previous.actionPoints !== current.actionPoints) {
+        changes.push({
+          entity: { type: 'player', id },
+          field: 'actionPoints',
+          from: previous.actionPoints,
+          to: current.actionPoints,
+          amount: Math.abs(current.actionPoints - previous.actionPoints),
+        });
+      }
+    });
+
+    Object.entries(after.cards).forEach(([id, current]) => {
+      const previous = before.cards[id];
+      if (!previous || previous.location === current.location) {
+        return;
+      }
+
+      changes.push({
+        entity: { type: 'card', id },
+        field: 'location',
+        from: previous.location,
+        to: current.location,
+      });
+    });
+
+    return changes;
+  }
+
+  private resolvePlaybackFrameKind(change: ResolvePlaybackChange): ResolvePlaybackFrame['kind'] {
+    if (change.field === 'hp') {
+      return Number(change.to) < Number(change.from) ? 'damage' : 'heal';
+    }
+
+    if (change.field === 'shield') {
+      return 'shield';
+    }
+
+    if (change.field === 'mana' || change.field === 'actionPoints') {
+      return 'resource';
+    }
+
+    if (change.field === 'location') {
+      return 'card_move';
+    }
+
+    if (change.field === 'presence') {
+      return change.to === true ? 'summon' : 'destroy';
+    }
+
+    return 'action';
+  }
+
+  private buildPlaybackChangeLabel(change: ResolvePlaybackChange): string {
+    if (change.field === 'hp') {
+      return Number(change.to) < Number(change.from)
+        ? `${change.entity.id}: ${change.from} -> ${change.to} HP`
+        : `${change.entity.id}: ${change.from} -> ${change.to} HP`;
+    }
+
+    if (change.field === 'shield') {
+      return `${change.entity.id}: shield ${change.from ?? 0} -> ${change.to ?? 0}`;
+    }
+
+    if (change.field === 'mana') {
+      return `${change.entity.id}: mana ${change.from} -> ${change.to}`;
+    }
+
+    if (change.field === 'actionPoints') {
+      return `${change.entity.id}: actions ${change.from} -> ${change.to}`;
+    }
+
+    if (change.field === 'location') {
+      return `${change.entity.id}: ${change.from} -> ${change.to}`;
+    }
+
+    return change.to === true
+      ? `${change.entity.id}: enters the board`
+      : `${change.entity.id}: leaves the board`;
+  }
+
+  private resolvePlaybackSource(action: ResolvedRoundAction): ResolvePlaybackEntityRef | undefined {
+    if (action.source.type === 'card') {
+      return { type: 'card', id: action.source.cardInstanceId };
+    }
+
+    if (action.source.type === 'actor') {
+      return this.state.characters[action.source.actorId]
+        ? { type: 'character', id: action.source.actorId }
+        : { type: 'creature', id: action.source.actorId };
+    }
+
+    const creatureId = action.source.boardItemId.startsWith('creature:')
+      ? action.source.boardItemId.slice('creature:'.length)
+      : action.source.boardItemId;
+    return { type: 'creature', id: creatureId };
+  }
+
+  private resolvePlaybackTarget(action: ResolvedRoundAction): ResolvePlaybackEntityRef | undefined {
+    const targetId = action.target?.targetId;
+    if (!targetId) {
+      return undefined;
+    }
+
+    if (this.state.characters[targetId]) {
+      return { type: 'character', id: targetId };
+    }
+
+    if (this.state.creatures[targetId]) {
+      return { type: 'creature', id: targetId };
+    }
+
+    return { type: 'card', id: targetId };
+  }
+
+  private createPlaybackFrameId(
+    action: ResolvedRoundAction,
+    kind: ResolvePlaybackFrame['kind'],
+    index: number,
+  ): string {
+    return `round_${this.state.round.number}_${action.orderIndex}_${action.intentId}_${kind}_${index}`;
   }
 
   private buildResolvedRoundActionBase(

@@ -17,7 +17,7 @@ import {
   createInitialCreatureRoundIntent,
 } from '@game-core/rounds/createInitialRoundIntent';
 import { getResolutionLayerForCardDefinition } from '@game-core/rounds/compileRoundActions';
-import type { CardDefinition, PlayerBoardModel, ResolutionLayer, ResolvedRoundAction, RoundDraftValidationError, RoundResolutionResult, TargetType } from '@game-core/types';
+import type { CardDefinition, PlayerBoardModel, ResolutionLayer, ResolvePlaybackFrame, ResolvedRoundAction, RoundDraftValidationError, RoundResolutionResult, TargetType } from '@game-core/types';
 import {
   getResolutionLayerLabel,
   getRoundDraftRejectCodeLabel,
@@ -69,12 +69,63 @@ interface LocalPlayerSummary {
   characterId: string;
 }
 
+type PlaybackFieldValue = string | number | boolean | null;
+
 interface PlayerBoardSummary extends LocalPlayerSummary {
   deckSize: number;
   handSize: number;
   discardSize: number;
   locked: boolean;
 }
+
+const getPlaybackFrames = (round: RoundResolutionResult | null): ResolvePlaybackFrame[] =>
+  round?.playbackFrames ?? [];
+
+const getPlaybackStepCount = (round: RoundResolutionResult | null): number => {
+  const playbackFrameCount = getPlaybackFrames(round).length;
+  return playbackFrameCount > 0 ? playbackFrameCount : round?.orderedActions.length ?? 0;
+};
+
+const getPlaybackFieldKey = (entityType: string, entityId: string, field: string): string =>
+  `${entityType}:${entityId}:${field}`;
+
+const buildPlaybackFieldValues = (
+  frames: ResolvePlaybackFrame[],
+  activeIndex: number,
+): Map<string, PlaybackFieldValue> => {
+  const values = new Map<string, PlaybackFieldValue>();
+
+  frames.forEach((frame) => {
+    frame.changes.forEach((change) => {
+      const key = getPlaybackFieldKey(change.entity.type, change.entity.id, change.field);
+      if (!values.has(key)) {
+        values.set(key, change.from);
+      }
+    });
+  });
+
+  frames.slice(0, activeIndex + 1).forEach((frame) => {
+    frame.changes.forEach((change) => {
+      values.set(getPlaybackFieldKey(change.entity.type, change.entity.id, change.field), change.to);
+    });
+  });
+
+  return values;
+};
+
+const getPlaybackNumberOverride = (
+  values: ReadonlyMap<string, PlaybackFieldValue>,
+  entityType: string,
+  entityId: string | undefined,
+  field: string,
+): number | null => {
+  if (!entityId) {
+    return null;
+  }
+
+  const value = values.get(getPlaybackFieldKey(entityType, entityId, field));
+  return typeof value === 'number' ? value : null;
+};
 
 interface HandCardSummary {
   instanceId: string;
@@ -1452,7 +1503,7 @@ export const PlayPvpPage = () => {
   ]);
 
   useEffect(() => {
-    const totalSteps = lastResolvedRound?.orderedActions.length ?? 0;
+    const totalSteps = getPlaybackStepCount(lastResolvedRound);
 
     if (!lastResolvedRound || totalSteps === 0) {
       setResolvedPlaybackIndex(-1);
@@ -1469,7 +1520,7 @@ export const PlayPvpPage = () => {
   }, [lastResolvedRound]);
 
   useEffect(() => {
-    const totalSteps = lastResolvedRound?.orderedActions.length ?? 0;
+    const totalSteps = getPlaybackStepCount(lastResolvedRound);
 
     if (
       !lastResolvedRound ||
@@ -2843,14 +2894,43 @@ export const PlayPvpPage = () => {
       playerId,
     ],
   );
-  const hasResolvedPlaybackActiveStep =
-    !resolvedPlaybackComplete || resolvedTimelineEntries.length <= 1;
-  const activeResolvedTimelineEntry =
-    hasResolvedPlaybackActiveStep &&
-    resolvedPlaybackIndex >= 0 &&
-    resolvedPlaybackIndex < resolvedTimelineEntries.length
-      ? resolvedTimelineEntries[resolvedPlaybackIndex]
+  const resolvePlaybackFrames = useMemo(
+    () => getPlaybackFrames(lastResolvedRound),
+    [lastResolvedRound],
+  );
+  const activeResolvePlaybackFrame =
+    resolvedPlaybackIndex >= 0 && resolvedPlaybackIndex < resolvePlaybackFrames.length
+      ? resolvePlaybackFrames[resolvedPlaybackIndex]
       : null;
+  const hasResolvedPlaybackActiveStep =
+    !resolvedPlaybackComplete || getPlaybackStepCount(lastResolvedRound) <= 1;
+  const activeResolvedTimelineEntry =
+    activeResolvePlaybackFrame?.actionIntentId
+      ? resolvedTimelineEntries.find((entry) => entry.action.intentId === activeResolvePlaybackFrame.actionIntentId) ?? null
+      : hasResolvedPlaybackActiveStep &&
+          resolvedPlaybackIndex >= 0 &&
+          resolvedPlaybackIndex < resolvedTimelineEntries.length
+        ? resolvedTimelineEntries[resolvedPlaybackIndex]
+        : null;
+  const playbackFieldValues = useMemo(
+    () =>
+      isResolvedReplayOpen && resolvePlaybackFrames.length > 0
+        ? buildPlaybackFieldValues(resolvePlaybackFrames, resolvedPlaybackIndex)
+        : new Map<string, PlaybackFieldValue>(),
+    [isResolvedReplayOpen, resolvePlaybackFrames, resolvedPlaybackIndex],
+  );
+  const localDisplayHp =
+    getPlaybackNumberOverride(playbackFieldValues, 'character', localPlayer?.characterId, 'hp') ??
+    localCharacterState?.hp;
+  const enemyDisplayHp =
+    getPlaybackNumberOverride(playbackFieldValues, 'character', primaryEnemyBoard?.characterId, 'hp') ??
+    enemyCharacterState?.hp;
+  const localDisplayMana =
+    getPlaybackNumberOverride(playbackFieldValues, 'player', localPlayer?.playerId, 'mana') ??
+    localPlayer?.mana;
+  const enemyDisplayMana =
+    getPlaybackNumberOverride(playbackFieldValues, 'player', primaryEnemyBoard?.playerId, 'mana') ??
+    primaryEnemyBoard?.mana;
   const enemyPreparationCount = Math.max(0, roundSync?.opponentDraftCount ?? 0);
   const visibleEnemyHandCount = Math.max(0, (primaryEnemyBoard?.handSize ?? 0) - enemyPreparationCount);
   const isEnemyHandEmpty = visibleEnemyHandCount === 0;
@@ -2906,7 +2986,7 @@ export const PlayPvpPage = () => {
     Boolean(lastResolvedRound) && currentRoundNumber > (lastResolvedRound?.roundNumber ?? 0);
   const restartResolvedReplay = useCallback(
     (pinned: boolean) => {
-      const totalSteps = lastResolvedRound?.orderedActions.length ?? 0;
+      const totalSteps = getPlaybackStepCount(lastResolvedRound);
       if (!lastResolvedRound || totalSteps === 0) {
         return;
       }
@@ -3443,10 +3523,10 @@ export const PlayPvpPage = () => {
                             {primaryEnemyBoard && enemyCharacterState ? (
                               <div className={styles.playerIdentityStats}>
                                 <span className={styles.playerIdentityStat}>
-                                  HP {enemyCharacterState.hp}/{enemyCharacterState.maxHp}
+                                  HP {enemyDisplayHp ?? enemyCharacterState.hp}/{enemyCharacterState.maxHp}
                                 </span>
                                 <span className={styles.playerIdentityStat}>
-                                  Мана {primaryEnemyBoard.mana}/{primaryEnemyBoard.maxMana}
+                                  Мана {enemyDisplayMana ?? primaryEnemyBoard.mana}/{primaryEnemyBoard.maxMana}
                                 </span>
                                 <span className={styles.playerIdentityStat}>
                                   Ловкость {enemyCharacterState.dexterity}
@@ -3519,10 +3599,10 @@ export const PlayPvpPage = () => {
                             {localPlayer && localCharacterState ? (
                               <div className={styles.playerIdentityStats}>
                                 <span className={styles.playerIdentityStat}>
-                                  HP {localCharacterState.hp}/{localCharacterState.maxHp}
+                                  HP {localDisplayHp ?? localCharacterState.hp}/{localCharacterState.maxHp}
                                 </span>
                                 <span className={styles.playerIdentityStat}>
-                                  Мана {localPlayer.mana}/{localPlayer.maxMana}
+                                  Мана {localDisplayMana ?? localPlayer.mana}/{localPlayer.maxMana}
                                 </span>
                                 <span className={styles.playerIdentityStat}>
                                   Ловкость {localCharacterState.dexterity}
@@ -3542,6 +3622,24 @@ export const PlayPvpPage = () => {
                     >
                       {isResolvedReplayOpen ? (
                         <section className={styles.resolveReplayScene} data-testid="resolution-replay-strip">
+                          {activeResolvePlaybackFrame ? (
+                            <div className={styles.resolvePlaybackFramePanel} data-testid="resolution-playback-frame">
+                              <span className={styles.summaryLabel}>Resolve</span>
+                              <strong>{activeResolvePlaybackFrame.label}</strong>
+                              {activeResolvePlaybackFrame.changes.length > 0 ? (
+                                <div className={styles.resolvePlaybackFrameChanges}>
+                                  {activeResolvePlaybackFrame.changes.map((change) => (
+                                    <span
+                                      key={`${change.entity.type}-${change.entity.id}-${change.field}-${change.from}-${change.to}`}
+                                      className={styles.cardBadge}
+                                    >
+                                      {change.field}: {String(change.from ?? 0)} {'->'} {String(change.to ?? 0)}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                           <div
                             ref={resolvedReplayTrackRef}
                             className={[
@@ -3559,10 +3657,15 @@ export const PlayPvpPage = () => {
                           >
                             {resolvedTimelineEntries.map((entry, index) => {
                               const isReplayItemActive =
-                                hasResolvedPlaybackActiveStep && index === resolvedPlaybackIndex;
+                                hasResolvedPlaybackActiveStep &&
+                                activeResolvedTimelineEntry?.action.intentId === entry.action.intentId;
                               const isReplayItemResolved =
-                                index < resolvedPlaybackIndex ||
-                                (resolvedPlaybackComplete && index <= resolvedPlaybackIndex);
+                                resolvedPlaybackComplete ||
+                                (
+                                  activeResolvedTimelineEntry
+                                    ? entry.action.orderIndex < activeResolvedTimelineEntry.action.orderIndex
+                                    : index < resolvedPlaybackIndex
+                                );
 
                               return (
                                 <article
@@ -3604,6 +3707,9 @@ export const PlayPvpPage = () => {
                                   </div>
                                   {entry.summary ? (
                                     <span className={styles.resolveReplayItemSummary}>{entry.summary}</span>
+                                  ) : null}
+                                  {isReplayItemActive && activeResolvePlaybackFrame ? (
+                                    <span className={styles.resolveReplayItemSummary}>{activeResolvePlaybackFrame.label}</span>
                                   ) : null}
                                   {entry.detailItems.length ? (
                                     <div className={styles.resolveReplayItemDetails}>

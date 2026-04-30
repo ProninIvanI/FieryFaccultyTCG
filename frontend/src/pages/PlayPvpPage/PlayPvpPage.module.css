@@ -1362,6 +1362,29 @@
   scroll-snap-type: x proximity;
 }
 
+.resolvePlaybackFramePanel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  justify-self: center;
+  width: min(100%, 560px);
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(196, 154, 90, 0.24);
+  background: rgba(255, 248, 236, 0.08);
+  color: var(--pvp-text);
+  text-align: center;
+}
+
+.resolvePlaybackFrameChanges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
 .resolveReplayTrackSparse {
   grid-auto-columns: minmax(224px, 248px);
   max-width: max-content;

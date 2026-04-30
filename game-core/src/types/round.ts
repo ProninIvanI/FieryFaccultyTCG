@@ -131,9 +131,63 @@ export interface ResolvedRoundAction {
   definitionId?: string;
 }
 
+export type ResolvePlaybackFrameKind =
+  | 'action'
+  | 'damage'
+  | 'heal'
+  | 'shield'
+  | 'summon'
+  | 'destroy'
+  | 'resource'
+  | 'card_move'
+  | 'fizzle'
+  | 'cleanup';
+
+export type ResolvePlaybackEntityType =
+  | 'player'
+  | 'character'
+  | 'creature'
+  | 'card';
+
+export type ResolvePlaybackChangeField =
+  | 'hp'
+  | 'shield'
+  | 'mana'
+  | 'actionPoints'
+  | 'location'
+  | 'presence';
+
+export type ResolvePlaybackChangeValue = string | number | boolean | null;
+
+export interface ResolvePlaybackEntityRef {
+  type: ResolvePlaybackEntityType;
+  id: string;
+}
+
+export interface ResolvePlaybackChange {
+  entity: ResolvePlaybackEntityRef;
+  field: ResolvePlaybackChangeField;
+  from: ResolvePlaybackChangeValue;
+  to: ResolvePlaybackChangeValue;
+  amount?: number;
+}
+
+export interface ResolvePlaybackFrame {
+  id: string;
+  roundNumber: number;
+  kind: ResolvePlaybackFrameKind;
+  label: string;
+  actionIntentId?: string;
+  orderIndex?: number;
+  source?: ResolvePlaybackEntityRef;
+  target?: ResolvePlaybackEntityRef;
+  changes: ResolvePlaybackChange[];
+}
+
 export interface RoundResolutionResult {
   roundNumber: number;
   orderedActions: ResolvedRoundAction[];
+  playbackFrames: ResolvePlaybackFrame[];
 }
 
 export interface PublicRoundPlayerState {

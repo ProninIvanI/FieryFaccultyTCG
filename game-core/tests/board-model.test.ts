@@ -135,6 +135,7 @@ describe('board model foundation', () => {
 
     const resolution: RoundResolutionResult = {
       roundNumber: 1,
+      playbackFrames: [],
       orderedActions: [
         createResolvedRoundAction({
           intentId: 'draft_barrier',
