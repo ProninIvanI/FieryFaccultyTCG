@@ -1,7 +1,6 @@
 import axiosInstance from '@/services/api/axiosInstance';
 import { AuthSession } from '@/types';
-
-const SESSION_KEY = 'fftcg_session';
+import { clearStoredSession, readStoredSession, saveStoredSession } from './authSession';
 
 type AuthResponse = {
   user: {
@@ -18,25 +17,12 @@ const LOGIN_ERROR = '\u041e\u0448\u0438\u0431\u043a\u0430 \u0432\u0445\u043e\u04
 const LOGOUT_ERROR = '\u041e\u0448\u0438\u0431\u043a\u0430 \u0432\u044b\u0445\u043e\u0434\u0430';
 const SESSION_MISSING_ERROR = '\u0421\u0435\u0440\u0432\u0435\u0440 \u043d\u0435 \u0432\u0435\u0440\u043d\u0443\u043b \u0441\u0435\u0441\u0441\u0438\u044e';
 
-const isAuthSession = (value: unknown): value is AuthSession => {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const session = value as AuthSession;
-  return Boolean(
-    session.userId &&
-    session.token &&
-    session.createdAt &&
-    (session.username === undefined || typeof session.username === 'string')
-  );
-};
-
 const saveSession = (session: AuthSession): void => {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  saveStoredSession(session);
 };
 
 const clearSession = (): void => {
-  localStorage.removeItem(SESSION_KEY);
+  clearStoredSession();
 };
 
 const toSessionWithUsername = (payload?: AuthResponse): AuthSession | null => {
@@ -98,16 +84,7 @@ export const authService = {
   },
 
   getSession(): AuthSession | null {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) {
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      return isAuthSession(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
+    return readStoredSession();
   },
 
   async ensureSessionProfile(sessionOverride?: AuthSession | null): Promise<AuthSession | null> {

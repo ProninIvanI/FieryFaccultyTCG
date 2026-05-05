@@ -1,15 +1,10 @@
-﻿import { FocusEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCallback } from 'react';
 import {
   buildCatalogCharacterSummaries,
-  getCatalogCardTypeLabel,
-  getCatalogSchoolLabel,
   normalizeCatalog,
   toCardDefinitionFromCatalog,
-  toCatalogSchool,
-  toCatalogCardUiType,
-  type CatalogCharacterSummary,
 } from '@game-core/cards/catalog';
 import { CardRegistry } from '@game-core/cards/CardRegistry';
 import {
@@ -17,14 +12,13 @@ import {
   createInitialCreatureRoundIntent,
 } from '@game-core/rounds/createInitialRoundIntent';
 import { getResolutionLayerForCardDefinition } from '@game-core/rounds/compileRoundActions';
-import type { CardDefinition, PlayerBoardModel, ResolutionLayer, ResolvePlaybackFrame, ResolvedRoundAction, RoundDraftValidationError, RoundResolutionResult, TargetType } from '@game-core/types';
+import type { CardDefinition, PlayerBoardModel, ResolutionLayer, ResolvedRoundAction, RoundDraftValidationError, RoundResolutionResult, TargetType } from '@game-core/types';
 import {
   getResolutionLayerLabel,
-  getRoundDraftRejectCodeLabel,
   getRoundDraftValidationCodeLabel,
   getTargetTypeLabel,
 } from '@game-core/rounds/presentation';
-import { Card, HomeLinkButton, PageShell } from '@/components';
+import { Card } from '@/components';
 import { ROUTES } from '@/constants';
 import rawCardData from '@/data/cardCatalog';
 import { authService, deckService, gameWsService } from '@/services';
@@ -34,7 +28,6 @@ import {
   JoinRejectedServerMessage,
   PlayerLabelMap,
   PvpConnectionStatus,
-  PvpServiceEvent,
   RoundAuditEvent,
   RoundActionIntentDraft,
   RoundDraftRejectedServerMessage,
@@ -50,9 +43,65 @@ import {
   getResolvedActionTone as getResolvedActionToneBase,
   type ResolvedTimelineEntrySummary,
 } from './resolvedActionPresentation';
+import {
+  getActiveHeroPlaybackEffect,
+  getActivePlayerResourcePlaybackEffect,
+  getPlaybackNumberOverride,
+  getPlaybackValueOverride,
+  type BoardItemPlaybackEffect,
+  type HeroPlaybackEffect,
+  type PlayerResourcePlaybackEffect,
+} from './playback';
+import {
+  getActionTargetPreview,
+  getActionToneBadgeClassName,
+  getCharacterAccentClassName,
+  getCharacterInitials,
+  getDurationLabel,
+  getInviteJoinRejectHint,
+  getPreferredDefaultTargetId,
+  getRibbonActionToneClassName,
+  getRibbonArtworkAccentClassName,
+  getRibbonTargetCompactLabel,
+  getRibbonTargetTabAriaLabel,
+  getRoundActionFocusLabel,
+  getRoundActionModeLabel,
+  getRoundActionStatusDisplay,
+  getRoundActionTargetSubtitle,
+  getRoundQueueToneClassName,
+  getTargetButtonAriaLabel,
+  toInviteMode,
+} from './presentation';
+import { AuthRequiredPanel } from './AuthRequiredPanel';
+import { ExitConfirmDialog } from './ExitConfirmDialog';
+import { LocalBattleRibbon } from './LocalBattleRibbon';
+import { LocalHandTray } from './LocalHandTray';
+import { MatchFeedDrawer } from './MatchFeedDrawer';
+import { MatchWaitingPanel } from './MatchWaitingPanel';
+import { OpponentPreparationZone } from './OpponentPreparationZone';
+import { PlayerSideCard } from './PlayerSideCard';
+import { ResolutionReplayStrip } from './ResolutionReplayStrip';
+import { RoundDraftRejectedPanel } from './RoundDraftRejectedPanel';
+import { SceneAlerts } from './SceneAlerts';
+import { SceneInspectPanel } from './SceneInspectPanel';
+import { SceneTopBar } from './SceneTopBar';
+import {
+  getCreatureSummaries,
+  getLocalHandCards,
+  getLocalPlayerSummary,
+  getMatchSummary,
+  getPlayerBoardItemSummaries,
+  getPlayerBoardSummaries,
+  getRoundSyncFromState,
+} from './selectors';
+import { handleServiceEvent } from './serviceEvents';
+import { TurnActionRail } from './TurnActionRail';
+import { useMatchFeedDrawer } from './useMatchFeedDrawer';
+import { useResolvedReplay } from './useResolvedReplay';
+import { useSceneInspect } from './useSceneInspect';
 import styles from './PlayPvpPage.module.css';
 
-interface MatchSummary {
+export interface MatchSummary {
   roundNumber: number;
   roundStatus: string;
   initiativePlayerId: string;
@@ -61,7 +110,7 @@ interface MatchSummary {
   actionLogCount: number;
 }
 
-interface LocalPlayerSummary {
+export interface LocalPlayerSummary {
   playerId: string;
   mana: number;
   maxMana: number;
@@ -69,132 +118,12 @@ interface LocalPlayerSummary {
   characterId: string;
 }
 
-type PlaybackFieldValue = string | number | boolean | null;
-type HeroPlaybackEffectTone = 'damage' | 'heal' | 'shield' | 'shieldBreak';
-type BoardItemPlaybackEffectTone = 'summon' | 'destroy' | 'damage' | 'heal';
-type PlayerResourcePlaybackEffectTone = 'gain' | 'spend';
-
-interface HeroPlaybackEffect {
-  tone: HeroPlaybackEffectTone;
-  floatingText?: string;
-}
-
-interface BoardItemPlaybackEffect {
-  tone: BoardItemPlaybackEffectTone;
-  floatingText?: string;
-}
-
-interface PlayerResourcePlaybackEffect {
-  tone: PlayerResourcePlaybackEffectTone;
-  floatingText: string;
-}
-
-interface PlayerBoardSummary extends LocalPlayerSummary {
+export interface PlayerBoardSummary extends LocalPlayerSummary {
   deckSize: number;
   handSize: number;
   discardSize: number;
   locked: boolean;
 }
-
-const getPlaybackFrames = (round: RoundResolutionResult | null): ResolvePlaybackFrame[] =>
-  round?.playbackFrames?.filter(
-    (frame) =>
-      frame.kind === 'damage' ||
-      frame.kind === 'heal' ||
-      frame.kind === 'shield' ||
-      frame.kind === 'summon' ||
-      frame.kind === 'destroy' ||
-      frame.kind === 'resource' ||
-      frame.kind === 'fizzle',
-  ) ?? [];
-
-const getPlaybackStepCount = (round: RoundResolutionResult | null): number => {
-  const playbackFrameCount = getPlaybackFrames(round).length;
-  return playbackFrameCount > 0 ? playbackFrameCount : round?.orderedActions.length ?? 0;
-};
-
-const getPlaybackFieldKey = (entityType: string, entityId: string, field: string): string =>
-  `${entityType}:${entityId}:${field}`;
-
-const buildPlaybackFieldValues = (
-  frames: ResolvePlaybackFrame[],
-  activeIndex: number,
-): Map<string, PlaybackFieldValue> => {
-  const values = new Map<string, PlaybackFieldValue>();
-
-  frames.forEach((frame) => {
-    frame.changes.forEach((change) => {
-      const key = getPlaybackFieldKey(change.entity.type, change.entity.id, change.field);
-      if (!values.has(key)) {
-        values.set(key, change.from);
-      }
-    });
-  });
-
-  frames.slice(0, activeIndex + 1).forEach((frame) => {
-    frame.changes.forEach((change) => {
-      values.set(getPlaybackFieldKey(change.entity.type, change.entity.id, change.field), change.to);
-    });
-  });
-
-  return values;
-};
-
-const getPlaybackNumberOverride = (
-  values: ReadonlyMap<string, PlaybackFieldValue>,
-  entityType: string,
-  entityId: string | undefined,
-  field: string,
-): number | null => {
-  if (!entityId) {
-    return null;
-  }
-
-  const value = values.get(getPlaybackFieldKey(entityType, entityId, field));
-  return typeof value === 'number' ? value : null;
-};
-
-const getPlaybackValueOverride = (
-  values: ReadonlyMap<string, PlaybackFieldValue>,
-  entityType: string,
-  entityId: string | undefined,
-  field: string,
-): PlaybackFieldValue | undefined => {
-  if (!entityId) {
-    return undefined;
-  }
-
-  return values.get(getPlaybackFieldKey(entityType, entityId, field));
-};
-
-const getActiveHeroPlaybackEffect = (
-  frame: ResolvePlaybackFrame | null,
-  characterId: string | undefined,
-): HeroPlaybackEffect | null => {
-  if (!frame || !characterId) {
-    return null;
-  }
-
-  const hpChange = frame.changes.find(
-    (change) => change.entity.type === 'character' && change.entity.id === characterId && change.field === 'hp',
-  );
-  if (hpChange && typeof hpChange.from === 'number' && typeof hpChange.to === 'number') {
-    const amount = Math.abs(hpChange.to - hpChange.from);
-    return hpChange.to < hpChange.from
-      ? { tone: 'damage', floatingText: `-${amount}` }
-      : { tone: 'heal', floatingText: `+${amount}` };
-  }
-
-  const shieldChange = frame.changes.find(
-    (change) => change.entity.type === 'character' && change.entity.id === characterId && change.field === 'shield',
-  );
-  if (shieldChange) {
-    const shieldTo = typeof shieldChange.to === 'number' ? shieldChange.to : 0;
-    return shieldTo <= 0 ? { tone: 'shieldBreak' } : { tone: 'shield' };
-  }
-
-  return null;
-};
 
 const getHeroPlaybackEffectClassName = (effect: HeroPlaybackEffect | null): string => {
   if (!effect) {
@@ -211,34 +140,6 @@ const getHeroPlaybackEffectClassName = (effect: HeroPlaybackEffect | null): stri
     case 'shieldBreak':
       return styles.avatarTargetPlaybackShieldBreak;
   }
-};
-
-const getActiveBoardItemPlaybackEffect = (
-  frame: ResolvePlaybackFrame | null,
-  runtimeId: string | undefined,
-): BoardItemPlaybackEffect | null => {
-  if (!frame || !runtimeId) {
-    return null;
-  }
-
-  const presenceChange = frame.changes.find(
-    (change) => change.entity.type === 'creature' && change.entity.id === runtimeId && change.field === 'presence',
-  );
-  if (presenceChange) {
-    return presenceChange.to === false ? { tone: 'destroy' } : { tone: 'summon' };
-  }
-
-  const hpChange = frame.changes.find(
-    (change) => change.entity.type === 'creature' && change.entity.id === runtimeId && change.field === 'hp',
-  );
-  if (hpChange && typeof hpChange.from === 'number' && typeof hpChange.to === 'number') {
-    const amount = Math.abs(hpChange.to - hpChange.from);
-    return hpChange.to < hpChange.from
-      ? { tone: 'damage', floatingText: `-${amount}` }
-      : { tone: 'heal', floatingText: `+${amount}` };
-  }
-
-  return null;
 };
 
 const getBoardItemPlaybackEffectClassName = (effect: BoardItemPlaybackEffect | null): string => {
@@ -258,37 +159,6 @@ const getBoardItemPlaybackEffectClassName = (effect: BoardItemPlaybackEffect | n
   }
 };
 
-const getActivePlayerResourcePlaybackEffect = (
-  frame: ResolvePlaybackFrame | null,
-  playerId: string | undefined,
-): PlayerResourcePlaybackEffect | null => {
-  if (!frame || !playerId) {
-    return null;
-  }
-
-  const manaChange = frame.changes.find(
-    (change) => change.entity.type === 'player' && change.entity.id === playerId && change.field === 'mana',
-  );
-  if (manaChange && typeof manaChange.from === 'number' && typeof manaChange.to === 'number') {
-    const amount = Math.abs(manaChange.to - manaChange.from);
-    return manaChange.to < manaChange.from
-      ? { tone: 'spend', floatingText: `-${amount} маны` }
-      : { tone: 'gain', floatingText: `+${amount} мана` };
-  }
-
-  const actionPointChange = frame.changes.find(
-    (change) => change.entity.type === 'player' && change.entity.id === playerId && change.field === 'actionPoints',
-  );
-  if (actionPointChange && typeof actionPointChange.from === 'number' && typeof actionPointChange.to === 'number') {
-    const amount = Math.abs(actionPointChange.to - actionPointChange.from);
-    return actionPointChange.to < actionPointChange.from
-      ? { tone: 'spend', floatingText: `-${amount} AP` }
-      : { tone: 'gain', floatingText: `+${amount} AP` };
-  }
-
-  return null;
-};
-
 const getPlayerResourcePlaybackEffectClassName = (effect: PlayerResourcePlaybackEffect | null): string => {
   if (!effect) {
     return '';
@@ -297,7 +167,7 @@ const getPlayerResourcePlaybackEffectClassName = (effect: PlayerResourcePlayback
   return effect.tone === 'gain' ? styles.playerResourceGain : styles.playerResourceSpend;
 };
 
-interface HandCardSummary {
+export interface HandCardSummary {
   instanceId: string;
   cardId: string;
   name: string;
@@ -310,7 +180,7 @@ interface HandCardSummary {
   speed?: number;
 }
 
-interface SceneInspectSummary {
+export interface SceneInspectSummary {
   id: string;
   title: string;
   kicker?: string;
@@ -320,12 +190,12 @@ interface SceneInspectSummary {
   details: string[];
 }
 
-type SceneInspectTarget =
+export type SceneInspectTarget =
   | { kind: 'hand'; id: string }
   | { kind: 'boardItem'; id: string }
   | { kind: 'roundAction'; id: string };
 
-interface CreatureSummary {
+export interface CreatureSummary {
   creatureId: string;
   ownerId: string;
   hp: number;
@@ -335,7 +205,7 @@ interface CreatureSummary {
   summonedAtRound?: number;
 }
 
-interface BoardItemSummary {
+export interface BoardItemSummary {
   id: string;
   runtimeId: string;
   ownerId: string;
@@ -353,7 +223,7 @@ interface BoardItemSummary {
   duration?: number;
 }
 
-interface RoundRibbonActionSummary {
+export interface RoundRibbonActionSummary {
   id: string;
   title: string;
   subtitle: string;
@@ -374,7 +244,7 @@ interface RoundRibbonActionSummary {
   sourceBoardItemId?: string;
 }
 
-type LocalBattleRibbonEntrySummary =
+export type LocalBattleRibbonEntrySummary =
   | {
       id: string;
       kind: 'boardItem';
@@ -391,10 +261,7 @@ type LocalBattleRibbonEntrySummary =
       action: RoundRibbonActionSummary;
     };
 
-const ROUND_RESOLUTION_PLAYBACK_STEP_MS = 800;
-const ROUND_RESOLUTION_REPLAY_AUTO_CLOSE_MS = 900;
-
-type BattlefieldSelection =
+export type BattlefieldSelection =
   | { kind: 'hand'; instanceId: string }
   | { kind: 'creature'; creatureId: string }
   | null;
@@ -405,17 +272,17 @@ interface TargetDraft {
   targetId: string;
 }
 
-interface TargetCandidateSummary {
+export interface TargetCandidateSummary {
   id: string;
   label: string;
   kind: 'character' | 'creature';
 }
 
-interface RibbonTargetOptionSummary extends TargetCandidateSummary {
+export interface RibbonTargetOptionSummary extends TargetCandidateSummary {
   compactLabel: string;
 }
 
-interface RoundSyncSummary {
+export interface RoundSyncSummary {
   roundNumber: number;
   selfLocked: boolean;
   opponentLocked: boolean;
@@ -423,409 +290,13 @@ interface RoundSyncSummary {
   opponentDraftCount: number;
 }
 
-type RoundDraftRejectedSummary = Omit<RoundDraftRejectedServerMessage, 'type'>;
+export type RoundDraftRejectedSummary = Omit<RoundDraftRejectedServerMessage, 'type'>;
 
-const mergeDraftIntentTargets = (
-  currentDraft: RoundActionIntentDraft[],
-  incomingDraft: RoundActionIntentDraft[],
-): RoundActionIntentDraft[] => {
-  const currentById = new Map(currentDraft.map((intent) => [intent.intentId, intent] as const));
-
-  return incomingDraft.map((incomingIntent) => {
-    if (!('target' in incomingIntent)) {
-      return incomingIntent;
-    }
-
-    const currentIntent = currentById.get(incomingIntent.intentId);
-    if (!currentIntent || !('target' in currentIntent)) {
-      return incomingIntent;
-    }
-
-    const incomingTargetType = incomingIntent.target?.targetType;
-    const incomingTargetId = incomingIntent.target?.targetId;
-    const currentTargetType = currentIntent.target?.targetType;
-    const currentTargetId = currentIntent.target?.targetId;
-
-    if (
-      incomingTargetId ||
-      (!currentTargetId && !currentTargetType) ||
-      (incomingTargetType && currentTargetType && incomingTargetType !== currentTargetType)
-    ) {
-      return incomingIntent;
-    }
-
-    return {
-      ...incomingIntent,
-      target: {
-        targetType: incomingTargetType ?? currentTargetType,
-        targetId: currentTargetId,
-      },
-    };
-  });
-};
-type JoinRejectedSummary = Omit<JoinRejectedServerMessage, 'type'>;
-type TransportRejectedSummary = Omit<TransportRejectedServerMessage, 'type'>;
+export type JoinRejectedSummary = Omit<JoinRejectedServerMessage, 'type'>;
+export type TransportRejectedSummary = Omit<TransportRejectedServerMessage, 'type'>;
 
 const isPendingTargetSelectionError = (entry: RoundDraftValidationError): boolean =>
   entry.code === 'target_type' && /Target is required/i.test(entry.message);
-
-const getCardTypeLabel = (cardType: string): string => {
-  const catalogType = toCatalogCardUiType(cardType);
-  if (catalogType) {
-    return catalogType === 'summon' ? 'Существо' : getCatalogCardTypeLabel(catalogType);
-  }
-  return cardType || 'Карта';
-};
-
-const getCardAccentClassName = (cardType: string): string => {
-  if (cardType === 'summon') {
-    return styles.cardAccentSummon;
-  }
-
-  if (cardType === 'spell') {
-    return styles.cardAccentSpell;
-  }
-
-  return styles.cardAccentNeutral;
-};
-
-const getCardSchoolAccentClassName = (school?: string): string => {
-  switch (school) {
-    case 'fire':
-      return styles.handCardArtworkFire;
-    case 'water':
-      return styles.handCardArtworkWater;
-    case 'earth':
-      return styles.handCardArtworkEarth;
-    case 'air':
-      return styles.handCardArtworkAir;
-    default:
-      return styles.handCardArtworkNeutral;
-  }
-};
-
-const getHandCardInspectSummary = (card: HandCardSummary): SceneInspectSummary => ({
-  id: card.instanceId,
-  title: card.name,
-  cornerLabel: `Мана ${card.mana}`,
-  badges: [
-    getCardTypeLabel(card.cardType),
-    ...(card.school ? [getCatalogSchoolLabel(card.school)] : []),
-  ],
-  stats: [
-    ...(card.hp ? [{ label: 'HP' as const, value: card.hp }] : []),
-    ...(card.attack ? [{ label: 'ATK' as const, value: card.attack }] : []),
-    ...(card.speed ? [{ label: 'SPD' as const, value: card.speed }] : []),
-  ],
-  details: [
-    card.effect ??
-      (card.cardType === 'summon'
-        ? 'Призыв существа из руки в фазу summon.'
-        : 'Розыгрыш эффекта после фиксации хода и резолва раунда.'),
-  ],
-});
-
-const getBoardItemInspectSummary = (
-  item: BoardItemSummary,
-  options: {
-    attachedActionCount: number;
-  },
-): SceneInspectSummary => ({
-  id: item.id,
-  title: item.title,
-  cornerLabel: item.duration !== undefined ? getDurationLabel(item.duration) : 'На поле',
-  badges: [
-    item.subtype === 'creature' ? 'Существо' : 'Эффект',
-    item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд',
-    ...(item.school ? [getCatalogSchoolLabel(item.school)] : []),
-    ...(item.duration !== undefined ? [getDurationLabel(item.duration)] : []),
-    ...(options.attachedActionCount > 0 ? [`Действий: ${options.attachedActionCount}`] : []),
-  ],
-  stats: [
-    ...(item.hp !== undefined && item.maxHp !== undefined
-      ? [{ label: 'HP', value: `${item.hp}/${item.maxHp}` }]
-      : []),
-    ...(item.attack !== undefined ? [{ label: 'ATK', value: item.attack }] : []),
-    ...(item.speed !== undefined ? [{ label: 'SPD', value: item.speed }] : []),
-  ],
-  details: [item.subtitle],
-});
-
-const getRoundActionInspectSummary = (action: RoundRibbonActionSummary): SceneInspectSummary => ({
-  id: action.id,
-  title: action.title,
-  cornerLabel: action.mana !== undefined ? `Мана ${action.mana}` : 'В ленте',
-  badges: [
-    action.modeLabel,
-    ...(action.school ? [getCatalogSchoolLabel(action.school)] : []),
-    ...(action.targetLabel ? ['Цель выбрана'] : []),
-  ],
-  stats: [...(action.cardSpeed ? [{ label: 'SPD', value: action.cardSpeed }] : [])],
-  details: [
-    ...(action.effectSummary ? [action.effectSummary] : []),
-    ...(action.targetLabel && action.targetLabel !== action.subtitle ? [`Цель: ${action.targetLabel}`] : []),
-    ...(!action.effectSummary || action.subtitle !== action.effectSummary ? [action.subtitle] : []),
-  ],
-});
-
-const isSameSceneInspectTarget = (
-  left: SceneInspectTarget | null,
-  right: SceneInspectTarget,
-): boolean => left?.kind === right.kind && left.id === right.id;
-
-const getRoundActionStatusDisplay = (status: string): string => {
-  switch (status) {
-    case 'draft':
-      return 'Готовится';
-    case 'locked':
-      return 'Зафиксировано';
-    case 'resolved':
-      return 'Сработало';
-    case 'fizzled':
-      return 'Сорвалось';
-    case 'rejected':
-      return 'Отклонено';
-    default:
-      return status;
-  }
-};
-
-const getRoundActionModeLabel = (layer: ResolutionLayer): string => {
-  switch (layer) {
-    case 'summon':
-      return 'Призыв';
-    case 'defensive_modifiers':
-    case 'defensive_spells':
-      return 'Защита';
-    case 'other_modifiers':
-      return 'Поддержка';
-    case 'offensive_control_spells':
-      return 'Боевое заклинание';
-    case 'attacks':
-      return 'Атака';
-    case 'cleanup_end_of_round':
-      return 'Конец раунда';
-    default:
-      return getResolutionLayerLabel(layer);
-  }
-};
-
-const getBoardItemSubtitle = (
-  subtype: 'creature' | 'effect',
-  lifetimeType: 'temporary' | 'persistent',
-): string => {
-  if (subtype === 'creature') {
-    return lifetimeType === 'persistent' ? 'Существо на поле' : 'Временный призыв';
-  }
-
-  return lifetimeType === 'persistent' ? 'Постоянный эффект' : 'Эффект на раунд';
-};
-
-const getDurationLabel = (duration: number): string => `Ходы: ${duration}`;
-
-const getActionTargetPreview = (subtitle: string): string | undefined => {
-  if (subtitle === 'Без цели' || subtitle === 'Цель уточняется') {
-    return undefined;
-  }
-
-  return subtitle;
-};
-
-const getRoundActionTargetSubtitle = (
-  kind: RoundActionIntentDraft['kind'],
-  targetType?: TargetType | null,
-  targetId?: string | null,
-  knownTargetLabelsById?: ReadonlyMap<string, string>,
-  fallbackTargetId?: string | null,
-): string => {
-  if (kind === 'Summon' || kind === 'Evade') {
-    return 'Без цели';
-  }
-
-  if (!targetType) {
-    return 'Цель не указана';
-  }
-
-  const resolvedTargetId = targetId ?? fallbackTargetId ?? null;
-  if (!resolvedTargetId) {
-    return 'Цель уточняется';
-  }
-
-  const targetLabel = knownTargetLabelsById?.get(resolvedTargetId);
-  return `${getTargetTypeLabel(targetType)} -> ${targetLabel ?? resolvedTargetId}`;
-};
-
-const getRoundActionFocusLabel = (modeLabel: string, targetLabel?: string): string =>
-  targetLabel ? `${modeLabel} -> ${targetLabel}` : modeLabel;
-
-const getRibbonArtworkAccentClassName = (
-  school?: 'fire' | 'water' | 'earth' | 'air',
-  variant: 'creature' | 'effect' | 'action' = 'action',
-): string => {
-  if (school) {
-    return getCardSchoolAccentClassName(school);
-  }
-
-  switch (variant) {
-    case 'creature':
-      return styles.ribbonArtworkCreature;
-    case 'effect':
-      return styles.ribbonArtworkEffect;
-    case 'action':
-      return styles.ribbonArtworkNeutral;
-  }
-};
-
-const getRoundActionTone = (
-  layer: ResolutionLayer,
-): 'summon' | 'defense' | 'attack' | 'support' => {
-  switch (layer) {
-    case 'summon':
-      return 'summon';
-    case 'defensive_modifiers':
-    case 'defensive_spells':
-      return 'defense';
-    case 'attacks':
-      return 'attack';
-    default:
-      return 'support';
-  }
-};
-
-const getRibbonActionToneClassName = (layer: ResolutionLayer): string => {
-  switch (getRoundActionTone(layer)) {
-    case 'summon':
-      return styles.ribbonActionToneSummon;
-    case 'defense':
-      return styles.ribbonActionToneDefense;
-    case 'attack':
-      return styles.ribbonActionToneAttack;
-    case 'support':
-      return styles.ribbonActionToneSupport;
-  }
-};
-
-const getRoundQueueToneClassName = (layer: ResolutionLayer): string => {
-  switch (getRoundActionTone(layer)) {
-    case 'summon':
-      return styles.roundQueueItemSummon;
-    case 'defense':
-      return styles.roundQueueItemDefense;
-    case 'attack':
-      return styles.roundQueueItemAttack;
-    case 'support':
-      return styles.roundQueueItemSupport;
-  }
-};
-
-const getActionToneBadgeClassName = (layer: ResolutionLayer): string => {
-  switch (getRoundActionTone(layer)) {
-    case 'summon':
-      return styles.cardBadgeToneSummon;
-    case 'defense':
-      return styles.cardBadgeToneDefense;
-    case 'attack':
-      return styles.cardBadgeToneAttack;
-    case 'support':
-      return styles.cardBadgeToneSupport;
-  }
-};
-
-const getTargetButtonAriaLabel = (label: string, selectable: boolean): string =>
-  selectable ? `Выбрать цель: ${label}` : label;
-
-const getRibbonTargetTabAriaLabel = (label: string): string => `Назначить цель в ленте: ${label}`;
-
-const getRibbonTargetCompactLabel = (candidate: TargetCandidateSummary): string =>
-  candidate.kind === 'character' ? 'М' : 'С';
-
-const getPreferredDefaultTargetId = (
-  targetType: TargetType | null | undefined,
-  candidates: TargetCandidateSummary[],
-): string | null => {
-  if (!targetType || candidates.length === 0) {
-    return null;
-  }
-
-  switch (targetType) {
-    case 'self':
-    case 'allyCharacter':
-      return candidates.find((candidate) => candidate.kind === 'character')?.id ?? null;
-    case 'enemyCharacter':
-      return candidates.find((candidate) => candidate.kind === 'character')?.id ?? null;
-    case 'any':
-      return (
-        candidates.find((candidate) => candidate.kind === 'character')?.id ??
-        candidates[0]?.id ??
-        null
-      );
-    case 'creature':
-      return null;
-    default:
-      return null;
-  }
-};
-
-const getJoinRejectCodeLabel = (code: JoinRejectedServerMessage['code']): string => {
-  switch (code) {
-    case 'unauthorized':
-      return 'Сессия входа недействительна или истекла';
-    case 'deck_unavailable':
-      return 'Выбранная колода недоступна для этого игрока';
-    case 'deck_invalid':
-      return 'Выбранная колода не проходит правила PvP';
-    case 'session_full':
-      return 'В матче уже заняты оба PvP-слота';
-    case 'duplicate_character':
-      return 'Этот персонаж уже занят в матче. Выберите колоду с другим магом';
-    case 'seed_mismatch':
-      return 'Seed не совпадает с уже созданной сессией';
-    case 'invalid_payload':
-      return 'Запрос на подключение содержит некорректные данные';
-    default:
-      return 'Подключение к матчу отклонено сервером';
-  }
-};
-
-const getInviteJoinRejectHint = (
-  code: JoinRejectedServerMessage['code'],
-): string | null => {
-  switch (code) {
-    case 'session_full':
-      return 'Эта invite-сессия уже занята. Скорее всего матч был запущен раньше или ссылка устарела.';
-    case 'seed_mismatch':
-      return 'Параметры invite-сессии больше не совпадают с состоянием сервера. Лучше запросить новое приглашение.';
-    case 'unauthorized':
-      return 'Сессия входа истекла. Перезайдите в аккаунт и откройте приглашение заново.';
-    case 'deck_unavailable':
-      return 'Для входа по приглашению нужна доступная колода. Выберите другую колоду и попробуйте снова.';
-    case 'deck_invalid':
-      return 'Колода из приглашения сейчас невалидна для PvP. Проверьте состав колоды и персонажа.';
-    default:
-      return null;
-  }
-};
-
-const getTransportRejectCodeLabel = (code: TransportRejectedServerMessage['code']): string => {
-  switch (code) {
-    case 'invalid_json':
-      return 'Сообщение не удалось разобрать как JSON';
-    case 'invalid_payload':
-      return 'Сообщение пришло в некорректном формате';
-    case 'unknown_message_type':
-      return 'Тип WS-сообщения не поддерживается сервером';
-    default:
-      return 'Транспортный запрос отклонён сервером';
-  }
-};
-
-const toInviteMode = (value: string | null): 'create' | 'join' | null => {
-  if (value === 'create' || value === 'join') {
-    return value;
-  }
-
-  return null;
-};
 
 const getIntentPreviewLayer = (
   intent: RoundActionIntentDraft,
@@ -856,9 +327,6 @@ const getIntentPreviewLayer = (
   }
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
 const getRuntimeIdFromBoardItemId = (boardItemId: string): string | null => {
   const separatorIndex = boardItemId.indexOf(':');
   if (separatorIndex < 0 || separatorIndex === boardItemId.length - 1) {
@@ -869,7 +337,6 @@ const getRuntimeIdFromBoardItemId = (boardItemId: string): string | null => {
 };
 
 const normalizedCardCatalog = normalizeCatalog(rawCardData);
-const cardCatalogById = new Map(normalizedCardCatalog.cards.map((card) => [card.id, card] as const));
 const cardNameByDefinitionId = new Map(normalizedCardCatalog.cards.map((card) => [card.id, card.name] as const));
 const roundIntentCardRegistry = new CardRegistry(
   Array.isArray(rawCardData.cards)
@@ -895,495 +362,12 @@ const getDraftManaCost = (draft: RoundActionIntentDraft[], handCards: HandCardSu
   }, 0);
 };
 
-const getCharacterInitials = (name: string): string => {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return '??';
-  }
-
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-};
-
-const getCharacterAccentClassName = (
-  faculty: CatalogCharacterSummary['faculty'] | undefined,
-  local = false
-): string => {
-  switch (faculty) {
-    case 'fire':
-      return local ? styles.playerPortraitLocalFire : styles.playerPortraitFire;
-    case 'water':
-      return local ? styles.playerPortraitLocalWater : styles.playerPortraitWater;
-    case 'earth':
-      return local ? styles.playerPortraitLocalEarth : styles.playerPortraitEarth;
-    case 'air':
-      return local ? styles.playerPortraitLocalAir : styles.playerPortraitAir;
-    default:
-      return local ? styles.playerPortraitLocalNeutral : styles.playerPortraitNeutral;
-  }
-};
-
-const getMatchSummary = (state: GameStateSnapshot | null): MatchSummary | null => {
-  if (!state || !isRecord(state.round) || !isRecord(state.players)) {
-    return null;
-  }
-
-  const roundNumber = typeof state.round.number === 'number' ? state.round.number : 0;
-  const roundStatus = typeof state.round.status === 'string' ? state.round.status : 'draft';
-  const initiativePlayerId =
-    typeof state.round.initiativePlayerId === 'string' ? state.round.initiativePlayerId : '';
-  const phase = isRecord(state.phase) && typeof state.phase.current === 'string' ? state.phase.current : 'RoundPhase';
-  const playerCount = Object.keys(state.players).length;
-  const actionLogCount = Array.isArray(state.actionLog) ? state.actionLog.length : 0;
-
-  return {
-    roundNumber,
-    roundStatus,
-    initiativePlayerId,
-    phase,
-    playerCount,
-    actionLogCount,
-  };
-};
-
-const getRoundSyncFromState = (state: GameStateSnapshot | null, playerId: string): RoundSyncSummary | null => {
-  if (!state || !isRecord(state.round) || !isRecord(state.round.players) || !playerId) {
-    return null;
-  }
-
-  const roundNumber = typeof state.round.number === 'number' ? state.round.number : 0;
-  const selfRoundPlayer = state.round.players[playerId];
-  const opponentRoundPlayer = Object.entries(state.round.players).find(([id]) => id !== playerId)?.[1];
-
-  return {
-    roundNumber,
-    selfLocked: isRecord(selfRoundPlayer) && typeof selfRoundPlayer.locked === 'boolean' ? selfRoundPlayer.locked : false,
-    opponentLocked:
-      isRecord(opponentRoundPlayer) && typeof opponentRoundPlayer.locked === 'boolean'
-        ? opponentRoundPlayer.locked
-        : false,
-    selfDraftCount:
-      isRecord(selfRoundPlayer) && typeof selfRoundPlayer.draftCount === 'number' ? selfRoundPlayer.draftCount : 0,
-    opponentDraftCount:
-      isRecord(opponentRoundPlayer) && typeof opponentRoundPlayer.draftCount === 'number'
-        ? opponentRoundPlayer.draftCount
-        : 0,
-  };
-};
-
-const getLocalPlayerSummary = (
-  state: GameStateSnapshot | null,
-  playerId: string
-): LocalPlayerSummary | null => {
-  if (!state || !isRecord(state.players)) {
-    return null;
-  }
-
-  const player = state.players[playerId];
-  if (!isRecord(player)) {
-    return null;
-  }
-
-  return {
-    playerId,
-    mana: typeof player.mana === 'number' ? player.mana : 0,
-    maxMana: typeof player.maxMana === 'number' ? player.maxMana : 0,
-    actionPoints: typeof player.actionPoints === 'number' ? player.actionPoints : 0,
-    characterId: typeof player.characterId === 'string' ? player.characterId : '',
-  };
-};
-
-const getZoneSize = (zones: unknown, playerId: string): number => {
-  if (!isRecord(zones)) {
-    return 0;
-  }
-
-  const zone = zones[playerId];
-  return Array.isArray(zone) ? zone.length : 0;
-};
-
-const getDeckSize = (decks: unknown, playerId: string): number => {
-  if (!isRecord(decks)) {
-    return 0;
-  }
-
-  const deck = decks[playerId];
-  if (Array.isArray(deck)) {
-    return deck.length;
-  }
-
-  if (!isRecord(deck)) {
-    return 0;
-  }
-
-  return Array.isArray(deck.cards) ? deck.cards.length : 0;
-};
-
-const getPlayerBoardSummaries = (state: GameStateSnapshot | null): PlayerBoardSummary[] => {
-  if (!state || !isRecord(state.players)) {
-    return [];
-  }
-
-  const roundPlayers = isRecord(state.round) && isRecord(state.round.players) ? state.round.players : null;
-
-  return Object.keys(state.players).flatMap((playerId) => {
-    const baseSummary = getLocalPlayerSummary(state, playerId);
-    if (!baseSummary) {
-      return [];
-    }
-
-    const roundPlayer = roundPlayers?.[playerId];
-    const locked = isRecord(roundPlayer) && typeof roundPlayer.locked === 'boolean' ? roundPlayer.locked : false;
-
-    return [
-      {
-        ...baseSummary,
-        deckSize: getDeckSize(state.decks, playerId),
-        handSize: getZoneSize(state.hands, playerId),
-        discardSize: getZoneSize(state.discardPiles, playerId),
-        locked,
-      },
-    ];
-  });
-};
-
-const getLocalHandCards = (state: GameStateSnapshot | null, playerId: string): HandCardSummary[] => {
-  const hands = state?.hands;
-  const cardInstances = state?.cardInstances;
-
-  if (!state || !isRecord(hands) || !isRecord(cardInstances)) {
-    return [];
-  }
-
-  const hand = hands[playerId];
-  if (!Array.isArray(hand)) {
-    return [];
-  }
-
-  return hand.flatMap((instanceId) => {
-    if (typeof instanceId !== 'string') {
-      return [];
-    }
-
-    const instance = cardInstances[instanceId];
-    if (!isRecord(instance)) {
-      return [];
-    }
-
-    const cardId =
-      typeof instance.definitionId === 'string'
-        ? instance.definitionId
-        : typeof instance.cardId === 'string'
-          ? instance.cardId
-          : '';
-    return [
-      {
-        instanceId,
-        cardId,
-        name: cardCatalogById.get(cardId)?.name ?? `Карта ${cardId || instanceId}`,
-        mana: cardCatalogById.get(cardId)?.mana ?? 0,
-        cardType: cardCatalogById.get(cardId)?.catalogType ?? 'unknown',
-        school: toCatalogSchool(cardCatalogById.get(cardId)?.school),
-        effect: cardCatalogById.get(cardId)?.effect,
-        hp: cardCatalogById.get(cardId)?.hp,
-        attack: cardCatalogById.get(cardId)?.attack,
-        speed: cardCatalogById.get(cardId)?.speed || undefined,
-      },
-    ];
-  });
-};
-
-const getCreatureSummaries = (state: GameStateSnapshot | null): CreatureSummary[] => {
-  if (state?.boardView?.players && typeof state.boardView.players === 'object') {
-    const creaturesFromBoardView = Object.values(state.boardView.players).flatMap((playerBoard) => {
-      if (!isRecord(playerBoard) || !Array.isArray(playerBoard.boardItems)) {
-        return [];
-      }
-
-      return playerBoard.boardItems.flatMap((item) => {
-        if (
-          !isRecord(item) ||
-          item.subtype !== 'creature' ||
-          typeof item.runtimeId !== 'string' ||
-          typeof item.ownerId !== 'string' ||
-          !isRecord(item.state)
-        ) {
-          return [];
-        }
-
-        return [{
-          creatureId: item.runtimeId,
-          ownerId: item.ownerId,
-          hp: typeof item.state.hp === 'number' ? item.state.hp : 0,
-          maxHp: typeof item.state.maxHp === 'number' ? item.state.maxHp : 0,
-          attack: typeof item.state.attack === 'number' ? item.state.attack : 0,
-          speed: typeof item.state.speed === 'number' ? item.state.speed : 0,
-          summonedAtRound: typeof item.createdAtRound === 'number' ? item.createdAtRound : undefined,
-        }];
-      });
-    });
-
-    if (creaturesFromBoardView.length > 0) {
-      return creaturesFromBoardView;
-    }
-  }
-
-  if (!state || !isRecord(state.creatures)) {
-    return [];
-  }
-
-  return Object.values(state.creatures).flatMap((creature) => {
-    if (!isRecord(creature) || typeof creature.creatureId !== 'string' || typeof creature.ownerId !== 'string') {
-      return [];
-    }
-
-    return [{
-      creatureId: creature.creatureId,
-      ownerId: creature.ownerId,
-      hp: typeof creature.hp === 'number' ? creature.hp : 0,
-      maxHp: typeof creature.maxHp === 'number' ? creature.maxHp : 0,
-      attack: typeof creature.attack === 'number' ? creature.attack : 0,
-      speed: typeof creature.speed === 'number' ? creature.speed : 0,
-      summonedAtRound: typeof creature.summonedAtRound === 'number' ? creature.summonedAtRound : undefined,
-    }];
-  });
-};
-
-const getPlayerBoardItemSummaries = (
-  state: GameStateSnapshot | null,
-  playerId: string,
-): BoardItemSummary[] => {
-  const boardItems = state?.boardView?.players?.[playerId]?.boardItems;
-  if (Array.isArray(boardItems)) {
-    return boardItems
-      .flatMap((item) => {
-      if (
-        !isRecord(item) ||
-        typeof item.id !== 'string' ||
-        typeof item.runtimeId !== 'string' ||
-        typeof item.ownerId !== 'string' ||
-        (item.subtype !== 'creature' && item.subtype !== 'effect') ||
-        (item.lifetimeType !== 'temporary' && item.lifetimeType !== 'persistent')
-      ) {
-        return [];
-      }
-
-      const definitionId = typeof item.definitionId === 'string' ? item.definitionId : '';
-      const card = definitionId ? cardCatalogById.get(definitionId) : undefined;
-      const stateView = isRecord(item.state) ? item.state : null;
-      const placement = isRecord(item.placement) ? item.placement : null;
-      const fallbackTitle =
-        item.subtype === 'creature'
-          ? `Существо ${item.runtimeId}`
-          : `Эффект ${definitionId || item.runtimeId}`;
-
-      return [{
-        id: item.id,
-        runtimeId: item.runtimeId,
-        ownerId: item.ownerId,
-        subtype: item.subtype,
-        school: toCatalogSchool(card?.school),
-        lifetimeType: item.lifetimeType,
-        placementLayer:
-          placement && typeof placement.layer === 'string'
-            ? (placement.layer as ResolutionLayer)
-            : item.subtype === 'creature'
-              ? 'summon'
-              : 'other_modifiers',
-        placementOrderIndex:
-          placement && typeof placement.orderIndex === 'number'
-            ? placement.orderIndex
-            : Number.MAX_SAFE_INTEGER,
-        title: card?.name ?? fallbackTitle,
-        subtitle: getBoardItemSubtitle(item.subtype, item.lifetimeType),
-        hp: stateView && typeof stateView.hp === 'number' ? stateView.hp : undefined,
-        maxHp: stateView && typeof stateView.maxHp === 'number' ? stateView.maxHp : undefined,
-        attack: stateView && typeof stateView.attack === 'number' ? stateView.attack : undefined,
-        speed: stateView && typeof stateView.speed === 'number' ? stateView.speed : undefined,
-        duration: stateView && typeof stateView.duration === 'number' ? stateView.duration : undefined,
-      }];
-      })
-      .sort((left, right) => {
-        const orderDelta = left.placementOrderIndex - right.placementOrderIndex;
-        if (orderDelta !== 0) {
-          return orderDelta;
-        }
-
-        return left.id.localeCompare(right.id);
-      });
-  }
-
-  return getCreatureSummaries(state)
-    .filter((creature) => creature.ownerId === playerId)
-    .map<BoardItemSummary>((creature, index) => ({
-      id: `creature:${creature.creatureId}`,
-      runtimeId: creature.creatureId,
-      ownerId: creature.ownerId,
-      subtype: 'creature',
-      school: undefined,
-      lifetimeType: 'persistent',
-      placementLayer: 'summon',
-      placementOrderIndex: index,
-      title: `Существо ${creature.creatureId}`,
-      subtitle: getBoardItemSubtitle('creature', 'persistent'),
-      hp: creature.hp,
-      maxHp: creature.maxHp,
-      attack: creature.attack,
-      speed: creature.speed,
-    }));
-};
-
 const buildSessionId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return `session_${crypto.randomUUID().slice(0, 8)}`;
   }
   return `session_${Date.now()}`;
 };
-
-const handleServiceEvent = (
-  event: PvpServiceEvent,
-  setStatus: (status: PvpConnectionStatus) => void,
-  setMatchState: (state: GameStateSnapshot | null) => void,
-  setError: (value: string) => void,
-  setTransportRejected: (value: TransportRejectedSummary | null) => void,
-  setJoinRejected: (value: JoinRejectedSummary | null) => void,
-  setRoundDraft: (value: RoundActionIntentDraft[] | ((current: RoundActionIntentDraft[]) => RoundActionIntentDraft[])) => void,
-  setRoundSync: (value: RoundSyncSummary | null | ((current: RoundSyncSummary | null) => RoundSyncSummary | null)) => void,
-  setLastResolvedRound: (value: RoundResolutionResult | null) => void,
-  setResolvedRoundHistory: (
-    value: RoundResolutionResult[] | ((current: RoundResolutionResult[]) => RoundResolutionResult[])
-  ) => void,
-  setRoundDraftRejected: (value: RoundDraftRejectedSummary | null) => void,
-  setSelfBoardModel: (value: PlayerBoardModel | null) => void,
-  setRoundAuditEvents: (value: RoundAuditEvent[] | ((current: RoundAuditEvent[]) => RoundAuditEvent[])) => void,
-): void => {
-  if (event.type === 'status') {
-    setStatus(event.status);
-    if (event.status === 'connected') {
-      setError('');
-    }
-    return;
-  }
-
-  if (event.type === 'state') {
-    setMatchState(event.state);
-    setTransportRejected(null);
-    setJoinRejected(null);
-    setError('');
-    return;
-  }
-
-  if (event.type === 'transportRejected') {
-    setJoinRejected(null);
-    setTransportRejected({
-      code: event.code,
-      error: event.error,
-      requestType: event.requestType,
-    });
-    setError(event.error);
-    return;
-  }
-
-  if (event.type === 'joinRejected') {
-    setTransportRejected(null);
-    setJoinRejected({
-      sessionId: event.sessionId,
-      code: event.code,
-      error: event.error,
-    });
-    setError(event.error);
-    return;
-  }
-
-  if (event.type === 'roundDraftAccepted') {
-    setRoundDraftRejected(null);
-    setError('');
-    return;
-  }
-
-  if (event.type === 'roundDraftRejected') {
-    setRoundDraftRejected({
-      operation: event.operation,
-      roundNumber: event.roundNumber,
-      code: event.code,
-      error: event.error,
-      errors: [...event.errors],
-    });
-    setError('');
-    return;
-  }
-
-  if (event.type === 'roundDraftSnapshot') {
-    const sortedDraft = [...event.intents].sort((left, right) => left.queueIndex - right.queueIndex);
-    setRoundDraft((currentDraft) => mergeDraftIntentTargets(currentDraft, sortedDraft));
-    setSelfBoardModel(event.boardModel ?? null);
-    setRoundSync((current) => ({
-      roundNumber: event.roundNumber,
-      selfLocked: event.locked,
-      opponentLocked: current?.roundNumber === event.roundNumber ? current.opponentLocked : false,
-      selfDraftCount: sortedDraft.length,
-      opponentDraftCount: current?.roundNumber === event.roundNumber ? current.opponentDraftCount : 0,
-    }));
-    setRoundDraftRejected(null);
-    setError('');
-    return;
-  }
-
-  if (event.type === 'roundStatus') {
-    setRoundSync({
-      roundNumber: event.roundNumber,
-      selfLocked: event.selfLocked,
-      opponentLocked: event.opponentLocked,
-      selfDraftCount: event.selfDraftCount,
-      opponentDraftCount: event.opponentDraftCount,
-    });
-    setError('');
-    return;
-  }
-
-  if (event.type === 'roundResolved') {
-    setLastResolvedRound(event.result);
-    setResolvedRoundHistory((currentHistory) => {
-      const withoutCurrentRound = currentHistory.filter((entry) => entry.roundNumber !== event.result.roundNumber);
-      return [...withoutCurrentRound, event.result].sort((left, right) => left.roundNumber - right.roundNumber);
-    });
-    setSelfBoardModel(null);
-    setRoundDraftRejected(null);
-    setError('');
-    return;
-  }
-
-  if (event.type === 'roundAudit') {
-    setRoundAuditEvents((current) => [...current, event.event].slice(-120));
-    return;
-  }
-
-  if (event.type === 'error') {
-    setError(event.error);
-  }
-};
-
-const ExitDoorIcon = () => (
-  <span className={styles.exitDoorIcon} aria-hidden="true">
-    <span className={styles.exitDoorPanel} />
-    <span className={styles.exitDoorHandle} />
-  </span>
-);
-
-const MatchFeedScrollIcon = () => (
-  <span className={styles.matchFeedScrollIcon} aria-hidden="true">
-    <span className={styles.matchFeedScrollRollTop} />
-    <span className={styles.matchFeedScrollSheet} />
-    <span className={styles.matchFeedScrollLine} />
-    <span className={styles.matchFeedScrollLine} />
-  </span>
-);
 
 export const PlayPvpPage = () => {
   const navigate = useNavigate();
@@ -1409,7 +393,6 @@ export const PlayPvpPage = () => {
   const [transportRejected, setTransportRejected] = useState<TransportRejectedSummary | null>(null);
   const [joinRejected, setJoinRejected] = useState<JoinRejectedSummary | null>(null);
   const [selection, setSelection] = useState<BattlefieldSelection>(null);
-  const [sceneInspectTarget, setSceneInspectTarget] = useState<SceneInspectTarget | null>(null);
   const [manaRejectedHandCardId, setManaRejectedHandCardId] = useState<string | null>(null);
   const [draftTarget, setDraftTarget] = useState<TargetDraft | null>(null);
   const [roundDraft, setRoundDraft] = useState<RoundActionIntentDraft[]>([]);
@@ -1417,53 +400,27 @@ export const PlayPvpPage = () => {
   const [roundDraftRejected, setRoundDraftRejected] = useState<RoundDraftRejectedSummary | null>(null);
   const [lastResolvedRound, setLastResolvedRound] = useState<RoundResolutionResult | null>(null);
   const [resolvedRoundHistory, setResolvedRoundHistory] = useState<RoundResolutionResult[]>([]);
-  const [expandedFeedRoundNumber, setExpandedFeedRoundNumber] = useState<number | null>(null);
   const [selfBoardModel, setSelfBoardModel] = useState<PlayerBoardModel | null>(null);
-  const [resolvedPlaybackIndex, setResolvedPlaybackIndex] = useState(-1);
-  const [resolvedPlaybackComplete, setResolvedPlaybackComplete] = useState(true);
-  const [isResolvedReplayOpen, setIsResolvedReplayOpen] = useState(false);
-  const [isResolvedReplayPinned, setIsResolvedReplayPinned] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const [isMatchFeedOpen, setIsMatchFeedOpen] = useState(false);
-  const [resolvedPlaybackBoardItems, setResolvedPlaybackBoardItems] = useState<BoardItemSummary[]>([]);
+  const {
+    expandedRoundNumber: expandedFeedRoundNumber,
+    setExpandedRoundNumber: setExpandedFeedRoundNumber,
+    isOpen: isMatchFeedOpen,
+    setIsOpen: setIsMatchFeedOpen,
+    panelRef: matchFeedPanelRef,
+    toggleRef: matchFeedToggleRef,
+  } = useMatchFeedDrawer();
   const [, setRoundAuditEvents] = useState<RoundAuditEvent[]>([]);
   const hasLiveStateRef = useRef(false);
   const autoJoinAttemptedRef = useRef(false);
   const pendingSessionIdRef = useRef('');
   const intentSequenceRef = useRef(0);
   const currentRoundRef = useRef<number | null>(null);
-  const previousLocalBoardItemsRef = useRef<BoardItemSummary[]>([]);
   const roundDraftRef = useRef<RoundActionIntentDraft[]>([]);
-  const resolvedReplayItemRefs = useRef<Record<string, HTMLElement | null>>({});
-  const resolvedReplayTrackRef = useRef<HTMLDivElement | null>(null);
-  const matchFeedPanelRef = useRef<HTMLDivElement | null>(null);
-  const matchFeedToggleRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     roundDraftRef.current = roundDraft;
   }, [roundDraft]);
-
-  useEffect(() => {
-    if (!isMatchFeedOpen) {
-      return undefined;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      if (matchFeedPanelRef.current?.contains(target) || matchFeedToggleRef.current?.contains(target)) {
-        return;
-      }
-
-      setIsMatchFeedOpen(false);
-    };
-
-    document.addEventListener('pointerdown', handlePointerDown);
-    return () => document.removeEventListener('pointerdown', handlePointerDown);
-  }, [isMatchFeedOpen]);
 
   useEffect(() => {
     if (!error) {
@@ -1646,7 +603,7 @@ export const PlayPvpPage = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [authToken, deckId, mode, playerId, seed, sessionId]);
+  }, [authToken, deckId, mode, playerId, seed, sessionId, setExpandedFeedRoundNumber]);
 
   useEffect(() => {
     if (
@@ -1673,49 +630,6 @@ export const PlayPvpPage = () => {
     shouldAutoJoinInvite,
     submitJoinRequest,
   ]);
-
-  useEffect(() => {
-    const totalSteps = getPlaybackStepCount(lastResolvedRound);
-
-    if (!lastResolvedRound || totalSteps === 0) {
-      setResolvedPlaybackIndex(-1);
-      setResolvedPlaybackComplete(true);
-      setIsResolvedReplayOpen(false);
-      setIsResolvedReplayPinned(false);
-      return;
-    }
-
-    setResolvedPlaybackIndex(0);
-    setResolvedPlaybackComplete(false);
-    setIsResolvedReplayOpen(true);
-    setIsResolvedReplayPinned(false);
-  }, [lastResolvedRound]);
-
-  useEffect(() => {
-    const totalSteps = getPlaybackStepCount(lastResolvedRound);
-
-    if (
-      !lastResolvedRound ||
-      totalSteps === 0 ||
-      resolvedPlaybackComplete ||
-      resolvedPlaybackIndex < 0
-    ) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      if (resolvedPlaybackIndex >= totalSteps - 1) {
-        setResolvedPlaybackComplete(true);
-        return;
-      }
-
-      setResolvedPlaybackIndex((currentIndex) => Math.min(currentIndex + 1, totalSteps - 1));
-    }, ROUND_RESOLUTION_PLAYBACK_STEP_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [lastResolvedRound, resolvedPlaybackComplete, resolvedPlaybackIndex]);
 
   useEffect(() => {
     const nextRoundSync = getRoundSyncFromState(matchState, playerId);
@@ -1752,20 +666,6 @@ export const PlayPvpPage = () => {
     () => new Map(localBoardItems.map((item) => [item.id, item] as const)),
     [localBoardItems],
   );
-  useEffect(() => {
-    if (!lastResolvedRound) {
-      setResolvedPlaybackBoardItems(localBoardItems);
-      return;
-    }
-
-    const mergedItems = new Map<string, BoardItemSummary>();
-    previousLocalBoardItemsRef.current.forEach((item) => mergedItems.set(item.runtimeId, item));
-    localBoardItems.forEach((item) => mergedItems.set(item.runtimeId, item));
-    setResolvedPlaybackBoardItems([...mergedItems.values()]);
-  }, [lastResolvedRound, localBoardItems]);
-  useEffect(() => {
-    previousLocalBoardItemsRef.current = localBoardItems;
-  }, [localBoardItems]);
   const allResolvedBoardItems = useMemo(
     () => playerBoards.flatMap((playerBoard) => getPlayerBoardItemSummaries(matchState, playerBoard.playerId)),
     [matchState, playerBoards],
@@ -2720,7 +1620,7 @@ export const PlayPvpPage = () => {
 
       return null;
     });
-  }, [matchFeedRounds]);
+  }, [matchFeedRounds, setExpandedFeedRoundNumber]);
 
   const localRoundRibbonItems = useMemo<RoundRibbonActionSummary[]>(() => {
     if (selfBoardModel?.roundActions?.length && isSelfBoardModelDraftSynced) {
@@ -2924,20 +1824,6 @@ export const PlayPvpPage = () => {
       })),
     ];
   }, [isSelfBoardModelDraftSynced, localBoardItems, localBoardItemsById, localRoundRibbonItems, selfBoardModel]);
-  const visibleLocalBattleRibbonEntries = useMemo<LocalBattleRibbonEntrySummary[]>(
-    () =>
-      !isResolvedReplayOpen
-        ? localBattleRibbonEntries
-        : resolvedPlaybackBoardItems.map((item) => ({
-            id: `boardItem:${item.id}`,
-            kind: 'boardItem' as const,
-            orderIndex: item.placementOrderIndex,
-            layer: item.placementLayer,
-            item,
-            attachedActions: [],
-          })),
-    [isResolvedReplayOpen, localBattleRibbonEntries, resolvedPlaybackBoardItems],
-  );
   const localRoundRibbonItemsById = useMemo(
     () => new Map(localRoundRibbonItems.map((action) => [action.id, action] as const)),
     [localRoundRibbonItems],
@@ -2951,109 +1837,24 @@ export const PlayPvpPage = () => {
       ),
     [localBattleRibbonEntries],
   );
-  const resolvedSceneInspectTarget = useMemo<SceneInspectTarget | null>(() => {
-    if (sceneInspectTarget) {
-      return sceneInspectTarget;
-    }
-
-    if (selection?.kind === 'hand' && availableHandCardIds.has(selection.instanceId)) {
-      return { kind: 'hand', id: selection.instanceId };
-    }
-
-    return null;
-  }, [availableHandCardIds, sceneInspectTarget, selection]);
-  const sceneInspectSummary = useMemo(() => {
-    if (!resolvedSceneInspectTarget) {
-      return null;
-    }
-
-    if (resolvedSceneInspectTarget.kind === 'hand') {
-      const card = availableHandCards.find((entry) => entry.instanceId === resolvedSceneInspectTarget.id);
-      return card ? getHandCardInspectSummary(card) : null;
-    }
-
-    if (resolvedSceneInspectTarget.kind === 'boardItem') {
-      const item = localBoardItemsById.get(resolvedSceneInspectTarget.id);
-      if (!item) {
-        return null;
-      }
-
-      return getBoardItemInspectSummary(item, {
-        attachedActionCount: localBoardItemAttachedActionCountById.get(item.id) ?? 0,
-      });
-    }
-
-    const action = localRoundRibbonItemsById.get(resolvedSceneInspectTarget.id);
-    return action ? getRoundActionInspectSummary(action) : null;
-  }, [
-    localBoardItemAttachedActionCountById,
-    localBoardItemsById,
+  const {
+    handleBlur: handleSceneInspectBlur,
+    handleLeave: handleSceneInspectLeave,
+    inspectedBoardItemId,
+    inspectedHandCardId,
+    inspectedRoundActionId,
+    selectionLabel: sceneInspectSelectionLabel,
+    setTarget: setSceneInspectTarget,
+    summary: sceneInspectSummary,
+  } = useSceneInspect({
+    availableHandCardIds,
     availableHandCards,
+    localBoardItemAttachedActionCountById,
+    localBoardItemIdByRuntimeId,
+    localBoardItemsById,
     localRoundRibbonItemsById,
-    resolvedSceneInspectTarget,
-  ]);
-  const inspectedHandCardId = resolvedSceneInspectTarget?.kind === 'hand' ? resolvedSceneInspectTarget.id : null;
-  const inspectedBoardItemId = resolvedSceneInspectTarget?.kind === 'boardItem' ? resolvedSceneInspectTarget.id : null;
-  const inspectedRoundActionId =
-    resolvedSceneInspectTarget?.kind === 'roundAction' ? resolvedSceneInspectTarget.id : null;
-  const sceneInspectSelectionLabel = useMemo(() => {
-    if (!resolvedSceneInspectTarget) {
-      return null;
-    }
-
-    if (resolvedSceneInspectTarget.kind === 'hand') {
-      return selection?.kind === 'hand' && selection.instanceId === resolvedSceneInspectTarget.id
-        ? 'Выбрана'
-        : null;
-    }
-
-    if (resolvedSceneInspectTarget.kind === 'boardItem') {
-      const selectedBoardItemId =
-        selection?.kind === 'creature' ? localBoardItemIdByRuntimeId.get(selection.creatureId) ?? null : null;
-      return selectedBoardItemId === resolvedSceneInspectTarget.id ? 'Выбрана' : null;
-    }
-
-    return null;
-  }, [localBoardItemIdByRuntimeId, resolvedSceneInspectTarget, selection]);
-  const handleSceneInspectLeave = useCallback((target: SceneInspectTarget) => {
-    setSceneInspectTarget((current) => (isSameSceneInspectTarget(current, target) ? null : current));
-  }, []);
-  const handleSceneInspectBlur = useCallback(
-    (event: FocusEvent<HTMLElement>, target: SceneInspectTarget) => {
-      if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
-        return;
-      }
-
-      handleSceneInspectLeave(target);
-    },
-    [handleSceneInspectLeave],
-  );
-
-  useEffect(() => {
-    if (!sceneInspectTarget) {
-      return;
-    }
-
-    if (sceneInspectTarget.kind === 'hand') {
-      if (!availableHandCardIds.has(sceneInspectTarget.id)) {
-        setSceneInspectTarget(null);
-      }
-      return;
-    }
-
-    if (sceneInspectTarget.kind === 'boardItem') {
-      if (!localBoardItemsById.has(sceneInspectTarget.id)) {
-        setSceneInspectTarget(null);
-      }
-      return;
-    }
-
-    if (!localRoundRibbonItemsById.has(sceneInspectTarget.id)) {
-      setSceneInspectTarget(null);
-    }
-  }, [availableHandCardIds, localBoardItemsById, localRoundRibbonItemsById, sceneInspectTarget]);
-  const hasLocalBattleRibbonEntries = visibleLocalBattleRibbonEntries.length > 0;
-
+    selection,
+  });
   const resolvedTimelineEntries = useMemo<ResolvedTimelineEntrySummary[]>(
     () =>
       buildResolvedTimelineEntries(
@@ -3078,31 +1879,41 @@ export const PlayPvpPage = () => {
       playerId,
     ],
   );
-  const resolvePlaybackFrames = useMemo(
-    () => getPlaybackFrames(lastResolvedRound),
-    [lastResolvedRound],
-  );
-  const activeResolvePlaybackFrame =
-    resolvedPlaybackIndex >= 0 && resolvedPlaybackIndex < resolvePlaybackFrames.length
-      ? resolvePlaybackFrames[resolvedPlaybackIndex]
-      : null;
-  const hasResolvedPlaybackActiveStep =
-    !resolvedPlaybackComplete || getPlaybackStepCount(lastResolvedRound) <= 1;
-  const activeResolvedTimelineEntry =
-    activeResolvePlaybackFrame?.actionIntentId
-      ? resolvedTimelineEntries.find((entry) => entry.action.intentId === activeResolvePlaybackFrame.actionIntentId) ?? null
-      : hasResolvedPlaybackActiveStep &&
-          resolvedPlaybackIndex >= 0 &&
-          resolvedPlaybackIndex < resolvedTimelineEntries.length
-        ? resolvedTimelineEntries[resolvedPlaybackIndex]
-        : null;
-  const playbackFieldValues = useMemo(
+  const {
+    activeEntry: activeResolvedTimelineEntry,
+    activeFrame: activeResolvePlaybackFrame,
+    fieldValues: playbackFieldValues,
+    hasActiveStep: hasResolvedPlaybackActiveStep,
+    hasReplayAvailable,
+    isOpen: isResolvedReplayOpen,
+    itemRefs: resolvedReplayItemRefs,
+    playbackBoardItems: resolvedPlaybackBoardItems,
+    playbackComplete: resolvedPlaybackComplete,
+    playbackIndex: resolvedPlaybackIndex,
+    toggle: handleToggleResolvedReplay,
+    trackRef: resolvedReplayTrackRef,
+  } = useResolvedReplay({
+    lastResolvedRound,
+    resolvedTimelineEntries,
+    currentRoundNumber,
+    localBoardItems,
+  });
+
+  const visibleLocalBattleRibbonEntries = useMemo<LocalBattleRibbonEntrySummary[]>(
     () =>
-      isResolvedReplayOpen && resolvePlaybackFrames.length > 0
-        ? buildPlaybackFieldValues(resolvePlaybackFrames, resolvedPlaybackIndex)
-        : new Map<string, PlaybackFieldValue>(),
-    [isResolvedReplayOpen, resolvePlaybackFrames, resolvedPlaybackIndex],
+      !isResolvedReplayOpen
+        ? localBattleRibbonEntries
+        : resolvedPlaybackBoardItems.map((item) => ({
+            id: `boardItem:${item.id}`,
+            kind: 'boardItem' as const,
+            orderIndex: item.placementOrderIndex,
+            layer: item.placementLayer,
+            item,
+            attachedActions: [],
+          })),
+    [isResolvedReplayOpen, localBattleRibbonEntries, resolvedPlaybackBoardItems],
   );
+  const hasLocalBattleRibbonEntries = visibleLocalBattleRibbonEntries.length > 0;
   const localDisplayHp =
     getPlaybackNumberOverride(playbackFieldValues, 'character', localPlayer?.characterId, 'hp') ??
     localCharacterState?.hp;
@@ -3205,97 +2016,6 @@ export const PlayPvpPage = () => {
       ? getInviteJoinRejectHint(joinRejected.code)
       : null;
   const visibleLocalPlaybackSourceBoardItemId = isResolvedReplayOpen ? activeLocalPlaybackSourceBoardItemId : null;
-  const hasReplayAvailable = Boolean(lastResolvedRound && resolvedTimelineEntries.length > 0);
-  const hasCurrentRoundAdvancedPastReplay =
-    Boolean(lastResolvedRound) && currentRoundNumber > (lastResolvedRound?.roundNumber ?? 0);
-  const restartResolvedReplay = useCallback(
-    (pinned: boolean) => {
-      const totalSteps = getPlaybackStepCount(lastResolvedRound);
-      if (!lastResolvedRound || totalSteps === 0) {
-        return;
-      }
-
-      setResolvedPlaybackIndex(0);
-      setResolvedPlaybackComplete(totalSteps === 1);
-      setIsResolvedReplayPinned(pinned);
-      setIsResolvedReplayOpen(true);
-    },
-    [lastResolvedRound],
-  );
-
-  const handleToggleResolvedReplay = useCallback(() => {
-    if (!hasReplayAvailable) {
-      return;
-    }
-
-    if (isResolvedReplayOpen) {
-      setIsResolvedReplayOpen(false);
-      setIsResolvedReplayPinned(false);
-      return;
-    }
-
-    restartResolvedReplay(true);
-  }, [hasReplayAvailable, isResolvedReplayOpen, restartResolvedReplay]);
-
-  useEffect(() => {
-    if (
-      !isResolvedReplayOpen ||
-      isResolvedReplayPinned ||
-      !resolvedPlaybackComplete ||
-      !hasCurrentRoundAdvancedPastReplay
-    ) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setIsResolvedReplayOpen(false);
-    }, ROUND_RESOLUTION_REPLAY_AUTO_CLOSE_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [
-    hasCurrentRoundAdvancedPastReplay,
-    isResolvedReplayOpen,
-    isResolvedReplayPinned,
-    resolvedPlaybackComplete,
-  ]);
-
-  useEffect(() => {
-    if (!isResolvedReplayOpen || !activeResolvedTimelineEntry) {
-      return;
-    }
-
-    const replayTrack = resolvedReplayTrackRef.current;
-    const replayItem = resolvedReplayItemRefs.current[activeResolvedTimelineEntry.action.intentId];
-
-    if (!replayTrack || !replayItem) {
-      return;
-    }
-
-    const nextScrollLeft =
-      replayItem.offsetLeft - Math.max(0, (replayTrack.clientWidth - replayItem.clientWidth) / 2);
-    const boundedScrollLeft = Math.max(0, nextScrollLeft);
-
-    if (typeof replayTrack.scrollTo === 'function') {
-      replayTrack.scrollTo({
-        left: boundedScrollLeft,
-        behavior: 'smooth',
-      });
-    } else {
-      replayTrack.scrollLeft = boundedScrollLeft;
-    }
-
-    if (typeof document.scrollingElement?.scrollTo === 'function') {
-      document.scrollingElement.scrollTo({
-        left: 0,
-        top: document.scrollingElement.scrollTop,
-      });
-    } else if (document.scrollingElement) {
-      document.scrollingElement.scrollLeft = 0;
-    }
-  }, [activeResolvedTimelineEntry, isResolvedReplayOpen]);
-
   const draftRejectionErrorsByIntentId = useMemo(() => {
     const errorMap = new Map<string, RoundDraftRejectedSummary['errors']>();
     if (!roundDraftRejected) {
@@ -3350,7 +2070,7 @@ export const PlayPvpPage = () => {
     setSelection(null);
     setSceneInspectTarget(null);
     setDraftTarget(null);
-  }, [roundSync?.selfLocked]);
+  }, [roundSync?.selfLocked, setSceneInspectTarget]);
 
   useEffect(() => {
     if (!selection) {
@@ -3494,121 +2214,24 @@ export const PlayPvpPage = () => {
   ]);
 
   if (!session) {
-    return (
-      <PageShell
-        title="Дуэль магов"
-        subtitle="Войдите в аккаунт, чтобы выйти на арену."
-        actions={<HomeLinkButton />}
-      >
-        <Card title="Нужна авторизация">
-          <div className={styles.noticeBlock}>
-            <p className={styles.paragraph}>
-              Сначала войди в аккаунт, чтобы использовать свой игровой идентификатор для PvP-сервера.
-            </p>
-            <div className={styles.inlineActions}>
-              <Link className={styles.primaryButton} to={ROUTES.LOGIN}>
-                Войти
-              </Link>
-              <Link className={styles.secondaryButton} to={ROUTES.REGISTER}>
-                Создать аккаунт
-              </Link>
-            </div>
-          </div>
-        </Card>
-      </PageShell>
-    );
+    return <AuthRequiredPanel />;
   }
 
   return (
     <div className={styles.scenePage}>
-      <div className={styles.sceneTopBar}>
-        <div className={styles.sceneTitleBlock}>
-          <h1 className={styles.sceneTitle}>Дуэль магов</h1>
-          {!matchSummary ? (
-            <div className={styles.sceneMeta}>
-              <span className={styles.sceneHint}>
-                Подключись к матчу, чтобы открыть арену.
-              </span>
-            </div>
-          ) : null}
-        </div>
-        <div className={styles.sceneActions}>
-          <button
-            className={styles.exitMatchButton}
-            type="button"
-            onClick={() => setIsExitConfirmOpen(true)}
-            aria-label="Выйти из матча"
-            title="Выйти из матча"
-          >
-            <ExitDoorIcon />
-          </button>
-        </div>
-      </div>
+      <SceneTopBar hasMatch={Boolean(matchSummary)} onExitClick={() => setIsExitConfirmOpen(true)} />
 
-      <div className={styles.sceneAlerts}>
-        {transportRejected || joinRejected ? (
-          <>
-          {transportRejected ? (
-            <div className={styles.roundRejectBox}>
-              <strong>
-                Сервер отклонил сообщение {transportRejected.requestType ? `для ${transportRejected.requestType}` : 'без типа'}
-              </strong>
-              <div className={styles.roundQueueError}>
-                <span className={styles.cardBadge}>{transportRejected.code}</span>
-                <span>{getTransportRejectCodeLabel(transportRejected.code)}</span>
-              </div>
-              <span>{transportRejected.error}</span>
-            </div>
-          ) : null}
-          {joinRejected ? (
-            <div className={styles.roundRejectBox}>
-              <strong>
-                Сервер отклонил вход {joinRejected.sessionId ? `в сессию ${joinRejected.sessionId}` : 'в матч'}
-              </strong>
-              <div className={styles.roundQueueError}>
-                <span className={styles.cardBadge}>{joinRejected.code}</span>
-                <span>{getJoinRejectCodeLabel(joinRejected.code)}</span>
-              </div>
-              <span>{joinRejected.error}</span>
-              {inviteJoinRejectHint ? <span>{inviteJoinRejectHint}</span> : null}
-            </div>
-          ) : null}
-          </>
-        ) : null}
-      </div>
+      <SceneAlerts
+        transportRejected={transportRejected}
+        joinRejected={joinRejected}
+        inviteJoinRejectHint={inviteJoinRejectHint}
+      />
 
       {isExitConfirmOpen ? (
-        <div className={styles.exitConfirmOverlay}>
-          <form
-            className={styles.exitConfirmDialog}
-            onSubmit={handleConfirmExit}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="exit-confirm-title"
-          >
-            <div className={styles.exitConfirmHeader}>
-              <span className={styles.panelSectionKicker}>Выход из матча</span>
-              <strong id="exit-confirm-title" className={styles.panelSectionTitle}>
-                Покинуть дуэль?
-              </strong>
-            </div>
-            <p className={styles.paragraph}>
-              Ты выйдешь на главную страницу, а текущее PvP-соединение будет закрыто.
-            </p>
-            <div className={styles.formActions}>
-              <button className={styles.primaryButton} type="submit">
-                Выйти из матча
-              </button>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                onClick={() => setIsExitConfirmOpen(false)}
-              >
-                Остаться
-              </button>
-            </div>
-          </form>
-        </div>
+        <ExitConfirmDialog
+          onConfirm={handleConfirmExit}
+          onCancel={() => setIsExitConfirmOpen(false)}
+        />
       ) : null}
 
       <div className={styles.workbench}>
@@ -3622,366 +2245,130 @@ export const PlayPvpPage = () => {
                 {error}
               </div>
             ) : null}
-            <button
-              ref={matchFeedToggleRef}
-              className={`${styles.matchFeedToggleButton} ${isMatchFeedOpen ? styles.matchFeedToggleButtonActive : ''}`.trim()}
-              type="button"
-              onClick={() => setIsMatchFeedOpen((current) => !current)}
-              aria-label={isMatchFeedOpen ? 'Скрыть историю раундов' : 'Открыть историю раундов'}
-              aria-expanded={isMatchFeedOpen}
-            >
-              <MatchFeedScrollIcon />
-              {matchFeedRounds.length > 0 ? <span className={styles.matchFeedToggleCount}>{matchFeedRounds.length}</span> : null}
-            </button>
-            <div
-              ref={matchFeedPanelRef}
-              className={`${styles.matchFeedDrawer} ${isMatchFeedOpen ? styles.matchFeedDrawerOpen : ''}`.trim()}
-              aria-hidden={!isMatchFeedOpen}
-            >
-              <div className={styles.matchFeedDrawerHeader}>
-                <div className={styles.panelSectionHeading}>
-                  <span className={styles.panelSectionKicker}>История матча</span>
-                  <strong className={styles.panelSectionTitle}>Летопись раундов</strong>
-                </div>
-                <span className={styles.cardBadge}>
-                  {matchFeedRounds.length > 0 ? `${matchFeedRounds.length} раунд${matchFeedRounds.length === 1 ? '' : matchFeedRounds.length < 5 ? 'а' : 'ов'}` : 'Пока пусто'}
-                </span>
-              </div>
-              <div className={styles.matchFeedDrawerBody}>
-                {matchFeedRounds.length > 0 ? (
-                  <div className={styles.matchFeed} data-testid="match-feed">
-                    {matchFeedRounds.map((round) => {
-                      const isExpanded = round.roundNumber === expandedFeedRoundNumber;
-
-                      return (
-                        <section key={round.roundNumber} className={styles.matchFeedRound}>
-                          <button
-                            type="button"
-                            className={styles.matchFeedRoundToggle}
-                            onClick={() =>
-                              setExpandedFeedRoundNumber((current) => (current === round.roundNumber ? null : round.roundNumber))
-                            }
-                            aria-expanded={isExpanded}
-                          >
-                            <div className={styles.matchFeedRoundHeading}>
-                              <strong>{round.title}</strong>
-                              <span>{round.subtitle}</span>
-                            </div>
-                            <span className={styles.matchFeedRoundChevron}>{isExpanded ? 'Свернуть' : 'Раскрыть'}</span>
-                          </button>
-
-                          {isExpanded ? (
-                            <div className={styles.matchFeedEntries}>
-                              {round.entries.map((entry) => (
-                                <article
-                                  key={entry.id}
-                                  className={`${styles.matchFeedEntry} ${
-                                    entry.tone === 'success'
-                                      ? styles.matchFeedEntryToneSuccess
-                                      : entry.tone === 'warning'
-                                        ? styles.matchFeedEntryToneWarning
-                                        : entry.tone === 'danger'
-                                          ? styles.matchFeedEntryToneDanger
-                                          : styles.matchFeedEntryToneNeutral
-                                  }`}
-                                >
-                                  <div className={styles.matchFeedEntryMain}>
-                                    <strong>{entry.actorLabel}</strong>
-                                    <span>{entry.actionLabel}</span>
-                                  </div>
-                                  {entry.targetLabel ? <div className={styles.matchFeedEntryMeta}>Цель: {entry.targetLabel}</div> : null}
-                                  <div className={styles.matchFeedEntryOutcome}>{entry.outcomeLabel}</div>
-                                  {entry.detailText ? <div className={styles.matchFeedEntryDetail}>{entry.detailText}</div> : null}
-                                  {entry.detailItems?.length ? (
-                                    <div className={styles.matchFeedEntryDetails}>
-                                      {entry.detailItems.map((detailItem) => (
-                                        <div key={detailItem} className={styles.matchFeedEntryDetailItem}>
-                                          {detailItem}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </article>
-                              ))}
-                            </div>
-                          ) : null}
-                        </section>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className={styles.emptyState}>Раунды появятся после первого резолва.</div>
-                )}
-              </div>
-            </div>
+            <MatchFeedDrawer
+              isOpen={isMatchFeedOpen}
+              rounds={matchFeedRounds}
+              expandedRoundNumber={expandedFeedRoundNumber}
+              toggleRef={matchFeedToggleRef}
+              panelRef={matchFeedPanelRef}
+              onToggleOpen={() => setIsMatchFeedOpen((current) => !current)}
+              onToggleRound={(roundNumber) =>
+                setExpandedFeedRoundNumber((current) => (current === roundNumber ? null : roundNumber))
+              }
+            />
             {matchSummary ? (
               <div className={styles.matchOverview}>
                 <div className={styles.battlefield}>
                   <section className={styles.boardShell}>
                     <aside className={styles.boardSideColumn}>
-                      <div className={`${styles.playerSideCard} ${isEnemySideActive ? styles.playerSideCardActive : ''}`.trim()}>
-                        <span className={styles.playerSideLabel}>Соперник</span>
-                        <button
-                          className={[
-                            styles.avatarTargetButton,
-                            getHeroPlaybackEffectClassName(enemyHeroPlaybackEffect),
-                            primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId)
-                              ? styles.selectionSurfaceTargetable
-                              : '',
-                            primaryEnemyBoard?.characterId && isDraftTargetActive(primaryEnemyBoard.characterId)
-                              ? styles.selectionSurfaceTargetActive
-                              : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                          aria-label={getTargetButtonAriaLabel(`Маг ${primaryEnemyDisplayName || 'соперника'}`, Boolean(primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId)))}
-                          type="button"
-                          onClick={() => {
-                            const enemyCharacterId = primaryEnemyBoard?.characterId;
-                            if (enemyCharacterId && isSelectableTarget(enemyCharacterId)) {
-                              applyDraftTargetForSelection(enemyCharacterId);
-                            }
-                          }}
-                        >
-                          <div
-                            className={`${styles.playerPortraitFrame} ${getCharacterAccentClassName(enemyCharacter?.faculty)}`.trim()}
-                          >
-                            <div
-                              className={`${styles.playerPortraitSilhouette} ${getCharacterAccentClassName(enemyCharacter?.faculty)}`.trim()}
-                            >
-                              {getCharacterInitials(enemyCharacter?.name ?? 'P1')}
-                            </div>
-                            {typeof enemyDisplayShield === 'number' && enemyDisplayShield > 0 ? (
-                              <span className={styles.heroShieldBadge} aria-label={`Щит ${enemyDisplayShield}`}>
-                                {enemyDisplayShield}
-                              </span>
-                            ) : null}
-                            {enemyHeroPlaybackEffect?.floatingText ? (
-                              <span className={styles.heroFloatingNumber}>{enemyHeroPlaybackEffect.floatingText}</span>
-                            ) : null}
-                          </div>
-                          <div className={styles.playerIdentity}>
-                            <strong>{enemyCharacter?.name ?? 'Ожидание соперника'}</strong>
-                            <span>{primaryEnemyDisplayName || 'Подключится позже'}</span>
-                            {primaryEnemyBoard && enemyCharacterState ? (
-                              <div className={styles.playerIdentityStats}>
-                                <span className={styles.playerIdentityStat}>
-                                  HP {enemyDisplayHp ?? enemyCharacterState.hp}/{enemyCharacterState.maxHp}
-                                </span>
-                                <span className={styles.playerIdentityStat}>
-                                  Мана {enemyDisplayMana ?? primaryEnemyBoard.mana}/{primaryEnemyBoard.maxMana}
-                                </span>
-                                <span className={styles.playerIdentityStat}>
-                                  Ловкость {enemyCharacterState.dexterity}
-                                </span>
-                                <span className={styles.playerIdentityStat}>
-                                  Конц. {enemyCharacterState.concentration}
-                                </span>
-                              </div>
-                            ) : null}
-                            {enemyResourcePlaybackEffect ? (
-                              <span
-                                className={`${styles.playerResourceFloatingNumber} ${getPlayerResourcePlaybackEffectClassName(enemyResourcePlaybackEffect)}`.trim()}
-                              >
-                                {enemyResourcePlaybackEffect.floatingText}
-                              </span>
-                            ) : null}
-                          </div>
-                        </button>
-                      </div>
-                      <div className={styles.turnActionRail}>
-                        <div className={styles.turnActionControls}>
-                          <button
-                            className={`${styles.primaryButton} ${styles.turnActionButton}`.trim()}
-                            type="button"
-                            onClick={handleLockRound}
-                            disabled={!canLockRound}
-                          >
-                            {roundSync?.selfLocked ? 'Ждём ход соперника' : 'Завершить ход'}
-                          </button>
-                          {hasReplayAvailable ? (
-                            <button
-                              className={`${styles.replayToggleButton} ${styles.turnActionReplayButton} ${isResolvedReplayOpen ? styles.replayToggleButtonActive : ''}`.trim()}
-                              type="button"
-                              aria-label={isResolvedReplayOpen ? 'Вернуться к текущему драфту' : 'Открыть прошлый резолв'}
-                              onClick={handleToggleResolvedReplay}
-                            >
-                              <span className={styles.replayToggleEye} aria-hidden="true">
-                                <span className={styles.replayToggleEyePupil} />
-                              </span>
-                            </button>
-                          ) : null}
-                        </div>
-                        <div className={styles.turnActionStatus}>
-                          <span>
-                            Ты: <strong>{roundSync?.selfLocked ? 'Готово' : 'Собираешь ленту'}</strong>
-                          </span>
-                          <span>
-                            Соперник: <strong>{roundSync?.opponentLocked ? 'Готово' : 'Выбирает'}</strong>
-                          </span>
-                        </div>
-                      </div>
+                      <PlayerSideCard
+                        label="Соперник"
+                        isActive={isEnemySideActive}
+                        isTargetable={Boolean(primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId))}
+                        isTargetActive={Boolean(primaryEnemyBoard?.characterId && isDraftTargetActive(primaryEnemyBoard.characterId))}
+                        heroEffectClassName={getHeroPlaybackEffectClassName(enemyHeroPlaybackEffect)}
+                        ariaLabel={getTargetButtonAriaLabel(
+                          `Маг ${primaryEnemyDisplayName || 'соперника'}`,
+                          Boolean(primaryEnemyBoard?.characterId && isSelectableTarget(primaryEnemyBoard.characterId)),
+                        )}
+                        portraitAccentClassName={getCharacterAccentClassName(enemyCharacter?.faculty)}
+                        initials={getCharacterInitials(enemyCharacter?.name ?? 'P1')}
+                        shield={enemyDisplayShield}
+                        heroFloatingText={enemyHeroPlaybackEffect?.floatingText}
+                        title={enemyCharacter?.name ?? 'Ожидание соперника'}
+                        subtitle={primaryEnemyDisplayName || 'Подключится позже'}
+                        stats={
+                          primaryEnemyBoard && enemyCharacterState
+                            ? {
+                                hp: enemyDisplayHp ?? null,
+                                fallbackHp: enemyCharacterState.hp,
+                                maxHp: enemyCharacterState.maxHp,
+                                mana: enemyDisplayMana ?? null,
+                                fallbackMana: primaryEnemyBoard.mana,
+                                maxMana: primaryEnemyBoard.maxMana,
+                                dexterity: enemyCharacterState.dexterity,
+                                concentration: enemyCharacterState.concentration,
+                              }
+                            : null
+                        }
+                        resourceEffectClassName={getPlayerResourcePlaybackEffectClassName(enemyResourcePlaybackEffect)}
+                        resourceFloatingText={enemyResourcePlaybackEffect?.floatingText}
+                        onTargetClick={() => {
+                          const enemyCharacterId = primaryEnemyBoard?.characterId;
+                          if (enemyCharacterId && isSelectableTarget(enemyCharacterId)) {
+                            applyDraftTargetForSelection(enemyCharacterId);
+                          }
+                        }}
+                      />
+                      <TurnActionRail
+                        canLockRound={canLockRound}
+                        isSelfLocked={Boolean(roundSync?.selfLocked)}
+                        isOpponentLocked={Boolean(roundSync?.opponentLocked)}
+                        hasReplayAvailable={hasReplayAvailable}
+                        isResolvedReplayOpen={isResolvedReplayOpen}
+                        onLockRound={handleLockRound}
+                        onToggleResolvedReplay={handleToggleResolvedReplay}
+                      />
 
-                      <div className={`${styles.playerSideCard} ${isLocalSideActive ? styles.playerSideCardActive : ''}`.trim()}>
-                        <span className={styles.playerSideLabel}>Ты</span>
-                        <button
-                          className={[
-                            styles.avatarTargetButton,
-                            getHeroPlaybackEffectClassName(localHeroPlaybackEffect),
-                            localPlayer && isSelectableTarget(localPlayer.characterId) ? styles.selectionSurfaceTargetable : '',
-                            localPlayer && isDraftTargetActive(localPlayer.characterId) ? styles.selectionSurfaceTargetActive : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                          aria-label={getTargetButtonAriaLabel('Твой маг', Boolean(localPlayer && isSelectableTarget(localPlayer.characterId)))}
-                          type="button"
-                          onClick={() => {
-                            if (localPlayer && isSelectableTarget(localPlayer.characterId)) {
-                              applyDraftTargetForSelection(localPlayer.characterId);
-                            }
-                          }}
-                        >
-                          <div
-                            className={`${styles.playerPortraitFrame} ${getCharacterAccentClassName(localCharacter?.faculty, true)}`.trim()}
-                          >
-                            <div
-                              className={`${styles.playerPortraitSilhouette} ${styles.playerPortraitSilhouetteLocal} ${getCharacterAccentClassName(localCharacter?.faculty, true)}`.trim()}
-                            >
-                              {getCharacterInitials(localCharacter?.name ?? 'P2')}
-                            </div>
-                            {typeof localDisplayShield === 'number' && localDisplayShield > 0 ? (
-                              <span className={styles.heroShieldBadge} aria-label={`Щит ${localDisplayShield}`}>
-                                {localDisplayShield}
-                              </span>
-                            ) : null}
-                            {localHeroPlaybackEffect?.floatingText ? (
-                              <span className={styles.heroFloatingNumber}>{localHeroPlaybackEffect.floatingText}</span>
-                            ) : null}
-                          </div>
-                          <div className={styles.playerIdentity}>
-                            <strong>{localCharacter?.name ?? 'Твой персонаж'}</strong>
-                            <span>{localDisplayName}</span>
-                            {localPlayer && localCharacterState ? (
-                              <div className={styles.playerIdentityStats}>
-                                <span className={styles.playerIdentityStat}>
-                                  HP {localDisplayHp ?? localCharacterState.hp}/{localCharacterState.maxHp}
-                                </span>
-                                <span className={styles.playerIdentityStat}>
-                                  Мана {localDisplayMana ?? localPlayer.mana}/{localPlayer.maxMana}
-                                </span>
-                                <span className={styles.playerIdentityStat}>
-                                  Ловкость {localCharacterState.dexterity}
-                                </span>
-                                <span className={styles.playerIdentityStat}>
-                                  Конц. {localCharacterState.concentration}
-                                </span>
-                              </div>
-                            ) : null}
-                            {localResourcePlaybackEffect ? (
-                              <span
-                                className={`${styles.playerResourceFloatingNumber} ${getPlayerResourcePlaybackEffectClassName(localResourcePlaybackEffect)}`.trim()}
-                              >
-                                {localResourcePlaybackEffect.floatingText}
-                              </span>
-                            ) : null}
-                          </div>
-                        </button>
-                      </div>
+                      <PlayerSideCard
+                        label="Ты"
+                        isActive={isLocalSideActive}
+                        isLocal
+                        isTargetable={Boolean(localPlayer && isSelectableTarget(localPlayer.characterId))}
+                        isTargetActive={Boolean(localPlayer && isDraftTargetActive(localPlayer.characterId))}
+                        heroEffectClassName={getHeroPlaybackEffectClassName(localHeroPlaybackEffect)}
+                        ariaLabel={getTargetButtonAriaLabel(
+                          'Твой маг',
+                          Boolean(localPlayer && isSelectableTarget(localPlayer.characterId)),
+                        )}
+                        portraitAccentClassName={getCharacterAccentClassName(localCharacter?.faculty, true)}
+                        initials={getCharacterInitials(localCharacter?.name ?? 'P2')}
+                        shield={localDisplayShield}
+                        heroFloatingText={localHeroPlaybackEffect?.floatingText}
+                        title={localCharacter?.name ?? 'Твой персонаж'}
+                        subtitle={localDisplayName}
+                        stats={
+                          localPlayer && localCharacterState
+                            ? {
+                                hp: localDisplayHp ?? null,
+                                fallbackHp: localCharacterState.hp,
+                                maxHp: localCharacterState.maxHp,
+                                mana: localDisplayMana ?? null,
+                                fallbackMana: localPlayer.mana,
+                                maxMana: localPlayer.maxMana,
+                                dexterity: localCharacterState.dexterity,
+                                concentration: localCharacterState.concentration,
+                              }
+                            : null
+                        }
+                        resourceEffectClassName={getPlayerResourcePlaybackEffectClassName(localResourcePlaybackEffect)}
+                        resourceFloatingText={localResourcePlaybackEffect?.floatingText}
+                        onTargetClick={() => {
+                          if (localPlayer && isSelectableTarget(localPlayer.characterId)) {
+                            applyDraftTargetForSelection(localPlayer.characterId);
+                          }
+                        }}
+                      />
                     </aside>
 
                     <section
                       className={`${styles.fieldFrame} ${isResolvedReplayOpen ? styles.fieldFrameReplay : styles.fieldFrameLive}`.trim()}
                     >
                       {isResolvedReplayOpen ? (
-                        <section className={styles.resolveReplayScene} data-testid="resolution-replay-strip">
-                          <div
-                            ref={resolvedReplayTrackRef}
-                            className={[
-                              styles.resolveReplayTrack,
-                              resolvedTimelineEntries.length === 1
-                                ? styles.resolveReplayTrackSolo
-                                : resolvedTimelineEntries.length <= 3
-                                  ? styles.resolveReplayTrackSparse
-                                  : resolvedTimelineEntries.length >= 6
-                                    ? styles.resolveReplayTrackDense
-                                    : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' ')}
-                          >
-                            {resolvedTimelineEntries.map((entry, index) => {
-                              const isReplayItemActive =
-                                hasResolvedPlaybackActiveStep &&
-                                activeResolvedTimelineEntry?.action.intentId === entry.action.intentId;
-                              const isReplayItemResolved =
-                                resolvedPlaybackComplete ||
-                                (
-                                  activeResolvedTimelineEntry
-                                    ? entry.action.orderIndex < activeResolvedTimelineEntry.action.orderIndex
-                                    : index < resolvedPlaybackIndex
-                                );
-
-                              return (
-                                <article
-                                  key={entry.action.intentId}
-                                  ref={(node) => {
-                                    resolvedReplayItemRefs.current[entry.action.intentId] = node;
-                                  }}
-                                  className={[
-                                    styles.resolveReplayItem,
-                                    getRoundQueueToneClassName(entry.action.layer),
-                                    entry.action.playerId === playerId
-                                      ? styles.resolveReplayItemLocal
-                                      : styles.resolveReplayItemEnemy,
-                                    isReplayItemActive ? styles.resolveReplayItemActive : '',
-                                    isReplayItemActive && entry.action.status === 'fizzled'
-                                      ? styles.resolveReplayItemFizzle
-                                      : '',
-                                    isReplayItemActive && entry.action.layer === 'attacks'
-                                      ? styles.resolveReplayItemAttack
-                                      : '',
-                                    isReplayItemResolved ? styles.resolveReplayItemResolved : '',
-                                  ]
-                                    .filter(Boolean)
-                                    .join(' ')}
-                                  data-testid={isReplayItemActive ? 'resolution-replay-item-active' : 'resolution-replay-item'}
-                                >
-                                  <div className={styles.resolveReplayItemHeader}>
-                                    <span className={styles.resolveReplayItemOrder}>{entry.order}</span>
-                                    <div className={styles.resolveReplayItemHeading}>
-                                      <span className={styles.summaryLabel}>{entry.ownerLabel}</span>
-                                      <strong>{entry.title}</strong>
-                                    </div>
-                                  </div>
-                                  {entry.subtitle ? (
-                                    <span className={styles.resolveReplayItemSubtitle}>{entry.subtitle}</span>
-                                  ) : null}
-                                  <div className={styles.resolveReplayItemMeta}>
-                                    <span className={`${styles.cardBadge} ${getActionToneBadgeClassName(entry.action.layer)}`.trim()}>
-                                      {getRoundActionModeLabel(entry.action.layer)}
-                                    </span>
-                                    {entry.action.status !== 'resolved' ? (
-                                      <span className={styles.cardBadge}>{getResolvedActionOutcomeLabel(entry.action)}</span>
-                                    ) : null}
-                                    {isReplayItemActive ? <span className={styles.cardBadge}>Сейчас</span> : null}
-                                  </div>
-                                  {entry.summary ? (
-                                    <span className={styles.resolveReplayItemSummary}>{entry.summary}</span>
-                                  ) : null}
-                                  {entry.detailItems.length ? (
-                                    <div className={styles.resolveReplayItemDetails}>
-                                      {entry.detailItems.map((detailItem) => (
-                                        <div key={detailItem} className={styles.resolveReplayItemDetail}>
-                                          {detailItem}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </article>
-                              );
-                            })}
-                          </div>
-                        </section>
+                        <ResolutionReplayStrip
+                          entries={resolvedTimelineEntries}
+                          playerId={playerId}
+                          hasActiveStep={hasResolvedPlaybackActiveStep}
+                          activeEntry={activeResolvedTimelineEntry}
+                          playbackIndex={resolvedPlaybackIndex}
+                          playbackComplete={resolvedPlaybackComplete}
+                          trackRef={resolvedReplayTrackRef}
+                          itemRefs={resolvedReplayItemRefs}
+                          getQueueToneClassName={getRoundQueueToneClassName}
+                          getToneBadgeClassName={getActionToneBadgeClassName}
+                          getModeLabel={getRoundActionModeLabel}
+                          getOutcomeLabel={getResolvedActionOutcomeLabel}
+                        />
                       ) : null}
 
                       <div
@@ -3989,44 +2376,13 @@ export const PlayPvpPage = () => {
                         data-testid="pvp-scene-stage"
                       >
                           <div className={styles.enemyBand}>
-                            {!isResolvedReplayOpen ? (
-                            <>
-                            <section
-                              className={`${styles.handTray} ${styles.opponentHandTray} ${isEnemyHandEmpty ? styles.compactZone : ''}`.trim()}
-                              data-testid="opponent-hand-tray"
-                            >
-                              {visibleEnemyHandCount > 0 ? (
-                                <div className={styles.opponentHandFanGrid} aria-hidden="true">
-                                  {Array.from({ length: visibleEnemyHandCount }).map((_, index) => (
-                                    <div
-                                      key={`enemy-hand-${index}`}
-                                      className={styles.opponentHandCard}
-                                      data-testid="opponent-hand-card"
-                                    >
-                                      <span className={styles.opponentHandCardBack} />
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </section>
-                            <section
-                              className={`${styles.opponentIntentTray} ${enemyPreparationToneClassName}`.trim()}
-                              data-testid="opponent-hidden-draft-zone"
-                              aria-label="Скрытая подготовка соперника"
-                            >
-                              <div className={styles.opponentIntentFan} aria-hidden="true">
-                                {enemyPreparationCount > 0 ? (
-                                  Array.from({ length: enemyPreparationCount }).map((_, index) => (
-                                    <span
-                                      key={`opponent-intent-${index}`}
-                                      className={`${styles.opponentIntentCard} ${index === 0 ? styles.opponentIntentCardLead : ''}`.trim()}
-                                    />
-                                  ))
-                                ) : null}
-                              </div>
-                            </section>
-                            </>
-                            ) : null}
+                            <OpponentPreparationZone
+                              isReplayOpen={isResolvedReplayOpen}
+                              isHandEmpty={isEnemyHandEmpty}
+                              visibleHandCount={visibleEnemyHandCount}
+                              preparationCount={enemyPreparationCount}
+                              preparationToneClassName={enemyPreparationToneClassName}
+                            />
                           </div>
                           <div className={styles.battlefieldCore} aria-hidden="true" />
                           <div className={styles.playerBand}>
@@ -4035,506 +2391,84 @@ export const PlayPvpPage = () => {
                               data-testid={isResolvedReplayOpen ? 'local-playback-board' : 'local-draft-workspace'}
                             >
                     {hasLocalBattleRibbonEntries ? (
-                      <div className={styles.ribbonSection}>
-                        <div className={styles.ribbonGrid}>
-                          {visibleLocalBattleRibbonEntries.map((entry) => {
-                            if (entry.kind === 'boardItem') {
-                              const { item, attachedActions } = entry;
-                              const boardItemPlaybackEffect =
-                                item.subtype === 'creature'
-                                  ? getActiveBoardItemPlaybackEffect(activeResolvePlaybackFrame, item.runtimeId)
-                                  : null;
-                              const boardItemPresenceOverride =
-                                item.subtype === 'creature'
-                                  ? getPlaybackValueOverride(
-                                      playbackFieldValues,
-                                      'creature',
-                                      item.runtimeId,
-                                      'presence',
-                                    )
-                                  : undefined;
-                              const boardItemHpOverride =
-                                item.subtype === 'creature'
-                                  ? getPlaybackNumberOverride(
-                                      playbackFieldValues,
-                                      'creature',
-                                      item.runtimeId,
-                                      'hp',
-                                    )
-                                  : null;
-                              const boardItemDisplayHp = boardItemHpOverride ?? item.hp ?? 0;
-                              const isBoardItemHiddenByPlayback =
-                                boardItemPresenceOverride === false && boardItemPlaybackEffect?.tone !== 'destroy';
-                              if (isBoardItemHiddenByPlayback) {
-                                return null;
-                              }
-                              const isSelectedBoardCreature =
-                                item.subtype === 'creature' &&
-                                selection?.kind === 'creature' &&
-                                selection.creatureId === item.runtimeId;
-                              const isPlaybackBoardItemActive = visibleLocalPlaybackSourceBoardItemId === item.id;
-                              const activeBoardItemAction =
-                                isPlaybackBoardItemActive && activeResolvedTimelineEntry?.action.playerId === playerId
-                                  ? activeResolvedTimelineEntry.action
-                                  : null;
-                              const boardItemInspectTarget: SceneInspectTarget = { kind: 'boardItem', id: item.id };
-                              const localCardClassName = [
-                                styles.ribbonCard,
-                                item.subtype === 'effect' ? styles.ribbonCardEffect : styles.ribbonCardLocal,
-                                attachedActions.length > 0 ? styles.ribbonCardActive : '',
-                                isPlaybackBoardItemActive ? styles.ribbonCardPlaybackActive : '',
-                                activeBoardItemAction?.layer === 'attacks' ? styles.ribbonCardPlaybackAttack : '',
-                                isPlaybackBoardItemActive && item.speed ? styles.ribbonCardPlaybackSpeed : '',
-                                getBoardItemPlaybackEffectClassName(boardItemPlaybackEffect),
-                                inspectedBoardItemId === item.id ? styles.ribbonCardInspected : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ');
-
-                              return item.subtype === 'creature' ? (
-                                <div
-                                  key={entry.id}
-                                  className={localCardClassName}
-                                  data-testid={`battle-ribbon-item-${item.id}`}
-                                  onMouseEnter={() => setSceneInspectTarget(boardItemInspectTarget)}
-                                  onMouseLeave={() => handleSceneInspectLeave(boardItemInspectTarget)}
-                                  onFocusCapture={() => setSceneInspectTarget(boardItemInspectTarget)}
-                                  onBlurCapture={(event) => handleSceneInspectBlur(event, boardItemInspectTarget)}
-                                >
-                                  <button
-                                    className={`${styles.selectionSurface} ${selection?.kind === 'creature' && selection.creatureId === item.runtimeId ? styles.selectionSurfaceActive : ''} ${isSelectableTarget(item.runtimeId) ? styles.selectionSurfaceTargetable : ''} ${isDraftTargetActive(item.runtimeId) ? styles.selectionSurfaceTargetActive : ''}`.trim()}
-                                    aria-label={getTargetButtonAriaLabel(`Существо ${item.runtimeId}`, isSelectableTarget(item.runtimeId))}
-                                    type="button"
-                                    onClick={() =>
-                                      isSelectableTarget(item.runtimeId)
-                                        ? applyDraftTargetForSelection(item.runtimeId)
-                                        : setSelection({ kind: 'creature', creatureId: item.runtimeId })
-                                    }
-                                  >
-                                    <div
-                                      className={`${styles.ribbonArtwork} ${getRibbonArtworkAccentClassName(item.school, 'creature')}`.trim()}
-                                    >
-                                      {attachedActions.length > 0 ? (
-                                        <span className={styles.ribbonArtworkBadge}>Действий: {attachedActions.length}</span>
-                                      ) : null}
-                                    </div>
-                                    <div className={styles.ribbonCardBody}>
-                                      <strong className={styles.ribbonCompactTitle}>{item.title}</strong>
-                                      <div className={styles.ribbonStats}>
-                                        <span>HP {boardItemDisplayHp}/{item.maxHp ?? 0}</span>
-                                        <span>ATK {item.attack ?? 0}</span>
-                                        <span>SPD {item.speed ?? 0}</span>
-                                      </div>
-                                    </div>
-                                  </button>
-                                  {boardItemPlaybackEffect?.floatingText ? (
-                                    <span className={styles.ribbonFloatingNumber}>{boardItemPlaybackEffect.floatingText}</span>
-                                  ) : null}
-                                  {attachedActions.length > 0 ? (
-                                    <div className={styles.ribbonActionStack}>
-                                      {attachedActions.map((action) => {
-                                        const actionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
-                                        const compactActionTitle =
-                                          action.sourceType === 'boardItem' ? action.modeLabel : action.title;
-
-                                        return (
-                                        <div
-                                          key={`${item.id}_${action.id}`}
-                                          className={`${styles.ribbonInlineAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonInlineActionActive : ''}`.trim()}
-                                          data-testid={
-                                            activeLocalPlaybackIntentId === action.id
-                                              ? 'local-playback-inline-action'
-                                              : `battle-ribbon-inline-action-${action.id}`
-                                          }
-                                          onMouseEnter={() => setSceneInspectTarget(actionInspectTarget)}
-                                          onMouseLeave={() => handleSceneInspectLeave(actionInspectTarget)}
-                                          onFocusCapture={() => setSceneInspectTarget(actionInspectTarget)}
-                                          onBlurCapture={(event) => handleSceneInspectBlur(event, actionInspectTarget)}
-                                        >
-                                          <div className={styles.ribbonInlineActionHeader}>
-                                            <strong className={styles.ribbonCompactTitle}>{compactActionTitle}</strong>
-                                            <div className={styles.ribbonBadgeRow}>
-                                              {action.cardSpeed ? (
-                                                <span className={styles.handStatPill}>SPD {action.cardSpeed}</span>
-                                              ) : null}
-                                            </div>
-                                          </div>
-                                          {renderIntentValidationErrors(action.id)}
-                                          <div className={styles.inlineActions}>
-                                            <button
-                                              className={styles.secondaryButton}
-                                              type="button"
-                                              onClick={() => handleRemoveRoundIntent(action.id)}
-                                              disabled={Boolean(roundSync?.selfLocked)}
-                                            >
-                                              Убрать из ленты
-                                            </button>
-                                          </div>
-                                        </div>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : null}
-                                  {isSelectedBoardCreature && item.ownerId === playerId ? (
-                                    <div className={styles.inlineConfigurator}>
-                                      <div className={styles.indicatorRail}>
-                                        <div className={styles.indicatorPill}>
-                                          <span className={styles.indicatorKicker}>Режим</span>
-                                          <strong className={styles.indicatorValue}>{selectedCreatureActionStatusLabel}</strong>
-                                        </div>
-                                        <div className={styles.indicatorPill}>
-                                          <span className={styles.indicatorKicker}>Текущая цель</span>
-                                          <strong className={styles.indicatorValue}>{selectedAttackTargetLabel}</strong>
-                                        </div>
-                                      </div>
-                                      <div className={styles.indicatorRail}>
-                                        <button
-                                          aria-label="Добавить уклонение в ленту"
-                                          className={`${styles.indicatorButton} ${styles.indicatorButtonDefensive}`.trim()}
-                                          type="button"
-                                          onClick={handleQueueEvade}
-                                          disabled={!canQueueEvade || Boolean(roundSync?.selfLocked)}
-                                        >
-                                          <span className={styles.indicatorKicker}>Действие</span>
-                                          <strong className={styles.indicatorValue}>Уклонение</strong>
-                                        </button>
-                                        <button
-                                          aria-label="Добавить атаку в ленту"
-                                          className={`${styles.indicatorButton} ${styles.indicatorButtonOffensive}`.trim()}
-                                          type="button"
-                                          onClick={handleQueueAttack}
-                                          disabled={!canQueueAttack || Boolean(roundSync?.selfLocked)}
-                                        >
-                                          <span className={styles.indicatorKicker}>Действие</span>
-                                          <strong className={styles.indicatorValue}>Атака</strong>
-                                          <span className={styles.indicatorSubvalue}>{selectedAttackTargetLabel}</span>
-                                        </button>
-                                        <button
-                                          className={styles.secondaryButton}
-                                          type="button"
-                                          onClick={() => setDraftTarget(null)}
-                                          disabled={!activeDraftTargetId}
-                                        >
-                                          Сбросить цель
-                                        </button>
-                                      </div>
-                                      <div className={styles.hint}>
-                                        Сменить цель можно только кликом по подсвеченной сущности прямо на поле.
-                                      </div>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              ) : (
-                                <div
-                                  key={entry.id}
-                                  className={localCardClassName}
-                                  data-testid={`battle-ribbon-item-${item.id}`}
-                                  onMouseEnter={() => setSceneInspectTarget(boardItemInspectTarget)}
-                                  onMouseLeave={() => handleSceneInspectLeave(boardItemInspectTarget)}
-                                  onFocusCapture={() => setSceneInspectTarget(boardItemInspectTarget)}
-                                  onBlurCapture={(event) => handleSceneInspectBlur(event, boardItemInspectTarget)}
-                                >
-                                  <div
-                                    className={`${styles.ribbonArtwork} ${getRibbonArtworkAccentClassName(item.school, 'effect')}`.trim()}
-                                  >
-                                    {item.duration !== undefined ? (
-                                      <span className={styles.ribbonArtworkBadge}>{getDurationLabel(item.duration)}</span>
-                                    ) : attachedActions.length > 0 ? (
-                                      <span className={styles.ribbonArtworkBadge}>Действий: {attachedActions.length}</span>
-                                    ) : null}
-                                  </div>
-                                  <div className={styles.ribbonCardBody}>
-                                    <strong className={styles.ribbonCompactTitle}>{item.title}</strong>
-                                    <div className={styles.ribbonBadgeRow}>
-                                      <span className={styles.cardBadge}>{item.lifetimeType === 'persistent' ? 'Закреплено' : 'Раунд'}</span>
-                                      {attachedActions.length > 0 ? (
-                                        <span className={styles.cardBadge}>Действий: {attachedActions.length}</span>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                  {attachedActions.length > 0 ? (
-                                    <div className={styles.ribbonActionStack}>
-                                      {attachedActions.map((action) => {
-                                        const actionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
-                                        const compactActionTitle =
-                                          action.sourceType === 'boardItem' ? action.modeLabel : action.title;
-
-                                        return (
-                                        <div
-                                          key={`${item.id}_${action.id}`}
-                                          className={`${styles.ribbonInlineAction} ${getRibbonActionToneClassName(action.layer)} ${activeLocalPlaybackIntentId === action.id ? styles.ribbonInlineActionActive : ''}`.trim()}
-                                          data-testid={
-                                            activeLocalPlaybackIntentId === action.id
-                                              ? 'local-playback-inline-action'
-                                              : `battle-ribbon-inline-action-${action.id}`
-                                          }
-                                          onMouseEnter={() => setSceneInspectTarget(actionInspectTarget)}
-                                          onMouseLeave={() => handleSceneInspectLeave(actionInspectTarget)}
-                                          onFocusCapture={() => setSceneInspectTarget(actionInspectTarget)}
-                                          onBlurCapture={(event) => handleSceneInspectBlur(event, actionInspectTarget)}
-                                        >
-                                          <div className={styles.ribbonInlineActionHeader}>
-                                            <strong className={styles.ribbonCompactTitle}>{compactActionTitle}</strong>
-                                            <div className={styles.ribbonBadgeRow}>
-                                              {action.cardSpeed ? (
-                                                <span className={styles.handStatPill}>SPD {action.cardSpeed}</span>
-                                              ) : null}
-                                            </div>
-                                          </div>
-                                          {renderIntentValidationErrors(action.id)}
-                                          <div className={styles.inlineActions}>
-                                            <button
-                                              className={styles.secondaryButton}
-                                              type="button"
-                                              onClick={() => handleRemoveRoundIntent(action.id)}
-                                              disabled={Boolean(roundSync?.selfLocked)}
-                                            >
-                                              Убрать из ленты
-                                            </button>
-                                          </div>
-                                        </div>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              );
-                            }
-
-                            const action = entry.action;
-                            const ribbonTargetOptions = action.targetType ? getRibbonTargetOptions(action.targetType) : [];
-                            const canAdjustActionTarget = action.sourceType === 'card' && ribbonTargetOptions.length > 0;
-                            const roundActionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
-
-                            return (
-                              (() => {
-                                const activeDetachedAction =
-                                  activeLocalPlaybackIntentId === action.id ? activeResolvedTimelineEntry?.action ?? null : null;
-                                return (
-                              <div
-                                key={entry.id}
-                                className={[
-                                  styles.ribbonCard,
-                                  styles.ribbonCardAction,
-                                  getRibbonActionToneClassName(action.layer),
-                                  activeLocalPlaybackIntentId === action.id ? styles.ribbonCardPlaybackActive : '',
-                                  activeDetachedAction?.layer === 'attacks' ? styles.ribbonCardPlaybackAttack : '',
-                                  activeLocalPlaybackIntentId === action.id && action.cardSpeed ? styles.ribbonCardPlaybackSpeed : '',
-                                  activeDetachedAction?.status === 'fizzled' ? styles.ribbonCardPlaybackFizzle : '',
-                                  inspectedRoundActionId === action.id ? styles.ribbonCardInspected : '',
-                                ]
-                                  .filter(Boolean)
-                                  .join(' ')}
-                                data-testid={
-                                  activeLocalPlaybackIntentId === action.id
-                                    ? 'local-playback-action-card'
-                                    : `battle-ribbon-action-${action.id}`
-                                }
-                                onMouseEnter={() => setSceneInspectTarget(roundActionInspectTarget)}
-                                onMouseLeave={() => handleSceneInspectLeave(roundActionInspectTarget)}
-                                onFocusCapture={() => setSceneInspectTarget(roundActionInspectTarget)}
-                                onBlurCapture={(event) => handleSceneInspectBlur(event, roundActionInspectTarget)}
-                              >
-                                <div className={styles.ribbonActionLayout}>
-                                  {canAdjustActionTarget ? (
-                                    <div className={styles.ribbonTargetTabs} aria-label="Выбор цели для действия">
-                                      {ribbonTargetOptions.map((candidate) => (
-                                        <button
-                                          key={`${action.id}_${candidate.id}`}
-                                          className={`${styles.ribbonTargetTab} ${action.targetId === candidate.id ? styles.ribbonTargetTabActive : ''}`.trim()}
-                                          type="button"
-                                          aria-label={getRibbonTargetTabAriaLabel(candidate.label)}
-                                          onClick={() => handleRoundIntentTargetSelect(action.id, action.targetType!, candidate.id)}
-                                          disabled={Boolean(roundSync?.selfLocked)}
-                                        >
-                                          <span className={styles.ribbonTargetTabIcon}>{candidate.compactLabel}</span>
-                                        </button>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                  <div className={styles.ribbonActionBody}>
-                                  <div
-                                      className={`${styles.ribbonArtwork} ${getRibbonArtworkAccentClassName(action.school, 'action')}`.trim()}
-                                    >
-                                      {action.mana !== undefined ? (
-                                        <span className={styles.ribbonArtworkMana}>{action.mana}</span>
-                                      ) : null}
-                                    </div>
-                                    <div className={styles.ribbonCardBody}>
-                                      <strong className={`${styles.ribbonCompactTitle} ${styles.ribbonActionMain}`.trim()}>
-                                        {action.title}
-                                      </strong>
-                                      <div className={styles.ribbonBadgeRow}>
-                                        {action.cardSpeed ? <span className={styles.handStatPill}>SPD {action.cardSpeed}</span> : null}
-                                      </div>
-                                    </div>
-                                    {renderIntentValidationErrors(action.id)}
-                                    <div className={styles.inlineActions}>
-                                      <button
-                                        className={styles.secondaryButton}
-                                        type="button"
-                                        onClick={() => handleRemoveRoundIntent(action.id)}
-                                        disabled={Boolean(roundSync?.selfLocked)}
-                                      >
-                                        Убрать из ленты
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                                );
-                              })()
-                            );
-                          })}
-                        </div>
-                      </div>
+                      <LocalBattleRibbon
+                        entries={visibleLocalBattleRibbonEntries}
+                        playerId={playerId}
+                        selection={selection}
+                        activeResolvePlaybackFrame={activeResolvePlaybackFrame}
+                        playbackFieldValues={playbackFieldValues}
+                        activeResolvedAction={activeResolvedTimelineEntry?.action ?? null}
+                        visibleLocalPlaybackSourceBoardItemId={visibleLocalPlaybackSourceBoardItemId}
+                        activeLocalPlaybackIntentId={activeLocalPlaybackIntentId}
+                        inspectedBoardItemId={inspectedBoardItemId}
+                        inspectedRoundActionId={inspectedRoundActionId}
+                        isSelfLocked={Boolean(roundSync?.selfLocked)}
+                        selectedCreatureActionStatusLabel={selectedCreatureActionStatusLabel}
+                        selectedAttackTargetLabel={selectedAttackTargetLabel}
+                        canQueueEvade={canQueueEvade}
+                        canQueueAttack={canQueueAttack}
+                        activeDraftTargetId={activeDraftTargetId}
+                        getBoardItemPlaybackEffectClassName={getBoardItemPlaybackEffectClassName}
+                        getRibbonActionToneClassName={getRibbonActionToneClassName}
+                        getRibbonArtworkAccentClassName={getRibbonArtworkAccentClassName}
+                        getDurationLabel={getDurationLabel}
+                        getTargetButtonAriaLabel={getTargetButtonAriaLabel}
+                        getRibbonTargetTabAriaLabel={getRibbonTargetTabAriaLabel}
+                        getRibbonTargetOptions={getRibbonTargetOptions}
+                        isSelectableTarget={isSelectableTarget}
+                        isDraftTargetActive={isDraftTargetActive}
+                        onInspectTarget={setSceneInspectTarget}
+                        onInspectLeave={handleSceneInspectLeave}
+                        onInspectBlur={handleSceneInspectBlur}
+                        onSelectCreature={(creatureId) => setSelection({ kind: 'creature', creatureId })}
+                        onApplyDraftTarget={applyDraftTargetForSelection}
+                        onQueueEvade={handleQueueEvade}
+                        onQueueAttack={handleQueueAttack}
+                        onResetDraftTarget={() => setDraftTarget(null)}
+                        onRemoveRoundIntent={handleRemoveRoundIntent}
+                        onRoundIntentTargetSelect={handleRoundIntentTargetSelect}
+                        renderIntentValidationErrors={renderIntentValidationErrors}
+                      />
                     ) : null}
                             </section>
 
                             {visibleRoundDraftRejected ? (
-                              <div className={styles.roundRejectBox}>
-                                <strong>
-                                  Сервер отклонил: {visibleRoundDraftRejected.operation === 'lock' ? 'завершение хода' : 'обновление'}{' '}
-                                  {visibleRoundDraftRejected.roundNumber > 0
-                                    ? `раунда ${visibleRoundDraftRejected.roundNumber}`
-                                    : 'текущей ленты'}
-                                </strong>
-                                <div className={styles.roundQueueError}>
-                                  <span className={styles.cardBadge}>{visibleRoundDraftRejected.code}</span>
-                                  <span>{getRoundDraftRejectCodeLabel(visibleRoundDraftRejected.code)}</span>
-                                </div>
-                                <span>{visibleRoundDraftRejected.error}</span>
-                                {draftRejectionCommonErrors.map((entry) => (
-                                  <div key={`${entry.code}_${entry.message}`} className={styles.roundQueueError}>
-                                    <span className={styles.cardBadge}>{entry.code}</span>
-                                    <span>{getRoundDraftValidationCodeLabel(entry.code)}</span>
-                                  </div>
-                                ))}
-                              </div>
+                              <RoundDraftRejectedPanel
+                                rejected={visibleRoundDraftRejected}
+                                commonErrors={draftRejectionCommonErrors}
+                              />
                             ) : null}
                             {!isResolvedReplayOpen ? (
-                            <section className={`${styles.handTray} ${styles.localHandTray}`.trim()} data-testid="local-hand-tray">
-                      <div className={styles.battleLaneHeader}>
-                        <div>
-                          <span className={styles.summaryLabel}>Твоя рука</span>
-                          <strong>Карты для текущего раунда</strong>
-                        </div>
-                        <span className={styles.battleCount}>
-                          {availableHandCards.length} карт · колода {localBoard?.deckSize ?? 0}
-                        </span>
-                      </div>
-                      {availableHandCards.length > 0 ? (
-                        <div className={styles.handFanGrid}>
-                          {availableHandCards.map((card) => (
-                            <div
-                              key={card.instanceId}
-                              className={`${styles.handCard} ${card.cardType === 'summon' ? styles.handCardPlayable : ''} ${getCardAccentClassName(card.cardType)} ${inspectedHandCardId === card.instanceId ? styles.handCardInspected : ''} ${selection?.kind === 'hand' && selection.instanceId === card.instanceId ? styles.handCardSelected : ''} ${manaRejectedHandCardId === card.instanceId ? styles.handCardManaRejected : ''}`.trim()}
-                              data-mana-rejected={manaRejectedHandCardId === card.instanceId ? 'true' : undefined}
-                              onMouseEnter={() => {
-                                if (manaRejectedHandCardId !== card.instanceId) {
-                                  setSceneInspectTarget({ kind: 'hand', id: card.instanceId });
+                              <LocalHandTray
+                                availableHandCards={availableHandCards}
+                                localHandCardCount={localHandCards.length}
+                                deckSize={localBoard?.deckSize ?? 0}
+                                inspectedHandCardId={inspectedHandCardId}
+                                selection={selection}
+                                manaRejectedHandCardId={manaRejectedHandCardId}
+                                onInspectTarget={setSceneInspectTarget}
+                                onInspectLeave={handleSceneInspectLeave}
+                                onInspectBlur={handleSceneInspectBlur}
+                                onClearManaRejectedCard={(cardId) =>
+                                  setManaRejectedHandCardId((current) => (current === cardId ? null : current))
                                 }
-                              }}
-                              onMouseLeave={() => {
-                                handleSceneInspectLeave({ kind: 'hand', id: card.instanceId });
-                                setManaRejectedHandCardId((current) => (current === card.instanceId ? null : current));
-                              }}
-                              onFocusCapture={() => {
-                                if (manaRejectedHandCardId !== card.instanceId) {
-                                  setSceneInspectTarget({ kind: 'hand', id: card.instanceId });
-                                }
-                              }}
-                              onBlurCapture={(event) =>
-                                handleSceneInspectBlur(event, { kind: 'hand', id: card.instanceId })
-                              }
-                            >
-                              <button
-                                className={`${styles.selectionSurface} ${selection?.kind === 'hand' && selection.instanceId === card.instanceId ? styles.selectionSurfaceActive : ''}`.trim()}
-                                type="button"
-                                onClick={(event) => handleHandCardClick(card, event)}
-                              >
-                                <div
-                                  className={`${styles.handCardArtwork} ${getCardSchoolAccentClassName(card.school)}`.trim()}
-                                >
-                                  <div className={styles.handCardTop}>
-                                    <span className={styles.handManaGem}>{card.mana}</span>
-                                  </div>
-                                </div>
-                                <div className={styles.handCardBody}>
-                                  <strong className={styles.handCardTitle}>{card.name}</strong>
-                                </div>
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        localHandCards.length > 0 ? (
-                          <div className={styles.emptyState}>Все карты из руки уже перенесены в боевую ленту.</div>
-                        ) : (
-                          <div className={styles.emptyStateSpacer} aria-hidden="true" />
-                        )
-                      )}
-                            </section>
+                                onCardClick={handleHandCardClick}
+                              />
                             ) : null}
                           </div>
                         </div>
                     {!isResolvedReplayOpen && sceneInspectSummary ? (
-                      <aside className={styles.fieldInspectPanel} data-testid="scene-inspect-panel" aria-live="polite">
-                        <div className={styles.sceneInspectPanel}>
-                          <div className={styles.sceneInspectHeader}>
-                            <div className={styles.sceneInspectHeading}>
-                              {sceneInspectSummary.kicker ? (
-                                <span className={styles.summaryLabel}>{sceneInspectSummary.kicker}</span>
-                              ) : null}
-                              <strong className={styles.sceneInspectTitle}>{sceneInspectSummary.title}</strong>
-                            </div>
-                            <span className={styles.sceneInspectCorner}>{sceneInspectSummary.cornerLabel}</span>
-                          </div>
-                          <div className={styles.sceneInspectBadgeRow}>
-                            {sceneInspectSummary.badges.map((badge) => (
-                              <span key={`${sceneInspectSummary.id}_${badge}`} className={styles.cardBadge}>
-                                {badge}
-                              </span>
-                            ))}
-                            {sceneInspectSelectionLabel ? (
-                              <span className={`${styles.cardBadge} ${styles.cardBadgeTarget}`.trim()}>
-                                {sceneInspectSelectionLabel}
-                              </span>
-                            ) : null}
-                          </div>
-                          {sceneInspectSummary.stats.length > 0 ? (
-                            <div className={styles.sceneInspectStats}>
-                              {sceneInspectSummary.stats.map((stat) => (
-                                <span key={`${sceneInspectSummary.id}_${stat.label}`} className={styles.handStatPill}>
-                                  {stat.label} {stat.value}
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-                          <div className={styles.sceneInspectDetails}>
-                            {sceneInspectSummary.details.map((detail, index) => (
-                              <p key={`${sceneInspectSummary.id}_${index}`} className={styles.sceneInspectDetail}>
-                                {detail}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      </aside>
+                      <SceneInspectPanel
+                        summary={sceneInspectSummary}
+                        selectionLabel={sceneInspectSelectionLabel}
+                      />
                     ) : null}
                     </section>
                   </section>
                 </div>
               </div>
             ) : (
-              <div className={styles.boardEmpty}>
-                <div className={styles.matchSpotlight}>
-                  <span className={styles.summaryLabel}>Игровое поле</span>
-                  <strong className={styles.spotlightValue}>Ожидание матча</strong>
-                  <p className={styles.paragraph}>
-                    Матч откроется автоматически после подключения к PvP-сессии.
-                  </p>
-                </div>
-              </div>
+              <MatchWaitingPanel />
             )}
           </Card>
         </div>

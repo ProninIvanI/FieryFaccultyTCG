@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GameService } from '../../application/GameService';
 import { ClientMessageDto, parseClientMessage, RoundAuditEventDto, ServerMessageDto } from './dto';
@@ -356,7 +357,7 @@ export class WsGateway {
 
       const expiresAt = new Date(Date.now() + 2 * 60_000).toISOString();
       const result = this.inviteRegistry.createInvite({
-        id: `invite_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+        id: `invite_${Date.now()}_${randomUUID().slice(0, 8)}`,
         inviterUserId: identity.userId,
         inviterUsername: identity.username,
         targetUserId: message.targetUserId,

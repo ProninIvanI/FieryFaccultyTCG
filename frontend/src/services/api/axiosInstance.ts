@@ -5,21 +5,8 @@ import axios, {
   InternalAxiosRequestConfig,
 } from 'axios';
 import { API_URL } from '@/constants';
-import { ApiResponse, AuthSession } from '@/types';
-
-const SESSION_KEY = 'fftcg_session';
-
-const getStoredSession = (): AuthSession | null => {
-  const raw = localStorage.getItem(SESSION_KEY);
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as AuthSession;
-  } catch {
-    return null;
-  }
-};
+import { ApiResponse } from '@/types';
+import { readStoredSession } from '../authSession';
 
 const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -31,7 +18,7 @@ const axiosInstance: AxiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const session = getStoredSession();
+    const session = readStoredSession();
     if (session?.token) {
       config.headers.Authorization = `Bearer ${session.token}`;
     }
