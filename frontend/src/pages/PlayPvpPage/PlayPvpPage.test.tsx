@@ -924,7 +924,7 @@ describe('PlayPvpPage', () => {
             message.type === 'roundDraft.replace' &&
             firstIntent?.kind === 'CastSpell' &&
             firstIntent?.cardInstanceId === 'spell_card_1' &&
-            JSON.stringify(firstIntent?.target) === JSON.stringify({ targetType: 'enemyCharacter', targetId: 'char_2' })
+            JSON.stringify(firstIntent?.target) === JSON.stringify({ targetType: 'enemyAny', targetId: 'char_2' })
           );
         }),
       ).toBe(true);
@@ -1584,7 +1584,7 @@ describe('PlayPvpPage', () => {
           return (
             message.type === 'roundDraft.replace' &&
             firstIntent?.cardInstanceId === 'spell_card_1' &&
-            JSON.stringify(firstIntent?.target) === JSON.stringify({ targetType: 'enemyCharacter', targetId: 'char_2' })
+            JSON.stringify(firstIntent?.target) === JSON.stringify({ targetType: 'enemyAny', targetId: 'char_2' })
           );
         }),
       ).toBe(true);
@@ -1733,7 +1733,7 @@ describe('PlayPvpPage', () => {
       const sphereIntent = latestReplace?.intents?.find((intent: Record<string, unknown>) => intent.cardInstanceId === 'spell_card_2');
       const boostIntent = latestReplace?.intents?.find((intent: Record<string, unknown>) => intent.cardInstanceId === 'modifier_card_1');
 
-      expect(fireballIntent?.target).toEqual({ targetType: 'enemyCharacter', targetId: 'char_2' });
+      expect(fireballIntent?.target).toEqual({ targetType: 'enemyAny', targetId: 'char_2' });
       expect(sphereIntent?.target).toEqual({ targetType: 'allyCharacter', targetId: 'char_1' });
       expect(boostIntent?.target).toEqual({ targetType: 'self', targetId: 'char_1' });
     });

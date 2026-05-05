@@ -91,6 +91,22 @@ const getCopiesExceededIssue = (
   },
 });
 
+const getSchoolMismatchIssue = (
+  cardId: string,
+  characterFaculty: string,
+  cardSchool: string,
+  cardName?: string,
+): DeckValidationIssue => ({
+  code: 'deck_card_school_mismatch',
+  message: `Карта ${cardName ?? cardId} не совпадает с факультетом выбранного персонажа.`,
+  cardId,
+  meta: {
+    faculty: characterFaculty,
+    cardSchool,
+    cardName,
+  },
+});
+
 const getArtLimitIssue = (actual: number): DeckValidationIssue => ({
   code: 'deck_art_limit_exceeded',
   message: `В колоде может быть не больше ${DECK_RULES_V1.maxArtCards} art-карт.`,
@@ -142,6 +158,16 @@ export const validateDeckLegality = (
 
     if (cardEntry.quantity > DECK_RULES_V1.maxCopiesPerCard) {
       issues.push(getCopiesExceededIssue(cardEntry.cardId, cardEntry.quantity, card.name));
+    }
+
+    const cardType = toCatalogCardUiType(card.catalogType);
+    if (
+      character &&
+      (cardType === 'spell' || cardType === 'summon') &&
+      card.school &&
+      card.school !== character.faculty
+    ) {
+      issues.push(getSchoolMismatchIssue(cardEntry.cardId, character.faculty, card.school, card.name));
     }
   });
 

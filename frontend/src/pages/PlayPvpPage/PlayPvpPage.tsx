@@ -997,7 +997,7 @@ export const PlayPvpPage = () => {
       enemyCreatures.forEach((creature) => {
         candidates.push({
           id: creature.creatureId,
-          label: getResolvedBoardItemLabel(null, creature.creatureId) ?? `РЎСѓС‰РµСЃС‚РІРѕ ${creature.creatureId}`,
+          label: getResolvedBoardItemLabel(null, creature.creatureId) ?? `Существо ${creature.creatureId}`,
           kind: 'creature',
         });
       });

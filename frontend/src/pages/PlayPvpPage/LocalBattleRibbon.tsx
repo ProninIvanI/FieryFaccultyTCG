@@ -117,7 +117,7 @@ const InlineActionStack = ({
               <button
                 className={styles.secondaryButton}
                 type="button"
-                aria-label="Убрать действие из ленты"
+                aria-label="Убрать из ленты"
                 title="Убрать действие из ленты"
                 onClick={() => onRemoveRoundIntent(action.id)}
                 disabled={isSelfLocked}
@@ -420,7 +420,7 @@ export const LocalBattleRibbon = ({
                   <button
                     className={styles.secondaryButton}
                     type="button"
-                    aria-label="Убрать карту из ленты"
+                    aria-label="Убрать из ленты"
                     title="Убрать из ленты"
                     onClick={() => onRemoveRoundIntent(action.id)}
                     disabled={isSelfLocked}
