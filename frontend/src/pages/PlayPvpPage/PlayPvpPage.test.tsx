@@ -479,6 +479,63 @@ describe('PlayPvpPage', () => {
     });
   });
 
+  it('restores round feed history from a state payload after reconnect', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_feed_reconnect', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 2, maxMana: 2, actionPoints: 1, characterId: 'char_1' },
+            user_2: { mana: 2, maxMana: 2, actionPoints: 1, characterId: 'char_2' },
+          },
+        }),
+        resolvedRoundHistory: [
+          {
+            roundNumber: 1,
+            orderedActions: [
+              createResolvedRoundAction({
+                intentId: 'round_1_restored',
+                playerId: 'user_1',
+                kind: 'CastSpell',
+                actorId: 'char_1',
+                layer: 'offensive_control_spells',
+                target: { targetType: 'enemyCharacter', targetId: 'char_2' },
+                cardInstanceId: 'spell_card_1',
+                definitionId: '1',
+                source: { type: 'card', cardInstanceId: 'spell_card_1', definitionId: '1' },
+                status: 'resolved',
+                reasonCode: 'resolved',
+                summary: 'История восстановилась после переподключения',
+              }),
+            ],
+          },
+        ],
+      });
+      await flushMicrotasks();
+    });
+
+    await openMatchFeed();
+
+    await waitFor(() => {
+      const matchFeed = within(screen.getByTestId('match-feed'));
+      expect(screen.getByRole('button', { name: /Раунд 1/i })).toHaveAttribute('aria-expanded', 'false');
+      expect(matchFeed.queryByText(/История восстановилась после переподключения/i)).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Раунд 1/i }));
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(within(screen.getByTestId('match-feed')).getByText(/История восстановилась после переподключения/i)).toBeInTheDocument();
+    });
+  });
+
   it('enriches round feed entry with safe details from state.log when action anchor matches', async () => {
     await renderPage('char_1', 'user_1');
 
@@ -873,6 +930,105 @@ describe('PlayPvpPage', () => {
       ).toBe(true);
     });
 
+  });
+
+  it('allows Flame Flash to target either enemy mage or enemy creature', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_enemy_any_spell', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          creatures: {
+            enemy_spark_1: {
+              creatureId: 'enemy_spark_1',
+              ownerId: 'user_2',
+              hp: 3,
+              maxHp: 3,
+              attack: 2,
+              speed: 5,
+              summonedAtRound: 0,
+            },
+          },
+          boardView: {
+            players: {
+              user_1: { playerId: 'user_1', characterId: 'char_1', boardItems: [], ribbonEntries: [] },
+              user_2: {
+                playerId: 'user_2',
+                characterId: 'char_2',
+                boardItems: [
+                  {
+                    id: 'creature:enemy_spark_1',
+                    runtimeId: 'enemy_spark_1',
+                    ownerId: 'user_2',
+                    subtype: 'creature',
+                    definitionId: '85',
+                    lifetimeType: 'persistent',
+                    placement: { layer: 'summon', orderIndex: 0 },
+                    state: { hp: 3, maxHp: 3, attack: 2, speed: 5 },
+                  },
+                ],
+                ribbonEntries: [],
+              },
+            },
+          },
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: ['spell_card_1'],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {
+            spell_card_1: { id: 'spell_card_1', definitionId: '3', ownerId: 'user_1', zone: 'hand' },
+          },
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click((await screen.findByText('Вспышка пламени')).closest('button')!);
+      await flushMicrotasks();
+    });
+
+    expect(await screen.findByRole('button', { name: /Выбрать цель: Маг user_2/i })).toBeInTheDocument();
+    const creatureTargetButton = await screen.findByRole('button', { name: /Выбрать цель: Искровой дух/i });
+
+    await act(async () => {
+      fireEvent.click(creatureTargetButton);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as {
+            type?: string;
+            intents?: Array<Record<string, unknown>>;
+          };
+          const firstIntent = Array.isArray(message.intents) ? message.intents[0] : null;
+
+          return (
+            message.type === 'roundDraft.replace' &&
+            firstIntent?.kind === 'CastSpell' &&
+            firstIntent?.cardInstanceId === 'spell_card_1' &&
+            JSON.stringify(firstIntent?.target) === JSON.stringify({ targetType: 'enemyAny', targetId: 'enemy_spark_1' })
+          );
+        }),
+      ).toBe(true);
+    });
   });
 
   it('does not queue a hand card when the remaining mana budget is too low', async () => {

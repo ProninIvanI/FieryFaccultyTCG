@@ -283,6 +283,11 @@ export class GameService {
     return session.getRoundDraft(playerId);
   }
 
+  getRoundHistory(sessionId: string): RoundResolutionResult[] {
+    const session = this.sessions.get(sessionId);
+    return session?.getRoundHistory() ?? [];
+  }
+
   getStateSnapshot(sessionId: string): GameStateSnapshot | null {
     const session = this.sessions.get(sessionId);
     if (!session) {

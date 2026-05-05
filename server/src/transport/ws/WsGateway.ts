@@ -813,6 +813,7 @@ export class WsGateway {
       type: 'state',
       state,
       playerLabels: this.getPlayerLabels(sessionId),
+      resolvedRoundHistory: this.gameService.getRoundHistory(sessionId),
     };
   }
 

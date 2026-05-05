@@ -199,6 +199,7 @@ export const getPreferredDefaultTargetId = (
     case 'allyCharacter':
       return candidates.find((candidate) => candidate.kind === 'character')?.id ?? null;
     case 'enemyCharacter':
+    case 'enemyAny':
       return candidates.find((candidate) => candidate.kind === 'character')?.id ?? null;
     case 'any':
       return (

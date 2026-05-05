@@ -83,8 +83,20 @@ const isResolvedRoundAction = (value: unknown): boolean =>
   isOptionalString(value.cardInstanceId) &&
   isOptionalString(value.definitionId);
 
+const isRoundResolutionResult = (value: unknown): boolean =>
+  isRecord(value) &&
+  typeof value.roundNumber === 'number' &&
+  Array.isArray(value.orderedActions) &&
+  value.orderedActions.every(isResolvedRoundAction) &&
+  (value.playbackFrames === undefined ||
+    (Array.isArray(value.playbackFrames) && value.playbackFrames.every(isResolvePlaybackFrame)));
+
 const isStateMessage = (value: unknown): value is Extract<PvpServerMessage, { type: 'state' }> =>
-  isRecord(value) && value.type === 'state' && isRecord(value.state);
+  isRecord(value) &&
+  value.type === 'state' &&
+  isRecord(value.state) &&
+  (value.resolvedRoundHistory === undefined ||
+    (Array.isArray(value.resolvedRoundHistory) && value.resolvedRoundHistory.every(isRoundResolutionResult)));
 
 const isTransportRejectedMessage = (
   value: unknown
@@ -147,12 +159,7 @@ const isRoundStatusMessage = (value: unknown): value is Extract<PvpServerMessage
 const isRoundResolvedMessage = (value: unknown): value is Extract<PvpServerMessage, { type: 'roundResolved' }> =>
   isRecord(value) &&
   value.type === 'roundResolved' &&
-  isRecord(value.result) &&
-  typeof value.result.roundNumber === 'number' &&
-  Array.isArray(value.result.orderedActions) &&
-  value.result.orderedActions.every(isResolvedRoundAction) &&
-  (value.result.playbackFrames === undefined ||
-    (Array.isArray(value.result.playbackFrames) && value.result.playbackFrames.every(isResolvePlaybackFrame)));
+  isRoundResolutionResult(value.result);
 
 const isRoundAuditEvent = (value: unknown): boolean =>
   isRecord(value) &&
@@ -314,6 +321,7 @@ class GameWsService {
         type: 'state',
         state: parsed.state as GameStateSnapshot,
         playerLabels: parsed.playerLabels,
+        resolvedRoundHistory: parsed.resolvedRoundHistory,
       });
       return;
     }

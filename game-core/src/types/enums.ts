@@ -3,6 +3,7 @@ export type CardLocation = 'deck' | 'hand' | 'discard' | 'board';
 
 export type TargetType =
   | 'enemyCharacter'
+  | 'enemyAny'
   | 'allyCharacter'
   | 'creature'
   | 'self'

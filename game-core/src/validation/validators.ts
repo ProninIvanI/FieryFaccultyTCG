@@ -106,6 +106,8 @@ export const validateTargetType = (
       return targetCharacter && targetOwner === actor.ownerId ? [] : ['Target must be ally character'];
     case 'enemyCharacter':
       return targetCharacter && targetOwner !== actor.ownerId ? [] : ['Target must be enemy character'];
+    case 'enemyAny':
+      return (targetCharacter || targetCreature) && targetOwner !== actor.ownerId ? [] : ['Target must be enemy'];
     case 'creature':
       return targetCreature ? [] : ['Target must be creature'];
     case 'any':

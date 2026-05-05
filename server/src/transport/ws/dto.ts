@@ -48,7 +48,12 @@ export type ClientMessageDto =
   | { type: 'matchInvite.cancel'; inviteId: string };
 
 export type ServerMessageDto =
-  | { type: 'state'; state: unknown; playerLabels?: Record<string, string> }
+  | {
+      type: 'state';
+      state: unknown;
+      playerLabels?: Record<string, string>;
+      resolvedRoundHistory?: RoundResolutionResult[];
+    }
   | {
       type: 'transport.rejected';
       code: 'invalid_json' | 'invalid_payload' | 'unknown_message_type';

@@ -48,6 +48,16 @@ const cards: CardDefinition[] = [
     resolutionRole: 'offensive_spell',
     effects: [{ type: 'DamageEffect', value: 2, attackType: 'spell' }],
   },
+  {
+    id: 'flame_flash',
+    name: 'Flame Flash',
+    type: 'spell',
+    manaCost: 2,
+    speed: 5,
+    targetType: 'enemyAny',
+    resolutionRole: 'offensive_spell',
+    effects: [{ type: 'DamageEffect', value: 2, attackType: 'spell', ignoreEvade: true }],
+  },
 ];
 
 const buildDeck = (ownerId: string, definitions: string[]): CardInstance[] =>
@@ -127,6 +137,49 @@ describe('validateRoundDraft', () => {
           target: {
             targetId: 'char_1',
             targetType: 'self',
+          },
+        },
+      ],
+    };
+
+    expect(validateRoundDraft(state, registry, draft)).toEqual({ ok: true });
+  });
+
+  it('accepts enemyAny spell target against an enemy creature', () => {
+    const { state, registry } = createDraftState();
+    state.cardInstances.card_player_1_6 = {
+      instanceId: 'card_player_1_6',
+      ownerId: 'player_1',
+      definitionId: 'flame_flash',
+      location: 'hand',
+    };
+    state.hands.player_1.push('card_player_1_6');
+    state.creatures.enemy_creature_1 = {
+      creatureId: 'enemy_creature_1',
+      ownerId: 'player_2',
+      hp: 3,
+      maxHp: 3,
+      attack: 2,
+      speed: 5,
+      summonedAtRound: 0,
+    };
+
+    const draft: PlayerRoundDraft = {
+      playerId: 'player_1',
+      roundNumber: 1,
+      locked: false,
+      intents: [
+        {
+          intentId: 'flame_flash_1',
+          roundNumber: 1,
+          playerId: 'player_1',
+          actorId: 'char_1',
+          queueIndex: 0,
+          kind: 'CastSpell',
+          cardInstanceId: 'card_player_1_6',
+          target: {
+            targetId: 'enemy_creature_1',
+            targetType: 'enemyAny',
           },
         },
       ],

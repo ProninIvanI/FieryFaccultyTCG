@@ -52,6 +52,18 @@ const mergeDraftIntentTargets = (
   });
 };
 
+const mergeResolvedRoundHistory = (
+  currentHistory: RoundResolutionResult[],
+  incomingHistory: RoundResolutionResult[],
+): RoundResolutionResult[] => {
+  const byRound = new Map<number, RoundResolutionResult>();
+
+  currentHistory.forEach((entry) => byRound.set(entry.roundNumber, entry));
+  incomingHistory.forEach((entry) => byRound.set(entry.roundNumber, entry));
+
+  return [...byRound.values()].sort((left, right) => left.roundNumber - right.roundNumber);
+};
+
 export const handleServiceEvent = (
   event: PvpServiceEvent,
   setStatus: (status: PvpConnectionStatus) => void,
@@ -79,6 +91,11 @@ export const handleServiceEvent = (
 
   if (event.type === 'state') {
     setMatchState(event.state);
+    if (event.resolvedRoundHistory) {
+      const sortedHistory = [...event.resolvedRoundHistory].sort((left, right) => left.roundNumber - right.roundNumber);
+      setResolvedRoundHistory((currentHistory) => mergeResolvedRoundHistory(currentHistory, sortedHistory));
+      setLastResolvedRound(sortedHistory[sortedHistory.length - 1] ?? null);
+    }
     setTransportRejected(null);
     setJoinRejected(null);
     setError('');

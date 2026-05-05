@@ -41,6 +41,7 @@ export interface StateServerMessage {
   type: 'state';
   state: GameStateSnapshot;
   playerLabels?: PlayerLabelMap;
+  resolvedRoundHistory?: RoundResolutionResult[];
 }
 
 export interface TransportRejectedServerMessage {
@@ -171,7 +172,12 @@ export type PvpConnectionStatus =
 
 export type PvpServiceEvent =
   | { type: 'status'; status: PvpConnectionStatus }
-  | { type: 'state'; state: GameStateSnapshot; playerLabels?: PlayerLabelMap }
+  | {
+      type: 'state';
+      state: GameStateSnapshot;
+      playerLabels?: PlayerLabelMap;
+      resolvedRoundHistory?: RoundResolutionResult[];
+    }
   | {
       type: 'transportRejected';
       code: TransportRejectedServerMessage['code'];

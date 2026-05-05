@@ -46,6 +46,7 @@ export interface CatalogCharacterMetadata {
 
 const isTargetType = (value: unknown): value is TargetType =>
   value === 'enemyCharacter' ||
+  value === 'enemyAny' ||
   value === 'allyCharacter' ||
   value === 'creature' ||
   value === 'self' ||

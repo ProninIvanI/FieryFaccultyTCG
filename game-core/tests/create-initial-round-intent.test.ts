@@ -20,6 +20,15 @@ const cards: CardDefinition[] = [
     effects: [{ type: 'DamageEffect', value: 2, attackType: 'spell' }],
   },
   {
+    id: 'flame_flash',
+    name: 'Flame Flash',
+    type: 'spell',
+    manaCost: 1,
+    speed: 5,
+    targetType: 'enemyAny',
+    effects: [{ type: 'DamageEffect', value: 2, attackType: 'spell', ignoreEvade: true }],
+  },
+  {
     id: 'meditation',
     name: 'Meditation',
     type: 'artifact',
@@ -82,6 +91,57 @@ describe('createInitialCardRoundIntent', () => {
         targetType: 'enemyCharacter',
         targetId: 'char_2',
       },
+    });
+  });
+
+  it('builds an enemyAny spell intent and keeps the enemy mage as default target', () => {
+    const registry = new CardRegistry(cards);
+    const state = createInitialState(123, [
+      {
+        playerId: 'player_1',
+        characterId: 'char_1',
+        deck: buildDeck([{ instanceId: 'spell_1', definitionId: 'flame_flash', ownerId: 'player_1' }]),
+      },
+      {
+        playerId: 'player_2',
+        characterId: 'char_2',
+        deck: buildDeck([]),
+      },
+    ]);
+
+    state.cardInstances.spell_1.location = 'hand';
+    state.creatures.enemy_creature_1 = {
+      creatureId: 'enemy_creature_1',
+      ownerId: 'player_2',
+      hp: 3,
+      maxHp: 3,
+      attack: 2,
+      speed: 5,
+      summonedAtRound: 0,
+    };
+
+    const intent = createInitialCardRoundIntent({
+      state,
+      cards: registry,
+      intentId: 'intent_enemy_any',
+      roundNumber: 1,
+      queueIndex: 0,
+      playerId: 'player_1',
+      actorId: 'char_1',
+      cardInstanceId: 'spell_1',
+    });
+
+    expect(intent).toMatchObject({
+      kind: 'CastSpell',
+      target: {
+        targetType: 'enemyAny',
+        targetId: 'char_2',
+      },
+    });
+
+    expect(getInitialTargetForType(state, 'char_1', 'enemyAny')).toEqual({
+      targetType: 'enemyAny',
+      targetId: 'char_2',
     });
   });
 

@@ -4,6 +4,8 @@ export const getTargetTypeLabel = (targetType: TargetType | null | undefined): s
   switch (targetType) {
     case 'enemyCharacter':
       return 'Вражеский маг';
+    case 'enemyAny':
+      return 'Вражеская цель';
     case 'allyCharacter':
       return 'Союзный маг';
     case 'creature':

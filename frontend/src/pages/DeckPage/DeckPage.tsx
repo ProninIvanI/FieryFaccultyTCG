@@ -1378,7 +1378,9 @@ export const DeckPage = () => {
                     </div>
                   </div>
                 ) : null}
-                <div className={styles.deckList}>
+                <div
+                  className={`${styles.deckList} ${deckCards.length === 0 ? styles.deckListEmpty : ""}`.trim()}
+                >
                   {deckCards.length === 0 ? (
                     <div className={styles.emptyState}>
                       Добавьте карты из пула слева

@@ -69,6 +69,8 @@ const getDefaultTargetCandidates = (
       return allyCharacterIds;
     case 'enemyCharacter':
       return enemyCharacterIds;
+    case 'enemyAny':
+      return [...enemyCharacterIds, ...enemyCreatureIds];
     case 'creature':
       return [...enemyCreatureIds, ...allyCreatureIds];
     case 'any':

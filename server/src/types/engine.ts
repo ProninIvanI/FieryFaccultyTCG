@@ -23,5 +23,6 @@ export interface GameEngineLike {
   ): RoundDraftValidationResult;
   lockRoundDraft(playerId: string, roundNumber: number): RoundDraftValidationResult;
   resolveRoundIfReady(): RoundResolutionResult | null;
+  getRoundHistory?(): RoundResolutionResult[];
   syncPlayerLoadout(loadout: SessionPlayerLoadout): void;
 }

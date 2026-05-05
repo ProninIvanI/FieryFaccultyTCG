@@ -13,6 +13,7 @@ import { SessionPlayerLoadout } from '../../types/session';
 
 export class GameSession {
   private readonly players = new Set<string>();
+  private readonly roundHistory: RoundResolutionResult[] = [];
   private readonly seed: number;
 
   constructor(
@@ -98,6 +99,15 @@ export class GameSession {
   }
 
   resolveRoundIfReady(): RoundResolutionResult | null {
-    return this.engine.resolveRoundIfReady();
+    const result = this.engine.resolveRoundIfReady();
+    if (result) {
+      this.roundHistory.push(result);
+    }
+    return result;
+  }
+
+  getRoundHistory(): RoundResolutionResult[] {
+    const engineHistory = this.engine.getRoundHistory?.() ?? [];
+    return engineHistory.length > 0 ? engineHistory : [...this.roundHistory];
   }
 }

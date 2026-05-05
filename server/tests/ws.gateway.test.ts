@@ -275,7 +275,7 @@ describe('ws gateway integration', () => {
         actorId: CHARACTER_TWO,
         queueIndex: 0,
         kind: 'CastSpell',
-        cardInstanceId: 'card_player_2_1',
+        cardInstanceId: 'card_player_2_11',
         target: {
           targetId: CHARACTER_ONE,
           targetType: 'enemyCharacter',
@@ -385,16 +385,32 @@ describe('ws gateway integration', () => {
         typeof (message.result as { roundNumber?: unknown }).roundNumber === 'number' &&
         Array.isArray((message.result as { orderedActions?: unknown[] }).orderedActions),
     );
-    const nextStateOne = await playerOneMessages.waitFor<{ type: 'state'; state: { round: { number: number } } }>(
-      (message): message is { type: 'state'; state: { round: { number: number } } } =>
+    const nextStateOne = await playerOneMessages.waitFor<{
+      type: 'state';
+      state: { round: { number: number } };
+      resolvedRoundHistory?: Array<{ roundNumber: number }>;
+    }>(
+      (message): message is {
+        type: 'state';
+        state: { round: { number: number } };
+        resolvedRoundHistory?: Array<{ roundNumber: number }>;
+      } =>
         message.type === 'state' &&
         typeof message.state === 'object' &&
         message.state !== null &&
         typeof ((message.state as { round?: { number?: unknown } }).round?.number) === 'number' &&
         (message.state as { round: { number: number } }).round.number === 2,
     );
-    const nextStateTwo = await playerTwoMessages.waitFor<{ type: 'state'; state: { round: { number: number } } }>(
-      (message): message is { type: 'state'; state: { round: { number: number } } } =>
+    const nextStateTwo = await playerTwoMessages.waitFor<{
+      type: 'state';
+      state: { round: { number: number } };
+      resolvedRoundHistory?: Array<{ roundNumber: number }>;
+    }>(
+      (message): message is {
+        type: 'state';
+        state: { round: { number: number } };
+        resolvedRoundHistory?: Array<{ roundNumber: number }>;
+      } =>
         message.type === 'state' &&
         typeof message.state === 'object' &&
         message.state !== null &&
@@ -414,7 +430,7 @@ describe('ws gateway integration', () => {
         queueIndex: 0,
         source: expect.objectContaining({
           type: 'card',
-          cardInstanceId: 'card_player_2_1',
+          cardInstanceId: 'card_player_2_11',
         }),
         target: expect.objectContaining({
           targetId: CHARACTER_ONE,
@@ -424,6 +440,8 @@ describe('ws gateway integration', () => {
     ]);
     expect(nextStateOne.state.round.number).toBe(2);
     expect(nextStateTwo.state.round.number).toBe(2);
+    expect(nextStateOne.resolvedRoundHistory).toEqual([expect.objectContaining({ roundNumber: 1 })]);
+    expect(nextStateTwo.resolvedRoundHistory).toEqual([expect.objectContaining({ roundNumber: 1 })]);
 
     const clearedDraftOne = await playerOneMessages.waitFor<{
       type: 'roundDraft.snapshot';
@@ -522,26 +540,26 @@ describe('ws gateway integration', () => {
     await playerTwoMessages.waitFor((message): message is { type: 'roundStatus' } => message.type === 'roundStatus');
     await playerTwoMessages.waitFor((message): message is { type: 'roundDraft.snapshot' } => message.type === 'roundDraft.snapshot');
 
-    playerOne.send(JSON.stringify({ type: 'roundDraft.replace', roundNumber: 1, intents: [] }));
-    await playerOneMessages.waitFor((message): message is { type: 'roundDraft.accepted' } => message.type === 'roundDraft.accepted');
-
-    playerTwo.send(JSON.stringify({
+    playerOne.send(JSON.stringify({
       type: 'roundDraft.replace',
       roundNumber: 1,
       intents: [{
         intentId: 'draft_ray',
         roundNumber: 1,
-        playerId: 'player_2',
-        actorId: CHARACTER_TWO,
+        playerId: 'player_1',
+        actorId: CHARACTER_ONE,
         queueIndex: 0,
         kind: 'CastSpell',
-        cardInstanceId: 'card_player_2_1',
+        cardInstanceId: 'card_player_1_4',
         target: {
-          targetId: CHARACTER_ONE,
+          targetId: CHARACTER_TWO,
           targetType: 'enemyCharacter',
         },
       }],
     }));
+    await playerOneMessages.waitFor((message): message is { type: 'roundDraft.accepted' } => message.type === 'roundDraft.accepted');
+
+    playerTwo.send(JSON.stringify({ type: 'roundDraft.replace', roundNumber: 1, intents: [] }));
     await playerTwoMessages.waitFor((message): message is { type: 'roundDraft.accepted' } => message.type === 'roundDraft.accepted');
 
     playerOne.send(JSON.stringify({ type: 'roundDraft.lock', roundNumber: 1 }));
@@ -567,10 +585,10 @@ describe('ws gateway integration', () => {
         typeof message.state === 'object' &&
         message.state !== null &&
         (message.state as { round?: { number?: unknown } }).round?.number === 2 &&
-        typeof (message.state as { characters?: Record<string, { hp?: unknown }> }).characters?.[CHARACTER_ONE]?.hp === 'number',
+        typeof (message.state as { characters?: Record<string, { hp?: unknown }> }).characters?.[CHARACTER_TWO]?.hp === 'number',
     );
 
-    expect(postRoundState.state.characters[CHARACTER_ONE].hp).toBe(18);
+    expect(postRoundState.state.characters[CHARACTER_TWO].hp).toBe(18);
 
     playerOne.close();
     playerTwo.close();
@@ -1583,7 +1601,7 @@ describe('ws gateway integration', () => {
         actorId: CHARACTER_ONE,
         queueIndex: 0,
         kind: 'CastSpell',
-        cardInstanceId: 'card_player_1_1',
+        cardInstanceId: 'card_player_1_4',
         target: {
           targetId: CHARACTER_TWO,
           targetType: 'enemyCharacter',

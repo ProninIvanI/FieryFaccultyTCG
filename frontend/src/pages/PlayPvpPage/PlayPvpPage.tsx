@@ -78,6 +78,7 @@ import { LocalBattleRibbon } from './LocalBattleRibbon';
 import { LocalHandTray } from './LocalHandTray';
 import { MatchFeedDrawer } from './MatchFeedDrawer';
 import { MatchWaitingPanel } from './MatchWaitingPanel';
+import { OpponentBoardRibbon } from './OpponentBoardRibbon';
 import { OpponentPreparationZone } from './OpponentPreparationZone';
 import { PlayerSideCard } from './PlayerSideCard';
 import { ResolutionReplayStrip } from './ResolutionReplayStrip';
@@ -472,6 +473,15 @@ export const PlayPvpPage = () => {
         }
         setMatchState(event.state);
         setPlayerLabels(event.playerLabels ?? {});
+        if (event.resolvedRoundHistory) {
+          const sortedHistory = [...event.resolvedRoundHistory].sort((left, right) => left.roundNumber - right.roundNumber);
+          setResolvedRoundHistory((currentHistory) => {
+            const byRound = new Map(currentHistory.map((entry) => [entry.roundNumber, entry] as const));
+            sortedHistory.forEach((entry) => byRound.set(entry.roundNumber, entry));
+            return [...byRound.values()].sort((left, right) => left.roundNumber - right.roundNumber);
+          });
+          setLastResolvedRound(sortedHistory[sortedHistory.length - 1] ?? null);
+        }
         setTransportRejected(null);
         setJoinRejected(null);
         setError('');
@@ -740,6 +750,13 @@ export const PlayPvpPage = () => {
   );
   const localDisplayName = getPlayerDisplayName(playerId);
   const primaryEnemyBoard = enemyBoards[0] ?? null;
+  const enemyBoardItems = useMemo(
+    () =>
+      primaryEnemyBoard
+        ? getPlayerBoardItemSummaries(matchState, primaryEnemyBoard.playerId)
+        : [],
+    [matchState, primaryEnemyBoard],
+  );
   const primaryEnemyDisplayName = getPlayerDisplayName(primaryEnemyBoard?.playerId);
   const localCharacter = useMemo(
     () => (localPlayer?.characterId ? characterCatalogById.get(localPlayer.characterId) ?? null : null),
@@ -964,7 +981,7 @@ export const PlayPvpPage = () => {
       });
     }
 
-    if (targetType === 'enemyCharacter' || targetType === 'any') {
+    if (targetType === 'enemyCharacter' || targetType === 'enemyAny' || targetType === 'any') {
       enemyBoards.forEach((board) => {
         if (board.characterId) {
           candidates.push({
@@ -973,6 +990,16 @@ export const PlayPvpPage = () => {
             kind: 'character',
           });
         }
+      });
+    }
+
+    if (targetType === 'enemyAny') {
+      enemyCreatures.forEach((creature) => {
+        candidates.push({
+          id: creature.creatureId,
+          label: getResolvedBoardItemLabel(null, creature.creatureId) ?? `РЎСѓС‰РµСЃС‚РІРѕ ${creature.creatureId}`,
+          kind: 'creature',
+        });
       });
     }
 
@@ -987,7 +1014,7 @@ export const PlayPvpPage = () => {
     }
 
     return candidates;
-  }, [creatures, enemyBoards, getPlayerDisplayName, localPlayer, playerId]);
+  }, [creatures, enemyBoards, enemyCreatures, getPlayerDisplayName, getResolvedBoardItemLabel, localPlayer, playerId]);
   const targetCandidates = useMemo<TargetCandidateSummary[]>(() => {
     const candidates: TargetCandidateSummary[] = [];
 
@@ -2382,6 +2409,13 @@ export const PlayPvpPage = () => {
                               visibleHandCount={visibleEnemyHandCount}
                               preparationCount={enemyPreparationCount}
                               preparationToneClassName={enemyPreparationToneClassName}
+                            />
+                            <OpponentBoardRibbon
+                              items={enemyBoardItems}
+                              getArtworkAccentClassName={getRibbonArtworkAccentClassName}
+                              isTargetable={isSelectableTarget}
+                              isTargetActive={isDraftTargetActive}
+                              onTargetClick={applyDraftTargetForSelection}
                             />
                           </div>
                           <div className={styles.battlefieldCore} aria-hidden="true" />
