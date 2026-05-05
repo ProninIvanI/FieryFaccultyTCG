@@ -117,6 +117,8 @@ const InlineActionStack = ({
               <button
                 className={styles.secondaryButton}
                 type="button"
+                aria-label="Убрать действие из ленты"
+                title="Убрать действие из ленты"
                 onClick={() => onRemoveRoundIntent(action.id)}
                 disabled={isSelfLocked}
               >
@@ -281,6 +283,7 @@ export const LocalBattleRibbon = ({
                       aria-label="Добавить уклонение в ленту"
                       className={`${styles.indicatorButton} ${styles.indicatorButtonDefensive}`.trim()}
                       type="button"
+                      title="Уклонение"
                       onClick={onQueueEvade}
                       disabled={!canQueueEvade || isSelfLocked}
                     >
@@ -291,6 +294,7 @@ export const LocalBattleRibbon = ({
                       aria-label="Добавить атаку в ленту"
                       className={`${styles.indicatorButton} ${styles.indicatorButtonOffensive}`.trim()}
                       type="button"
+                      title="Атака"
                       onClick={onQueueAttack}
                       disabled={!canQueueAttack || isSelfLocked}
                     >
@@ -298,7 +302,14 @@ export const LocalBattleRibbon = ({
                       <strong className={styles.indicatorValue}>Атака</strong>
                       <span className={styles.indicatorSubvalue}>{selectedAttackTargetLabel}</span>
                     </button>
-                    <button className={styles.secondaryButton} type="button" onClick={onResetDraftTarget} disabled={!activeDraftTargetId}>
+                    <button
+                      className={styles.secondaryButton}
+                      type="button"
+                      aria-label="Сбросить цель"
+                      title="Сбросить цель"
+                      onClick={onResetDraftTarget}
+                      disabled={!activeDraftTargetId}
+                    >
                       Сбросить цель
                     </button>
                   </div>
@@ -406,7 +417,14 @@ export const LocalBattleRibbon = ({
                 </div>
                 {renderIntentValidationErrors(action.id)}
                 <div className={styles.inlineActions}>
-                  <button className={styles.secondaryButton} type="button" onClick={() => onRemoveRoundIntent(action.id)} disabled={isSelfLocked}>
+                  <button
+                    className={styles.secondaryButton}
+                    type="button"
+                    aria-label="Убрать карту из ленты"
+                    title="Убрать из ленты"
+                    onClick={() => onRemoveRoundIntent(action.id)}
+                    disabled={isSelfLocked}
+                  >
                     Убрать из ленты
                   </button>
                 </div>

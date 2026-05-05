@@ -1236,8 +1236,8 @@
   --enemy-hand-card-width: calc(var(--hand-card-width) * 0.9);
   --enemy-hand-card-height: calc(var(--enemy-hand-card-width) * 1.31);
   --stage-card-width: calc(var(--hand-card-width) * 1.24);
-  --stage-card-height: calc(var(--stage-card-width) * 0.9);
-  --stage-art-height: calc(var(--stage-card-height) * 0.66);
+  --stage-card-height: calc(var(--stage-card-width) * 1.28);
+  --stage-art-height: calc(var(--stage-card-height) * 0.5);
   --hidden-card-width: calc(var(--hand-card-width) * 0.67);
   --hidden-card-height: calc(var(--hidden-card-width) * 1.45);
   --enemy-hand-sink: calc(var(--enemy-hand-card-height) * 0.35);
@@ -1260,6 +1260,10 @@
 
 .sceneStageReplay {
   padding-bottom: 0;
+  grid-template-rows:
+    minmax(0, 0.02fr)
+    minmax(0, 0.12fr)
+    minmax(0, 1fr);
 }
 
 .sceneStageReplay .enemyBand,
@@ -1354,8 +1358,9 @@
   gap: 10px;
   min-height: 0;
   width: 100%;
-  height: clamp(164px, 22vh, 208px);
-  padding: 18px 18px 16px;
+  height: auto;
+  min-height: clamp(232px, 30vh, 312px);
+  padding: 20px 18px 24px;
   border-radius: 22px;
   border: 1px solid rgba(196, 154, 90, 0.18);
   background:
@@ -1364,7 +1369,7 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 248, 236, 0.08),
     0 18px 34px rgba(0, 0, 0, 0.22);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .resolveReplayScene::before {
@@ -1389,8 +1394,8 @@
   align-items: start;
   justify-content: center;
   overflow-x: auto;
-  overflow-y: hidden;
-  padding: 20px 8px 18px;
+  overflow-y: visible;
+  padding: 28px 8px 26px;
   scroll-snap-type: x proximity;
 }
 
@@ -1407,7 +1412,7 @@
 }
 
 .resolveReplayTrackDense {
-  grid-auto-columns: minmax(196px, 214px);
+  grid-auto-columns: minmax(212px, 226px);
   gap: 10px;
 }
 
@@ -1451,7 +1456,7 @@
 }
 
 .resolveReplayItemActive {
-  transform: translateY(-8px) scale(1.03);
+  transform: translateY(-6px) scale(1.02);
   border-color: rgba(196, 154, 90, 0.42);
   box-shadow:
     inset 0 0 0 1px rgba(255, 248, 236, 0.08),
@@ -2351,6 +2356,10 @@
   margin-bottom: clamp(42px, calc(var(--player-stage-offset) * 0.94), 82px);
 }
 
+.sceneStageReplay .playerBattleLane .ribbonSection {
+  margin-bottom: 8px;
+}
+
 .playerBattleLane .ribbonGrid {
   justify-content: center;
   align-items: end;
@@ -2360,8 +2369,8 @@
 }
 
 .playerBattleLane .ribbonCard {
+  min-height: var(--stage-card-height);
   height: var(--stage-card-height);
-  min-height: 0;
   padding: 14px 14px 12px;
   box-sizing: border-box;
 }
@@ -2419,6 +2428,24 @@
   background:
     linear-gradient(180deg, rgba(255, 248, 236, 0.08), rgba(255, 248, 236, 0.03)),
     var(--pvp-panel-soft);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 236, 0.08),
+    0 14px 26px rgba(0, 0, 0, 0.18);
+}
+
+.ribbonCard::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  z-index: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 248, 236, 0.1);
+  pointer-events: none;
+}
+
+.ribbonCard > * {
+  position: relative;
+  z-index: 1;
 }
 
 .ribbonCardPlaybackSummon {
@@ -2524,10 +2551,10 @@
   border-color: rgba(196, 154, 90, 0.4);
   position: relative;
   overflow: visible;
-  padding-left: 12px;
-  padding-right: 10px;
+  padding: 12px 12px 14px;
   background:
-    linear-gradient(180deg, rgba(196, 154, 90, 0.12), rgba(255, 248, 236, 0.04)),
+    radial-gradient(circle at 50% 0%, rgba(245, 201, 137, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(196, 154, 90, 0.14), rgba(255, 248, 236, 0.04)),
     var(--pvp-panel-soft);
 }
 
@@ -2570,8 +2597,9 @@
 .ribbonCardActive {
   border-color: rgba(14, 165, 233, 0.52);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.76),
-    0 10px 24px rgba(14, 165, 233, 0.08);
+    inset 0 0 0 1px rgba(255, 248, 236, 0.12),
+    0 0 0 2px rgba(14, 165, 233, 0.12),
+    0 14px 28px rgba(14, 165, 233, 0.1);
 }
 
 .ribbonCardInspected {
@@ -2705,8 +2733,8 @@
 
 .inlineConfigurator {
   position: absolute;
-  left: 12px;
-  right: 12px;
+  left: auto;
+  right: 10px;
   bottom: 10px;
   z-index: 4;
   display: flex;
@@ -2742,13 +2770,14 @@
 }
 
 .indicatorPill {
-  max-width: 86px;
-  overflow: hidden;
+  display: none;
 }
 
 .indicatorButton {
-  width: 32px;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
+  padding: 0;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
@@ -2768,9 +2797,28 @@
   background: rgba(127, 29, 29, 0.5);
 }
 
+.indicatorButtonOffensive::before {
+  content: "";
+  width: 15px;
+  height: 15px;
+  border-radius: 2px 8px 2px 8px;
+  border-top: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+  transform: rotate(45deg);
+}
+
 .indicatorButtonDefensive {
   border-color: rgba(56, 189, 248, 0.48);
   background: rgba(14, 116, 144, 0.46);
+}
+
+.indicatorButtonDefensive::before {
+  content: "";
+  width: 15px;
+  height: 17px;
+  border: 2px solid currentColor;
+  border-radius: 8px 8px 10px 10px;
+  clip-path: polygon(50% 0, 100% 18%, 88% 82%, 50% 100%, 12% 82%, 0 18%);
 }
 
 .indicatorKicker {
@@ -2778,12 +2826,12 @@
 }
 
 .indicatorValue {
-  min-width: 0;
-  max-width: 100%;
+  position: absolute;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
-  color: var(--pvp-text);
 }
 
 .indicatorSubvalue {
@@ -2791,20 +2839,39 @@
 }
 
 .inlineConfigurator .secondaryButton {
-  width: 28px;
-  min-height: 28px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  min-height: 34px;
   padding: 0;
   flex: 0 0 auto;
   overflow: hidden;
   color: transparent;
   border-radius: 999px;
+  border-color: rgba(196, 154, 90, 0.34);
+  background: rgba(20, 16, 15, 0.82);
 }
 
 .inlineConfigurator .secondaryButton::before {
-  content: "X";
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
   color: var(--pvp-text);
-  font-size: 10px;
-  font-weight: 900;
+  opacity: 0.92;
+}
+
+.inlineConfigurator .secondaryButton::after {
+  content: "";
+  position: absolute;
+  width: 19px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--pvp-text);
+  transform: rotate(-45deg);
 }
 
 .inlineConfigurator .hint {

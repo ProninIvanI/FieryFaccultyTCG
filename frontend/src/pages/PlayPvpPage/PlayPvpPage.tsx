@@ -1914,7 +1914,6 @@ export const PlayPvpPage = () => {
     hasReplayAvailable,
     isOpen: isResolvedReplayOpen,
     itemRefs: resolvedReplayItemRefs,
-    playbackBoardItems: resolvedPlaybackBoardItems,
     playbackComplete: resolvedPlaybackComplete,
     playbackIndex: resolvedPlaybackIndex,
     toggle: handleToggleResolvedReplay,
@@ -1927,18 +1926,8 @@ export const PlayPvpPage = () => {
   });
 
   const visibleLocalBattleRibbonEntries = useMemo<LocalBattleRibbonEntrySummary[]>(
-    () =>
-      !isResolvedReplayOpen
-        ? localBattleRibbonEntries
-        : resolvedPlaybackBoardItems.map((item) => ({
-            id: `boardItem:${item.id}`,
-            kind: 'boardItem' as const,
-            orderIndex: item.placementOrderIndex,
-            layer: item.placementLayer,
-            item,
-            attachedActions: [],
-          })),
-    [isResolvedReplayOpen, localBattleRibbonEntries, resolvedPlaybackBoardItems],
+    () => (isResolvedReplayOpen ? [] : localBattleRibbonEntries),
+    [isResolvedReplayOpen, localBattleRibbonEntries],
   );
   const hasLocalBattleRibbonEntries = visibleLocalBattleRibbonEntries.length > 0;
   const localDisplayHp =
