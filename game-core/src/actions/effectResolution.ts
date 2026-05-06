@@ -32,5 +32,5 @@ export const shouldEnqueueEffectForTarget = (
     return false;
   }
 
-  return targetEvasion < sourceSpeed;
+  return targetEvasion <= sourceSpeed;
 };

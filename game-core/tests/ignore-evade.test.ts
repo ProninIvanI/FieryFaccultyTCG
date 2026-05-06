@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CardRegistry } from '../src/cards/CardRegistry';
 import { GameEngine } from '../src/engine/GameEngine';
 import { createInitialState } from '../src/engine/createInitialState';
-import { CardDefinition, CastSpellAction } from '../src/types';
+import { AttackAction, CardDefinition, CastSpellAction } from '../src/types';
 
 const definitions: CardDefinition[] = [
   {
@@ -71,6 +71,22 @@ describe('game-core ignore evade', () => {
     expect(engine.getState().characters.char_2.hp).toBe(20);
   });
 
+  it('lets regular spell damage hit when speed equals evasion', () => {
+    const engine = buildEngine();
+    engine.getState().characters.char_2.dexterity = 2;
+    const action: CastSpellAction = {
+      type: 'CastSpell',
+      actorId: 'char_1',
+      playerId: 'player_1',
+      cardInstanceId: 'card_slow',
+      targetId: 'char_2',
+      targetType: 'enemyCharacter',
+    };
+
+    expect(engine.processAction(action)).toEqual({ ok: true });
+    expect(engine.getState().characters.char_2.hp).toBe(17);
+  });
+
   it('lets ignoreEvade spell damage hit agile targets', () => {
     const engine = buildEngine();
     const action: CastSpellAction = {
@@ -85,5 +101,22 @@ describe('game-core ignore evade', () => {
     expect(engine.processAction(action)).toEqual({ ok: true });
     expect(engine.getState().characters.char_2.hp).toBe(17);
   });
-});
 
+  it('lets attacks hit when speed equals evasion', () => {
+    const engine = buildEngine();
+    const state = engine.getState();
+    state.characters.char_2.dexterity = 2;
+    const action: AttackAction = {
+      type: 'Attack',
+      actorId: 'char_1',
+      playerId: 'player_1',
+      targetId: 'char_2',
+      attackType: 'creature',
+      speed: 2,
+      power: 3,
+    };
+
+    expect(engine.processAction(action)).toEqual({ ok: true });
+    expect(state.characters.char_2.hp).toBe(17);
+  });
+});

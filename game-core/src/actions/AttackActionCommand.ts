@@ -23,7 +23,7 @@ export class AttackActionCommand implements ActionCommand<AttackAction> {
     }
 
     const targetDex = character ? character.dexterity : creature.speed;
-    if (targetDex >= action.speed) {
+    if (targetDex > action.speed) {
       return;
     }
 

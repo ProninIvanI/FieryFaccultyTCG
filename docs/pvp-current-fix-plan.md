@@ -357,9 +357,228 @@
 - `npm.cmd --prefix frontend run test -- PlayPvpPage.test.tsx`
 - Ручной visual smoke пользователем: hover по флажку действий существа.
 
-Результат:
+### R4. Action-card internal layout is broken after card-shell changes
 
-- Исправлено.
-- `npm.cmd --prefix frontend run type-check` — пройдено.
-- `npm.cmd --prefix frontend run build` — пройдено.
-- `npm.cmd --prefix frontend run test -- PlayPvpPage.test.tsx` — пройдено.
+Приоритет: P1.
+
+Файл:
+
+- `frontend/src/pages/PlayPvpPage/LocalBattleRibbon.tsx`
+- `frontend/src/pages/PlayPvpPage/PlayPvpPage.module.css`
+
+Проблема:
+
+- После попытки собрать action-card в единый card-shell элементы оказались внутри карты, но разложены неправильно.
+- На smoke-скрине видно:
+  - название карты наезжает на нижнюю границу art/body;
+  - `SPD` уходит в отдельный маленький блок ниже и не выглядит частью карты;
+  - mana badge и remove-control живут поверх art, но не встроены в понятную сетку;
+  - target/mana-флажок в центре art выглядит случайной плавающей точкой;
+  - нижняя информационная зона карты практически отсутствует или схлопнулась.
+
+Что нужно сделать:
+
+- Пересобрать внутреннюю сетку `ribbonCardAction`, а не только внешнюю рамку.
+- У action-card должна быть стабильная структура:
+  - top/art zone;
+  - bottom/info zone;
+  - title внутри bottom/info zone;
+  - `SPD` внутри bottom/info zone рядом с title или под ним;
+  - mana badge в левом верхнем углу art/card;
+  - remove-control в правом верхнем углу card;
+  - target tabs/флажки цели как аккуратный overlay, который не перекрывает title и `SPD`.
+- Запретить title выходить из bottom/info zone и наезжать на art.
+- Запретить `SPD` выпадать ниже внешней рамки карты.
+- Если target tabs не помещаются в маленькую карту, временно сделать их компактным stack/flag внутри правой части art-zone или вынести в hover popover, но не ломать card-shell.
+
+Критерии готовности:
+
+- Название карты полностью внутри рамки и не пересекается с art.
+- `SPD` полностью внутри рамки и визуально относится к карте.
+- Remove-control не перекрывает title и `SPD`.
+- Mana badge не конфликтует с target tabs.
+- При двух картах рядом layout остаётся одинаковым, без схлопывания нижней зоны.
+
+Проверки:
+
+- `npm.cmd --prefix frontend run type-check`
+- `npm.cmd --prefix frontend run lint`
+- `npm.cmd --prefix frontend run test -- PlayPvpPage.test.tsx`
+- Ручной visual smoke пользователем: 1 карта в ленте, 2 карты в ленте, карта с несколькими target tabs.
+
+### R5. Intermittent removed card may still resolve
+
+Приоритет: P1, если подтвердится.
+
+Статус: гипотеза, сейчас не трогаем. Нужно отдельное ручное воспроизведение.
+
+Решение на сейчас:
+
+- Не править этот пункт в текущем пакете.
+- Не добавлять диагностику и временные логи прямо сейчас.
+- Сначала пользователь отдельно попробует воспроизвести сценарий.
+- Если баг воспроизводится, тогда поднимаем пункт в active bug и разбираем логику удаления/замены intent.
+- Если баг не воспроизводится, оставляем как неподтверждённое наблюдение.
+
+Файлы для расследования:
+
+- `frontend/src/pages/PlayPvpPage/PlayPvpPage.tsx`
+- `frontend/src/pages/PlayPvpPage/LocalBattleRibbon.tsx`
+- `server/src/transport/ws/WsGateway.ts`
+- `game-core/src/rounds/validateRoundDraft.ts`
+- `game-core/src/rounds/compileRoundActions.ts`
+
+Наблюдение:
+
+- Пользователь выложил `Пламя ярости`, затем убрал его из ленты и заменил на `Лавовый поток`.
+- В одном прогоне история матча показала, что `Пламя ярости` всё равно разыгралось.
+- При повторной попытке похожий сценарий не воспроизвёлся: в истории корректно разыгрался `Лавовый поток`.
+- Ошибка выглядит intermittent: возможно, старый round intent иногда остаётся в локальном draft, server snapshot или отправляется повторно после удаления.
+
+Что нужно проверить, если баг подтвердится:
+
+- При клике “Убрать из ленты” реально удаляется нужный `intentId` из локального draft.
+- После удаления фронт отправляет `roundDraft.replace` без удалённого intent.
+- Если сразу после удаления выбирается другая карта, новый replace не смешивает старый и новый intents.
+- Сервер не восстанавливает старый intent из предыдущего `roundDraft.snapshot`.
+- При переподключении/повторном snapshot не возвращается удалённая карта.
+- UI не показывает stale action-card из-за key/id reuse.
+
+Гипотезы:
+
+- Race condition между `onRemoveRoundIntent`, выбором новой карты и отправкой `roundDraft.replace`.
+- Старая карта остаётся в `roundDraft` на сервере, если remove не успел отправиться или был перезаписан более старым payload.
+- `intentId`/key переиспользуется так, что UI удаляет один элемент, а отправляется другой.
+- Snapshot от сервера после удаления возвращает старый intent и фронт его принимает как актуальный.
+
+Критерии готовности, если пункт будет взят в работу:
+
+- Есть воспроизводимый тест или диагностический лог, показывающий последовательность:
+  1. добавить карту A;
+  2. удалить карту A;
+  3. добавить карту B;
+  4. завершить ход;
+  5. в resolved history есть только карта B.
+- `roundDraft.replace` после удаления не содержит карту A.
+- После server snapshot удалённая карта A не возвращается в local ribbon.
+
+Предлагаемые тесты, если пункт будет взят в работу:
+
+- Frontend test в `PlayPvpPage.test.tsx`: add card A -> remove A -> add card B -> assert latest `roundDraft.replace` contains only B.
+- Server/ws test: несколько последовательных `roundDraft.replace` для одного roundNumber не должны возвращать удалённый intent.
+- При необходимости game-core test на compile только финального draft.
+
+Временная диагностика, если без неё не получится воспроизвести:
+
+- На время расследования можно добавить dev-only лог/тестовый helper для `roundDraft.replace`: список `intentId`, `cardInstanceId`, `definitionId`, `target`.
+- В логи нельзя писать токены, `.env` и приватные данные.
+
+### R6. Match does not end when a character reaches 0 HP
+
+Приоритет: P0/P1.
+
+Статус: подтверждённый gameplay gap.
+
+Файлы для расследования и реализации:
+
+- `game-core/src/engine/GameEngine.ts`
+- `game-core/src/types/state.ts`
+- `game-core/src/types/events.ts`
+- `game-core/src/rounds/compileRoundActions.ts`
+- `server/src/transport/ws/WsGateway.ts`
+- `server/src/services/*` или текущий match/session service, где хранится state
+- `frontend/src/pages/PlayPvpPage/PlayPvpPage.tsx`
+- PvP UI components around turn controls / scene overlay
+
+Наблюдение:
+
+- У оппонента HP дошло до `0/20`.
+- Матч не завершился.
+- Не выставляется состояние “победа/поражение”.
+- Игрок всё ещё может собирать ленту и завершать ход после того, как один персонаж уже должен считаться проигравшим.
+- Значит, сейчас нет полноценного game-over контракта между `game-core`, server и frontend.
+
+Что нужно решить на уровне правил:
+
+- Матч завершается, когда HP персонажа игрока становится `<= 0`.
+- Если у одного игрока персонаж умер:
+  - этот игрок проиграл;
+  - другой игрок победил.
+- Если оба персонажа умерли в одном resolution:
+  - нужно определить правило draw или tie-breaker.
+  - Предварительно: зафиксировать как `draw`, если оба HP `<= 0` после одного resolve.
+- После game over новые round draft / lock / end turn действия не должны приниматься сервером.
+
+Что нужно сделать в `game-core`:
+
+- Добавить в state явное состояние завершения матча, например:
+  - `matchStatus: "active" | "finished"`;
+  - `winnerPlayerId?: string`;
+  - `loserPlayerId?: string`;
+  - `finishReason?: "character_defeated" | "draw"`;
+  - либо аналогичную структуру, если в проекте уже есть подходящий тип.
+- После применения действий/эффектов round resolution проверять HP всех персонажей.
+- Если найдено завершение:
+  - фиксировать winner/loser/draw в state;
+  - эмитить событие истории/матча о завершении;
+  - больше не планировать следующий раунд как активный.
+- Убедиться, что повторный resolve не переоткрывает матч.
+
+Что нужно сделать на server/ws:
+
+- Не принимать `roundDraft.replace`, `roundDraft.lock`, end turn и похожие сообщения после finished-state.
+- Отправлять клиентам state/snapshot с game-over полями.
+- При reconnect клиент должен получить уже завершённый матч, а не активный draft.
+- Если клиент всё же отправляет действие после game over, сервер должен вернуть понятный reject/error, а не менять state.
+
+Что нужно сделать на frontend:
+
+- Если матч завершён:
+  - отключить сбор ленты и кнопку “Завершить ход”;
+  - скрыть/заблокировать hand interactions;
+  - показать состояние победы или поражения для локального игрока;
+  - позже сделать два отдельных экрана/overlay: victory и defeat.
+- Временно достаточно понятного modal/overlay/banner:
+  - “Победа” если `winnerPlayerId === localPlayerId`;
+  - “Поражение” если `loserPlayerId === localPlayerId`;
+  - “Ничья” если draw.
+- История матча должна показывать событие завершения.
+
+Критерии готовности:
+
+- Когда HP оппонента становится `0`, локальный игрок видит победу.
+- Когда HP локального игрока становится `0`, локальный игрок видит поражение.
+- После завершения матча нельзя добавить карту в ленту и нельзя завершить ход.
+- После reconnect завершённый матч остаётся завершённым.
+- Server reject не позволяет вручную отправить новый draft после game over.
+- История/лента не продолжает создавать новые раунды после game over.
+
+Тесты:
+
+- `game-core`: round resolution снижает HP до 0 и выставляет finished/winner/loser.
+- `game-core`: оба персонажа HP <= 0 в одном resolve дают draw или выбранное правило.
+- `server/ws`: после finished server отклоняет `roundDraft.replace`/lock.
+- `frontend`: PlayPvpPage показывает victory/defeat state и блокирует controls.
+
+Проверки:
+
+- `npm.cmd --prefix game-core run test`
+- `npm.cmd --prefix server run test` или targeted ws tests
+- `npm.cmd --prefix frontend run test -- PlayPvpPage.test.tsx`
+- `npm.cmd --prefix frontend run type-check`
+- `npm.cmd --prefix frontend run lint`
+- `npm.cmd --prefix frontend run build`
+
+Будущий UX:
+
+- Отдельный victory screen.
+- Отдельный defeat screen.
+- Возможные действия после матча:
+  - открыть историю;
+  - вернуться в меню/лобби;
+  - рематч, если такой flow появится позже.
+
+Текущий статус:
+
+- Не реализовано в текущем пакете.
+- Оставлено как следующий gameplay/system пакет.
