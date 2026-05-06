@@ -10,7 +10,6 @@ import {
   MAX_CREATURES_PER_PLAYER,
   validateCardLocation,
   validateCardOwnership,
-  validateTarget,
   validateTargetType,
 } from '../validation/validators';
 
@@ -48,6 +47,41 @@ const validateActorOwnership = (
   if (!ownerId || ownerId !== playerId) {
     pushError(errors, 'actor_ownership', 'Actor does not belong to player', intentId);
   }
+};
+
+const validateAttackTarget = (
+  state: GameState,
+  playerId: string,
+  targetId: string | undefined,
+  targetType: string | undefined,
+): string[] => {
+  if (!targetId) {
+    return ['Attack target is required'];
+  }
+
+  if (!targetType) {
+    return ['Attack target type is required'];
+  }
+
+  const targetCharacter = state.characters[targetId];
+  if (targetCharacter) {
+    if (targetType !== 'enemyCharacter') {
+      return ['Attack target type must match enemy character'];
+    }
+
+    return targetCharacter.ownerId !== playerId ? [] : ['Attack target must be enemy'];
+  }
+
+  const targetCreature = state.creatures[targetId];
+  if (targetCreature) {
+    if (targetType !== 'creature') {
+      return ['Attack target type must match creature'];
+    }
+
+    return targetCreature.ownerId !== playerId ? [] : ['Attack target must be enemy'];
+  }
+
+  return ['Attack target not found'];
 };
 
 const validateCardIntent = (
@@ -201,7 +235,7 @@ export const validateRoundDraft = (
         pushError(errors, 'summoning_sickness', 'Creature has summoning sickness this round', intent.intentId);
       }
 
-      validateTarget(state, intent.target.targetId).forEach((message) =>
+      validateAttackTarget(state, draft.playerId, intent.target.targetId, intent.target.targetType).forEach((message) =>
         pushError(errors, 'attack_target', message, intent.intentId),
       );
     }

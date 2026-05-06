@@ -958,14 +958,14 @@ export const PlayPvpPage = () => {
     ) {
       setDraftTarget({
         sourceInstanceId: selectedCreature.creatureId,
-        targetType: selectedCreatureSuggestedAttackIntent.target.targetType,
+        targetType: matchState?.creatures?.[targetId] ? 'creature' : selectedCreatureSuggestedAttackIntent.target.targetType,
         targetId,
       });
       return;
     }
 
     setDraftTarget(null);
-  }, [selectedCardTargetType, selectedCreature, selectedCreatureSuggestedAttackIntent, selectedHandCard]);
+  }, [matchState?.creatures, selectedCardTargetType, selectedCreature, selectedCreatureSuggestedAttackIntent, selectedHandCard]);
   const getTargetCandidatesForType = useCallback((targetType: TargetType | null | undefined): TargetCandidateSummary[] => {
     const candidates: TargetCandidateSummary[] = [];
 

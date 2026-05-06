@@ -276,6 +276,102 @@ describe('validateRoundDraft', () => {
     expect(result.errors.some((error) => error.code === 'summoning_sickness')).toBe(true);
   });
 
+  it('accepts creature attack against an enemy creature', () => {
+    const { state, registry } = createDraftState();
+    state.creatures.creature_1 = {
+      creatureId: 'creature_1',
+      ownerId: 'player_1',
+      hp: 3,
+      maxHp: 3,
+      attack: 2,
+      speed: 2,
+      summonedAtRound: 0,
+    };
+    state.creatures.enemy_creature_1 = {
+      creatureId: 'enemy_creature_1',
+      ownerId: 'player_2',
+      hp: 3,
+      maxHp: 3,
+      attack: 1,
+      speed: 2,
+      summonedAtRound: 0,
+    };
+
+    const draft: PlayerRoundDraft = {
+      playerId: 'player_1',
+      roundNumber: 1,
+      locked: false,
+      intents: [
+        {
+          intentId: 'attack_1',
+          roundNumber: 1,
+          playerId: 'player_1',
+          actorId: 'creature_1',
+          queueIndex: 0,
+          kind: 'Attack',
+          sourceCreatureId: 'creature_1',
+          target: {
+            targetId: 'enemy_creature_1',
+            targetType: 'creature',
+          },
+        },
+      ],
+    };
+
+    expect(validateRoundDraft(state, registry, draft)).toEqual({ ok: true });
+  });
+
+  it('rejects creature attack against an ally creature', () => {
+    const { state, registry } = createDraftState();
+    state.creatures.creature_1 = {
+      creatureId: 'creature_1',
+      ownerId: 'player_1',
+      hp: 3,
+      maxHp: 3,
+      attack: 2,
+      speed: 2,
+      summonedAtRound: 0,
+    };
+    state.creatures.ally_creature_1 = {
+      creatureId: 'ally_creature_1',
+      ownerId: 'player_1',
+      hp: 3,
+      maxHp: 3,
+      attack: 1,
+      speed: 2,
+      summonedAtRound: 0,
+    };
+
+    const draft: PlayerRoundDraft = {
+      playerId: 'player_1',
+      roundNumber: 1,
+      locked: false,
+      intents: [
+        {
+          intentId: 'attack_1',
+          roundNumber: 1,
+          playerId: 'player_1',
+          actorId: 'creature_1',
+          queueIndex: 0,
+          kind: 'Attack',
+          sourceCreatureId: 'creature_1',
+          target: {
+            targetId: 'ally_creature_1',
+            targetType: 'creature',
+          },
+        },
+      ],
+    };
+
+    const result = validateRoundDraft(state, registry, draft);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.errors.some((error) => error.code === 'attack_target')).toBe(true);
+  });
+
   it('counts next-spell mana discount when validating draft budget', () => {
     const { state, registry } = createDraftState();
     state.players.player_1.mana = 3;

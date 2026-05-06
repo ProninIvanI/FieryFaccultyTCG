@@ -2429,6 +2429,152 @@ describe('PlayPvpPage', () => {
     });
   });
 
+  it('builds creature attack against manually selected enemy creature target', async () => {
+    await renderPage('char_1', 'user_1');
+
+    const socket = await submitJoin('session_attack_creature_target', /Создать/i);
+
+    await act(async () => {
+      socket.emitMessage({
+        type: 'state',
+        state: createRoundState({
+          players: {
+            user_1: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_1' },
+            user_2: { mana: 5, maxMana: 10, actionPoints: 2, characterId: 'char_2' },
+          },
+          characters: {
+            char_1: {
+              characterId: 'char_1',
+              ownerId: 'user_1',
+              hp: 20,
+              maxHp: 20,
+              dexterity: 3,
+              concentration: 3,
+            },
+            char_2: {
+              characterId: 'char_2',
+              ownerId: 'user_2',
+              hp: 20,
+              maxHp: 20,
+              dexterity: 3,
+              concentration: 3,
+            },
+          },
+          creatures: {
+            ally_creature_1: {
+              creatureId: 'ally_creature_1',
+              ownerId: 'user_1',
+              hp: 4,
+              maxHp: 4,
+              attack: 2,
+              speed: 3,
+              summonedAtRound: 0,
+            },
+            enemy_spark_1: {
+              creatureId: 'enemy_spark_1',
+              ownerId: 'user_2',
+              hp: 3,
+              maxHp: 3,
+              attack: 2,
+              speed: 5,
+              summonedAtRound: 0,
+            },
+          },
+          boardView: {
+            players: {
+              user_1: {
+                playerId: 'user_1',
+                characterId: 'char_1',
+                boardItems: [
+                  {
+                    id: 'creature:ally_creature_1',
+                    runtimeId: 'ally_creature_1',
+                    ownerId: 'user_1',
+                    subtype: 'creature',
+                    definitionId: '85',
+                    lifetimeType: 'persistent',
+                    placement: { layer: 'summon', orderIndex: 0 },
+                    state: { hp: 4, maxHp: 4, attack: 2, speed: 3 },
+                  },
+                ],
+                ribbonEntries: [],
+              },
+              user_2: {
+                playerId: 'user_2',
+                characterId: 'char_2',
+                boardItems: [
+                  {
+                    id: 'creature:enemy_spark_1',
+                    runtimeId: 'enemy_spark_1',
+                    ownerId: 'user_2',
+                    subtype: 'creature',
+                    definitionId: '85',
+                    lifetimeType: 'persistent',
+                    placement: { layer: 'summon', orderIndex: 0 },
+                    state: { hp: 3, maxHp: 3, attack: 2, speed: 5 },
+                  },
+                ],
+                ribbonEntries: [],
+              },
+            },
+          },
+          decks: {
+            user_1: { ownerId: 'user_1', cards: ['deck_card_1'] },
+            user_2: { ownerId: 'user_2', cards: ['deck_card_2'] },
+          },
+          hands: {
+            user_1: [],
+            user_2: [],
+          },
+          discardPiles: {
+            user_1: [],
+            user_2: [],
+          },
+          cardInstances: {},
+        }),
+      });
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: /ally_creature_1/i }));
+      await flushMicrotasks();
+    });
+
+    const creatureTargetButton = await screen.findByRole('button', { name: /Выбрать цель: Искровой дух/i });
+    await act(async () => {
+      fireEvent.click(creatureTargetButton);
+      await flushMicrotasks();
+    });
+
+    const attackButton = await screen.findByRole('button', { name: /Добавить атаку в ленту/i });
+    expect(attackButton).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(attackButton);
+      await flushMicrotasks();
+    });
+
+    await waitFor(() => {
+      expect(
+        socket.sent.some((payload) => {
+          const message = JSON.parse(payload) as {
+            type?: string;
+            intents?: Array<Record<string, unknown>>;
+          };
+          const firstIntent = Array.isArray(message.intents) ? message.intents[0] : null;
+
+          return (
+            message.type === 'roundDraft.replace' &&
+            firstIntent?.kind === 'Attack' &&
+            firstIntent?.sourceCreatureId === 'ally_creature_1' &&
+            JSON.stringify(firstIntent?.target) === JSON.stringify({ targetType: 'creature', targetId: 'enemy_spark_1' })
+          );
+        }),
+      ).toBe(true);
+    });
+  });
+
   it('restores local round queue from roundDraft snapshot after sync', async () => {
     await renderPage('char_1', 'user_1');
 

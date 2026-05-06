@@ -86,6 +86,18 @@ const InlineActionStack = ({
 
   return (
     <div className={styles.ribbonActionStack}>
+      <button
+        className={`${styles.ribbonActionFlag} ${
+          actions.some((action) => activeLocalPlaybackIntentId === action.id) ? styles.ribbonActionFlagActive : ''
+        }`.trim()}
+        type="button"
+        aria-label={`Действий в ленте: ${actions.length}`}
+        title={`Действий в ленте: ${actions.length}`}
+      >
+        <span className={styles.ribbonActionFlagIcon} aria-hidden="true" />
+        <span>{actions.length}</span>
+      </button>
+      <div className={styles.ribbonActionPopover}>
       {actions.map((action) => {
         const actionInspectTarget: SceneInspectTarget = { kind: 'roundAction', id: action.id };
         const compactActionTitle = action.sourceType === 'boardItem' ? action.modeLabel : action.title;
@@ -128,6 +140,7 @@ const InlineActionStack = ({
           </div>
         );
       })}
+      </div>
     </div>
   );
 };

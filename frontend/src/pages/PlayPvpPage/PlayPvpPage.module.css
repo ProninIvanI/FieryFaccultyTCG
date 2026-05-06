@@ -1154,6 +1154,25 @@
   padding: 6px 10px;
 }
 
+.ribbonCardAction .roundQueueError {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-height: 30px;
+  padding: 4px 6px;
+  overflow: hidden;
+  border-color: rgba(254, 202, 202, 0.66);
+  background: rgba(69, 10, 10, 0.82);
+  color: #fecaca;
+  font-size: 10px;
+  line-height: 1.15;
+}
+
 .matchSpotlightHeader,
 .battleLaneHeader,
 .heroPanelHeader,
@@ -2551,7 +2570,9 @@
   border-color: rgba(196, 154, 90, 0.4);
   position: relative;
   overflow: visible;
-  padding: 12px 12px 14px;
+  min-height: 184px;
+  padding: 10px 10px 12px;
+  align-content: start;
   background:
     radial-gradient(circle at 50% 0%, rgba(245, 201, 137, 0.16), transparent 34%),
     linear-gradient(180deg, rgba(196, 154, 90, 0.14), rgba(255, 248, 236, 0.04)),
@@ -2560,12 +2581,16 @@
 
 .ribbonActionLayout {
   position: relative;
+  display: grid;
+  min-height: 160px;
 }
 
 .ribbonActionBody {
   display: grid;
-  gap: 8px;
+  grid-template-rows: 98px minmax(44px, 1fr);
+  gap: 7px;
   min-width: 0;
+  min-height: 160px;
 }
 
 .ribbonActionToneSummon {
@@ -2647,6 +2672,15 @@
     0 10px 20px rgba(0, 0, 0, 0.14);
 }
 
+.ribbonCardAction .ribbonArtwork {
+  min-height: 98px;
+  border-radius: 18px;
+  border-color: rgba(255, 248, 236, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -18px 24px rgba(15, 23, 42, 0.16);
+}
+
 .ribbonArtwork::before {
   content: "";
   position: absolute;
@@ -2700,9 +2734,33 @@
   padding-inline: 8px;
 }
 
+.ribbonCardAction .ribbonArtworkMana {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 10px;
+  border-color: transparent;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.96), rgba(191, 219, 254, 0.8) 35%, rgba(37, 99, 235, 0.92) 100%);
+  color: #0f172a;
+  font-weight: 800;
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.18);
+  backdrop-filter: none;
+}
+
 .ribbonCardBody {
   display: grid;
   gap: 6px;
+}
+
+.ribbonCardAction .ribbonCardBody {
+  align-content: start;
+  min-height: 44px;
+  margin-top: 0;
+  padding: 8px 7px 7px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 248, 236, 0.06);
+  background: rgba(11, 9, 8, 0.28);
 }
 
 .ribbonBadgeRow,
@@ -2729,20 +2787,91 @@
   max-width: calc(100% - 20px);
   padding-top: 0;
   border-top: 0;
+  justify-items: end;
+}
+
+.ribbonActionFlag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 201, 137, 0.36);
+  background: rgba(20, 16, 15, 0.84);
+  color: var(--pvp-text);
+  font-size: 11px;
+  font-weight: 900;
+  cursor: help;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(4px);
+}
+
+.ribbonActionFlagIcon {
+  width: 10px;
+  height: 14px;
+  border-radius: 2px 7px 2px 7px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.ribbonActionFlagActive {
+  border-color: rgba(125, 211, 252, 0.72);
+  box-shadow:
+    0 0 0 2px rgba(125, 211, 252, 0.14),
+    0 10px 18px rgba(0, 0, 0, 0.2);
+}
+
+.ribbonActionPopover {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 8;
+  display: grid;
+  gap: 6px;
+  width: min(220px, 72vw);
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 201, 137, 0.28);
+  background: rgba(20, 16, 15, 0.94);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 236, 0.06),
+    0 18px 34px rgba(0, 0, 0, 0.32);
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.ribbonActionStack:hover .ribbonActionPopover,
+.ribbonActionStack:focus-within .ribbonActionPopover {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .inlineConfigurator {
   position: absolute;
   left: auto;
   right: 10px;
-  bottom: 10px;
+  top: -16px;
+  bottom: auto;
   z-index: 4;
   display: flex;
   gap: 6px;
   align-items: center;
   min-width: 0;
-  padding: 0;
-  border-top: 0;
+  padding: 4px;
+  border: 1px solid rgba(245, 201, 137, 0.24);
+  border-radius: 999px;
+  background: rgba(20, 16, 15, 0.86);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 236, 0.05),
+    0 14px 24px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(4px);
 }
 
 .indicatorRail {
@@ -2799,12 +2928,13 @@
 
 .indicatorButtonOffensive::before {
   content: "";
-  width: 15px;
-  height: 15px;
-  border-radius: 2px 8px 2px 8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 2px 9px 2px 9px;
   border-top: 3px solid currentColor;
   border-right: 3px solid currentColor;
   transform: rotate(45deg);
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.3));
 }
 
 .indicatorButtonDefensive {
@@ -2814,11 +2944,12 @@
 
 .indicatorButtonDefensive::before {
   content: "";
-  width: 15px;
-  height: 17px;
+  width: 16px;
+  height: 18px;
   border: 2px solid currentColor;
   border-radius: 8px 8px 10px 10px;
   clip-path: polygon(50% 0, 100% 18%, 88% 82%, 50% 100%, 12% 82%, 0 18%);
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.28));
 }
 
 .indicatorKicker {
@@ -2892,6 +3023,34 @@
   display: none;
 }
 
+.ribbonActionPopover .ribbonInlineAction {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  padding: 7px;
+  border-radius: 10px;
+  background: rgba(255, 248, 236, 0.05);
+}
+
+.ribbonActionPopover .ribbonInlineAction .ribbonInlineActionHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.ribbonActionPopover .ribbonInlineAction .roundQueueError {
+  position: static;
+  inset: auto;
+  grid-column: 1 / -1;
+  display: flex;
+  max-height: none;
+  padding: 4px 6px;
+  border-color: rgba(254, 202, 202, 0.62);
+  background: rgba(69, 10, 10, 0.72);
+  color: #fecaca;
+  font-size: 10px;
+}
+
 .ribbonInlineAction .inlineActions {
   display: inline-flex;
 }
@@ -2907,6 +3066,49 @@
   color: var(--pvp-muted);
   font-size: 12px;
   box-shadow: none;
+}
+
+.ribbonCardAction .inlineActions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  display: inline-flex;
+  gap: 0;
+}
+
+.ribbonCardAction .inlineActions .secondaryButton {
+  position: relative;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  justify-self: auto;
+  overflow: hidden;
+  border-radius: 999px;
+  border-color: rgba(255, 248, 236, 0.18);
+  background: rgba(20, 16, 15, 0.74);
+  color: transparent;
+  backdrop-filter: blur(3px);
+}
+
+.ribbonCardAction .inlineActions .secondaryButton::before,
+.ribbonCardAction .inlineActions .secondaryButton::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 13px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--pvp-text);
+}
+
+.ribbonCardAction .inlineActions .secondaryButton::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.ribbonCardAction .inlineActions .secondaryButton::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .ribbonActionStack .secondaryButton:hover,
@@ -3031,24 +3233,27 @@
 
 .ribbonTargetTabs {
   position: absolute;
-  top: 12px;
-  right: -30px;
+  left: 10px;
+  right: 44px;
+  bottom: 70px;
   z-index: 1;
-  display: grid;
-  gap: 6px;
-  align-content: start;
+  display: flex;
+  gap: 5px;
+  align-items: end;
+  justify-content: flex-end;
+  min-width: 0;
+  pointer-events: none;
 }
 
 .ribbonTargetTab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 48px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  border-radius: 0 12px 8px 0;
+  border-radius: 999px;
   border: 1px solid rgba(186, 149, 110, 0.3);
-  border-left: none;
   background: linear-gradient(180deg, rgba(65, 50, 42, 0.98), rgba(35, 28, 24, 0.96));
   color: rgba(245, 234, 218, 0.92);
   cursor: pointer;
@@ -3056,6 +3261,7 @@
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.16);
   position: relative;
   overflow: visible;
+  pointer-events: auto;
 }
 
 .ribbonTargetTab:hover {
@@ -3102,27 +3308,11 @@
 }
 
 .ribbonTargetTab::before {
-  content: "";
-  position: absolute;
-  left: -7px;
-  top: 8px;
-  bottom: 10px;
-  width: 8px;
-  border-radius: 999px 0 0 999px;
-  background: linear-gradient(180deg, rgba(174, 138, 101, 0.42), rgba(110, 85, 63, 0.18));
-  opacity: 0.8;
-  z-index: -1;
+  content: none;
 }
 
 .ribbonTargetTab::after {
-  content: "";
-  position: absolute;
-  inset: auto -1px -8px 0;
-  height: 10px;
-  border-right: 1px solid rgba(186, 149, 110, 0.3);
-  border-bottom: 1px solid rgba(186, 149, 110, 0.3);
-  background: inherit;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 52% 70%, 0 100%);
+  content: none;
 }
 
 .ribbonTargetTabActive::after {
@@ -3262,6 +3452,7 @@
 }
 
 .opponentBoardCard {
+  position: relative;
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
   gap: 8px;
@@ -3283,7 +3474,25 @@
 .opponentBoardCardTargetable {
   cursor: pointer;
   border-color: rgba(125, 211, 252, 0.62);
-  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(125, 211, 252, 0.16),
+    0 0 18px rgba(125, 211, 252, 0.12);
+}
+
+.opponentBoardCardTargetable::after {
+  content: "Цель";
+  position: absolute;
+  right: 8px;
+  top: -9px;
+  z-index: 2;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(186, 230, 253, 0.7);
+  background: rgba(14, 116, 144, 0.88);
+  color: #ecfeff;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.2;
 }
 
 .opponentBoardCardTargetActive {
@@ -3291,6 +3500,13 @@
   box-shadow:
     0 0 0 2px rgba(196, 154, 90, 0.16),
     0 10px 22px rgba(0, 0, 0, 0.22);
+}
+
+.opponentBoardCardTargetActive::after {
+  content: "Выбрано";
+  border-color: rgba(245, 201, 137, 0.78);
+  background: rgba(145, 107, 58, 0.94);
+  color: #fff8eb;
 }
 
 .opponentBoardArtwork {
@@ -3379,6 +3595,7 @@
 }
 
 .avatarTargetButton {
+  position: relative;
   display: grid;
   gap: 6px;
   width: 100%;
@@ -3449,13 +3666,42 @@
 }
 
 .selectionSurfaceTargetable {
+  position: relative;
   border-radius: 16px;
-  box-shadow: 0 0 0 2px rgba(214, 163, 94, 0.32);
+  box-shadow:
+    0 0 0 2px rgba(125, 211, 252, 0.28),
+    0 0 18px rgba(125, 211, 252, 0.12);
+}
+
+.selectionSurfaceTargetable::after {
+  content: "Цель";
+  position: absolute;
+  right: 8px;
+  top: -10px;
+  z-index: 6;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(186, 230, 253, 0.7);
+  background: rgba(14, 116, 144, 0.9);
+  color: #ecfeff;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.2;
+  box-shadow: 0 8px 14px rgba(0, 0, 0, 0.18);
 }
 
 .selectionSurfaceTargetActive {
   border-radius: 16px;
-  box-shadow: 0 0 0 3px rgba(238, 190, 118, 0.54);
+  box-shadow:
+    0 0 0 3px rgba(238, 190, 118, 0.58),
+    0 0 22px rgba(238, 190, 118, 0.16);
+}
+
+.selectionSurfaceTargetActive::after {
+  content: "Выбрано";
+  border-color: rgba(245, 201, 137, 0.78);
+  background: rgba(145, 107, 58, 0.94);
+  color: #fff8eb;
 }
 
 .selectionSurfaceActive .creaturePortrait,
